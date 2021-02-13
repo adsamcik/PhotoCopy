@@ -277,6 +277,11 @@ namespace PhotoCopySort
                             }
                         }
 
+                        if (!options.DryRun && !newFile.Directory.Exists)
+                        {
+                            newFile.Directory.Create();
+                        }
+
                         if (options.Mode == Options.OperationMode.move)
                         {
                             file.MoveTo(newFile.FullName, options.DryRun);
