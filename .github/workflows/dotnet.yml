@@ -1,0 +1,76 @@
+name: Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Release
+    strategy:
+      matrix:
+        kind: ['linux-x64', 'linux-arm', 'linux-arm64', 'windows', 'macOS-x64']
+        include:
+          - kind: linux-x64
+            os: ubuntu-latest
+            target: linux-x64
+          - kind: linux-arm64
+            os: ubuntu-latest
+            target: linux-arm64
+          - kind: linux-arm
+            os: ubuntu-latest
+            target: linux-arm
+          - kind: windows
+            os: ubuntu-latest
+            target: win-x64
+          - kind: macOS-x64
+            os: ubuntu-latest
+            target: osx-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+
+      - name: Publish
+        shell: bash
+        run: |
+          tag=$(git describe --tags --abbrev=0)
+          release_name="PhotoCopy-$tag-${{ matrix.target }}"
+          # Build everything
+          dotnet publish --framework net5.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
+          # Pack files
+          if [ "${{ matrix.target }}" == "win-x64" ]; then
+            name="${release_name}.zip"
+            # Pack to zip for Windows
+            7z a -tzip ${name} "./${release_name}/*"
+            type="zip"
+          else
+            name="${release_name}.tar.gz"
+            tar czvf ${name} "$release_name"
+            type="tar+gzip"
+          fi
+          
+          ls -l $name
+          # Delete output directory
+          rm -r "$release_name"
+          echo "content_type=$type" >> $GITHUB_ENV
+          echo "artifact=$name" >> $GITHUB_ENV
+      - name: Upload a Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+        # The URL for uploading assets to the release
+          upload_url: https://uploads.github.com/repos/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}/releases/${{ github.event.release.id }}/assets{?name,label}
+        # The path to the asset you want to upload
+          asset_path: ./${{ env.artifact }}
+        # The name of the asset you want to upload
+          asset_name: ${{ env.artifact }}
+        # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
+          asset_content_type: application/${{ env.content_type }}
+
