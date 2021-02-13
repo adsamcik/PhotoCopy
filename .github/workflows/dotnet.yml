@@ -42,5 +42,5 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: PhotoCopy-$tag-${{ matrix.target }}
-          path: bin\Release\net5.0\{{ matrix.target }}\publish
+          path: bin\Release\net5.0\${{ matrix.target }}\publish
 
