@@ -219,7 +219,7 @@ namespace PhotoCopySort
                 .Replace("{day}", source.FileDateTime.DateTime.Day.ToString())
                 .Replace("{directory}", Path.GetRelativePath(options.Source, source.File.DirectoryName))
                 .Replace("{name}", source.File.Name)
-                .Replace("{extension}", source.File.Extension);
+                .Replace("{extension}", source.File.Extension.Substring(0, 1)/* Removes dot */);
 
 
             return builder.ToString();
