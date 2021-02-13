@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
+using PhotoCopy.Files;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -15,6 +16,11 @@ namespace PhotoCopySort
         Verbose,
         Important,
         ErrorsOnly
+    }
+
+    public static class ApplicationState
+    {
+        public static Options Options { get; set; }
     }
 
     /// <summary>
@@ -67,34 +73,71 @@ namespace PhotoCopySort
 
     class Program
     {
-        private static List<string> DirSearch(string sDir, Options options)
+
+        private static List<IFile> DirSearch(string sDir, Options options)
         {
-            var files = new List<string>();
+            var result = new List<IFile>();
             try
             {
-                files.AddRange(System.IO.Directory.GetFiles(sDir));
+                var fileList = System.IO.Directory.GetFiles(sDir)
+                    .Select(path => new FileInfo(path));
+
+                var genericFileList = new List<IFile>();
+                var photoFileList = new List<PhotoFile>();
+
+                foreach (var file in fileList)
+                {
+                    var dateTime = GetDateTime(file);
+                    if (dateTime.IsFromExif)
+                    {
+                        photoFileList.Add(new PhotoFile(file, dateTime));
+                    }
+                    else
+                    {
+                        genericFileList.Add(new GenericFile(file, dateTime));
+                    }
+                }
+
+                foreach (var photo in photoFileList)
+                {
+                    photo.AddRelatedFiles(genericFileList);
+                }
+
+                result.AddRange(photoFileList);
+                result.AddRange(genericFileList);
 
                 foreach (var d in System.IO.Directory.GetDirectories(sDir))
                 {
-                    files.AddRange(DirSearch(d, options));
+                    result.AddRange(DirSearch(d, options));
                 }
             }
             catch (Exception e)
             {
-                Print($"Source {e.Message} does not exist", options, LogLevel.ErrorsOnly);
+                Log.Print($"Source {e.Message} does not exist", LogLevel.ErrorsOnly);
             }
 
-            return files;
+            return result;
         }
 
+        /// <summary>
+        /// Calculates SHA-256 checksum for a file
+        /// </summary>
+        /// <param name="file">File</param>
+        /// <returns>Checksum for a file</returns>
         private static string GetChecksum(string file)
         {
-            using var stream = new BufferedStream(File.OpenRead(file), 1200000);
+            using var stream = new BufferedStream(File.OpenRead(file), 12000);
             var sha = new SHA256Managed();
             var checksum = sha.ComputeHash(stream);
             return BitConverter.ToString(checksum).Replace("-", string.Empty);
         }
 
+        /// <summary>
+        /// Checks if checksums for two files are identical
+        /// </summary>
+        /// <param name="fileA">File A</param>
+        /// <param name="fileB">File B</param>
+        /// <returns>True if checksum are identical</returns>
         private static bool EqualChecksum(FileInfo fileA, FileInfo fileB)
         {
             return fileA.Length == fileB.Length && GetChecksum(fileA.FullName) == GetChecksum(fileB.FullName);
@@ -106,19 +149,19 @@ namespace PhotoCopySort
             var isValid = true;
             if (sourceFile.Exists)
             {
-                Print($"Source {sourceFile.FullName} does not exist", options, LogLevel.ErrorsOnly);
+                Log.Print($"Source {sourceFile.FullName} does not exist", LogLevel.ErrorsOnly);
                 isValid = false;
             }
 
             if (!sourceFile.Attributes.HasFlag(FileAttributes.Directory))
             {
-                Print("Source is not a directory", options, LogLevel.ErrorsOnly);
+                Log.Print("Source is not a directory", LogLevel.ErrorsOnly);
                 isValid = false;
             }
 
             if (!options.DuplicatesFormat.Contains("{number}"))
             {
-                Print("Duplicates format does not contain {number}", options, LogLevel.ErrorsOnly);
+                Log.Print("Duplicates format does not contain {number}", LogLevel.ErrorsOnly);
                 isValid = false;
             }
 
@@ -132,54 +175,54 @@ namespace PhotoCopySort
             ExifDirectoryBase.TagDateTimeDigitized
         };
 
-        private static string GeneratePath(Options options, string rootSourcePath, FileInfo source)
+        private static FileDateTime GetDateTime(FileInfo file)
         {
-            DateTime takenTime = default;
             try
             {
-                var directories = ImageMetadataReader.ReadMetadata(source.FullName);
+                var directories = ImageMetadataReader.ReadMetadata(file.FullName);
                 var directory = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
                 if (directory != null)
                 {
                     foreach (var tag in DateTags)
                     {
-                        directory.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out takenTime);
-                        if (takenTime != default)
+                        directory.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var exifTime);
+                        if (exifTime != default)
                         {
-                            break;
+                            return new FileDateTime
+                            {
+                                DateTime = exifTime,
+                                IsFromExif = true
+                            };
                         }
                     }
                 }
             }
             catch (ImageProcessingException e)
             {
-                Print($"{source.FullName} --- {e.Message}", options, LogLevel.ErrorsOnly);
+                Log.Print($"{file.FullName} --- {e.Message}", LogLevel.ErrorsOnly);
             }
 
-            if (takenTime == default)
+
+            Log.Print($"File {file.FullName} has no date in exif, defaulting to file creation time.", LogLevel.Important);
+            return new FileDateTime
             {
-                Print($"File {source.FullName} has no date in exif, defaulting to file creation time.", options, LogLevel.Important);
-                takenTime = source.CreationTime;
-            }
+                DateTime = file.CreationTime,
+                IsFromExif = false
+            };
+        }
 
+        private static string GeneratePath(Options options, string rootSourcePath, IFile source)
+        {
             var builder = new StringBuilder(options.Format)
-                .Replace("{year}", takenTime.Year.ToString())
-                .Replace("{month}", takenTime.Month.ToString())
-                .Replace("{day}", takenTime.Day.ToString())
-                .Replace("{directory}", Path.GetRelativePath(rootSourcePath, source.DirectoryName))
-                .Replace("{name}", source.Name)
-                .Replace("{extension}", source.Extension);
+                .Replace("{year}", source.FileDateTime.DateTime.Year.ToString())
+                .Replace("{month}", source.FileDateTime.DateTime.Month.ToString())
+                .Replace("{day}", source.FileDateTime.DateTime.Day.ToString())
+                .Replace("{directory}", Path.GetRelativePath(rootSourcePath, source.File.DirectoryName))
+                .Replace("{name}", source.File.Name)
+                .Replace("{extension}", source.File.Extension);
 
 
             return builder.ToString();
-        }
-
-        private static void Print(string message, Options options, LogLevel logLevel)
-        {
-            if ((int)logLevel >= (int)options.LogLevel)
-            {
-                Console.WriteLine(message);
-            }
         }
 
         static void Main(string[] args)
@@ -190,13 +233,13 @@ namespace PhotoCopySort
                 .WithParsed(options =>
                 {
                     if (!ValidateInput(options)) return;
+                    ApplicationState.Options = options;
 
                     var files = DirSearch(options.Source, options);
 
-                    foreach (var path in files)
+                    foreach (var file in files)
                     {
-                        Print($">> {path}", options, LogLevel.Verbose);
-                        var file = new FileInfo(path);
+                        Log.Print($">> {file.File.FullName}", LogLevel.Verbose);
 
                         var newPath = GeneratePath(options, options.Source, file);
                         var newFile = new FileInfo(newPath);
@@ -208,12 +251,12 @@ namespace PhotoCopySort
                                 continue;
                             }
 
-                            if (!options.NoDuplicateSkip && EqualChecksum(file, newFile))
+                            if (!options.NoDuplicateSkip && EqualChecksum(file.File, newFile))
                             {
-                                Print($"Duplicate of {newFile.FullName}", options, LogLevel.Verbose);
+                                Log.Print($"Duplicate of {newFile.FullName}", LogLevel.Verbose);
                                 if (!options.DryRun && options.Mode == Options.OperationMode.Move)
                                 {
-                                    file.Delete();
+                                    file.File.Delete();
                                 }
 
                                 continue;
@@ -232,23 +275,16 @@ namespace PhotoCopySort
                             }
                         }
 
-                        if (!options.DryRun)
+                        if (options.Mode == Options.OperationMode.Move)
                         {
-                            if (options.Mode == Options.OperationMode.Move)
-                            {
-                                file.MoveTo(newFile.FullName);
-                            }
-                            else
-                            {
-                                file.CopyTo(newFile.FullName);
-                            }
+                            file.MoveTo(newFile.FullName, options.DryRun);
                         }
                         else
                         {
-                            Print($">>> {file.FullName} => {newPath}", options, LogLevel.Verbose);
+                            file.CopyTo(newFile.FullName, options.DryRun);
                         }
 
-                        Print("", options, LogLevel.Verbose);
+                        Log.Print("", LogLevel.Verbose);
                     }
                 });
         }
