@@ -32,7 +32,7 @@ namespace PhotoCopy.Files
 
         public virtual void CopyTo(string newPath, bool isDryRun)
         {
-            Log.Print($"{File.FullName} >> cp >> {newPath}", LogLevel.Verbose);
+            Log.Print($"{File.FullName} >> cp >> {newPath}", LogLevel.verbose);
             if (!isDryRun)
             {
                 File.CopyTo(newPath);
@@ -41,7 +41,7 @@ namespace PhotoCopy.Files
 
         public virtual void MoveTo(string newPath, bool isDryRun)
         {
-            Log.Print($"{File.FullName} >> mv >> {newPath}", LogLevel.Verbose);
+            Log.Print($"{File.FullName} >> mv >> {newPath}", LogLevel.verbose);
             if (!isDryRun)
             {
                 File.MoveTo(newPath);

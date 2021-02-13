@@ -20,7 +20,7 @@ namespace PhotoCopy.Files
                 var file = fileList[i].File;
                 if (file.FullName.StartsWith(File.FullName))
                 {
-                    Log.Print($"Found related file {file.FullName} to file {File.FullName}", PhotoCopySort.LogLevel.Verbose);
+                    Log.Print($"Found related file {file.FullName} to file {File.FullName}", PhotoCopySort.LogLevel.verbose);
                     _relatedFileList.Add(new RelatedFile(file, FileDateTime, file.FullName.Remove(0, File.FullName.Length)));
                     fileList.RemoveAt(i);
                     i--;

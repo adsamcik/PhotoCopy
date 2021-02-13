@@ -13,9 +13,9 @@ namespace PhotoCopySort
 {
     public enum LogLevel
     {
-        Verbose,
-        Important,
-        ErrorsOnly
+        verbose,
+        important,
+        errorsOnly
     }
 
     public static class ApplicationState
@@ -30,8 +30,8 @@ namespace PhotoCopySort
     {
         public enum OperationMode
         {
-            Move,
-            Copy,
+            move,
+            copy,
         }
 
         // todo: Unfortunately Default true causes problems so variables have default false for now
@@ -46,14 +46,14 @@ namespace PhotoCopySort
             HelpText = "True if no files should be moved and only printed to the command line.")]
         public bool DryRun { get; set; }
 
-        [Option('m', "mode", Required = false, Default = OperationMode.Copy,
+        [Option('m', "mode", Required = false, Default = OperationMode.copy,
             HelpText = "Operation mode. Available modes: Move, Copy")]
         public OperationMode Mode { get; set; }
 
         [Option("skip-existing", Required = false, HelpText = "Skips file if it already exists in the output.")]
         public bool SkipExisting { get; set; }
 
-        [Option('l', "logLevel", Required = false, Default = LogLevel.Important,
+        [Option('l', "logLevel", Required = false, Default = LogLevel.important,
             HelpText = "Determines what is printed on screen. Options: Verbose, Important, ErrorsOnly")]
         public LogLevel LogLevel { get; set; }
 
@@ -104,12 +104,12 @@ namespace PhotoCopySort
 
                     foreach (var genericFile in genericFileList)
                     {
-                        Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file creation time.", LogLevel.Important);
+                        Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file creation time.", LogLevel.important);
                     }
                 }
                 catch (DirectoryNotFoundException e)
                 {
-                    Log.Print($"Source {e.Message} does not exist", LogLevel.ErrorsOnly);
+                    Log.Print($"Source {e.Message} does not exist", LogLevel.errorsOnly);
                 }
 
                 foreach (var directoryPath in System.IO.Directory.GetDirectories(directory))
@@ -146,19 +146,19 @@ namespace PhotoCopySort
             var isValid = true;
             if (sourceFile.Exists)
             {
-                Log.Print($"Source {sourceFile.FullName} does not exist", LogLevel.ErrorsOnly);
+                Log.Print($"Source {sourceFile.FullName} does not exist", LogLevel.errorsOnly);
                 isValid = false;
             }
 
             if (!sourceFile.Attributes.HasFlag(FileAttributes.Directory))
             {
-                Log.Print("Source is not a directory", LogLevel.ErrorsOnly);
+                Log.Print("Source is not a directory", LogLevel.errorsOnly);
                 isValid = false;
             }
 
             if (!options.DuplicatesFormat.Contains("{number}"))
             {
-                Log.Print("Duplicates format does not contain {number}", LogLevel.ErrorsOnly);
+                Log.Print("Duplicates format does not contain {number}", LogLevel.errorsOnly);
                 isValid = false;
             }
 
@@ -198,7 +198,7 @@ namespace PhotoCopySort
             {
                 if (e.Message != "File format could not be determined")
                 {
-                    Log.Print($"{file.FullName} --- {e.Message}", LogLevel.ErrorsOnly);
+                    Log.Print($"{file.FullName} --- {e.Message}", LogLevel.errorsOnly);
                 }
                 // do nothing
             }
@@ -238,7 +238,7 @@ namespace PhotoCopySort
 
                     foreach (var file in GetAllFilesInSubdir(options.Source))
                     {
-                        Log.Print($">> {file.File.FullName}", LogLevel.Verbose);
+                        Log.Print($">> {file.File.FullName}", LogLevel.verbose);
 
                         var newPath = GeneratePath(options, file);
                         var newFile = new FileInfo(newPath);
@@ -253,8 +253,8 @@ namespace PhotoCopySort
                             var newGenericFile = new GenericFile(newFile, new FileDateTime() { DateTime = newFile.CreationTime });
                             if (!options.NoDuplicateSkip && EqualChecksum(file, newGenericFile))
                             {
-                                Log.Print($"Duplicate of {newFile.FullName}", LogLevel.Verbose);
-                                if (!options.DryRun && options.Mode == Options.OperationMode.Move)
+                                Log.Print($"Duplicate of {newFile.FullName}", LogLevel.verbose);
+                                if (!options.DryRun && options.Mode == Options.OperationMode.move)
                                 {
                                     file.File.Delete();
                                 }
@@ -275,7 +275,7 @@ namespace PhotoCopySort
                             }
                         }
 
-                        if (options.Mode == Options.OperationMode.Move)
+                        if (options.Mode == Options.OperationMode.move)
                         {
                             file.MoveTo(newFile.FullName, options.DryRun);
                         }
@@ -284,7 +284,7 @@ namespace PhotoCopySort
                             file.CopyTo(newFile.FullName, options.DryRun);
                         }
 
-                        Log.Print("", LogLevel.Verbose);
+                        Log.Print("", LogLevel.verbose);
                     }
                 });
         }
