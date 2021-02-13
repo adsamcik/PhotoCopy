@@ -52,7 +52,7 @@ namespace PhotoCopySort
         public bool DryRun { get; set; }
 
         [Option('m', "mode", Required = false, Default = OperationMode.Copy,
-            HelpText = "Operation mode. Available modes: Move, MoveAll, Copy, CopyAll")]
+            HelpText = "Operation mode. Available modes: Move, Copy")]
         public OperationMode Mode { get; set; }
 
         [Option("skip-existing", Required = false, HelpText = "Skips file if it already exists in the output.")]
@@ -125,27 +125,14 @@ namespace PhotoCopySort
         }
 
         /// <summary>
-        /// Calculates SHA-256 checksum for a file
-        /// </summary>
-        /// <param name="file">File</param>
-        /// <returns>Checksum for a file</returns>
-        private static string GetChecksum(string file)
-        {
-            using var stream = new BufferedStream(File.OpenRead(file), 12000);
-            var sha = new SHA256Managed();
-            var checksum = sha.ComputeHash(stream);
-            return BitConverter.ToString(checksum).Replace("-", string.Empty);
-        }
-
-        /// <summary>
         /// Checks if checksums for two files are identical
         /// </summary>
         /// <param name="fileA">File A</param>
         /// <param name="fileB">File B</param>
         /// <returns>True if checksum are identical</returns>
-        private static bool EqualChecksum(FileInfo fileA, FileInfo fileB)
+        private static bool EqualChecksum(IFile fileA, IFile fileB)
         {
-            return fileA.Length == fileB.Length && GetChecksum(fileA.FullName) == GetChecksum(fileB.FullName);
+            return fileA.File.Length == fileB.File.Length && fileA.Checksum == fileB.Checksum;
         }
 
         private static bool ValidateInput(Options options)
@@ -204,7 +191,7 @@ namespace PhotoCopySort
             }
             catch (ImageProcessingException e)
             {
-                if(e.Message != "File format could not be determined")
+                if (e.Message != "File format could not be determined")
                 {
                     Log.Print($"{file.FullName} --- {e.Message}", LogLevel.ErrorsOnly);
                 }
@@ -259,7 +246,8 @@ namespace PhotoCopySort
                                 continue;
                             }
 
-                            if (!options.NoDuplicateSkip && EqualChecksum(file.File, newFile))
+                            var newGenericFile = new GenericFile(newFile, new FileDateTime() { DateTime = newFile.CreationTime });
+                            if (!options.NoDuplicateSkip && EqualChecksum(file, newGenericFile))
                             {
                                 Log.Print($"Duplicate of {newFile.FullName}", LogLevel.Verbose);
                                 if (!options.DryRun && options.Mode == Options.OperationMode.Move)

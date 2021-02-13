@@ -1,6 +1,7 @@
 ﻿using PhotoCopySort;
 using System;
 using System.IO;
+using System.Security.Cryptography;
 
 namespace PhotoCopy.Files
 {
@@ -9,6 +10,18 @@ namespace PhotoCopy.Files
         public FileInfo File { get; }
 
         public FileDateTime FileDateTime { get; }
+
+
+        private string _sha256;
+        public string Checksum => _sha256 ??= CalculateChecksumSha256();
+
+        private string CalculateChecksumSha256()
+        {
+            using var stream = new BufferedStream(File.OpenRead(), 12000);
+            var sha = new SHA256Managed();
+            var checksum = sha.ComputeHash(stream);
+            return BitConverter.ToString(checksum).Replace("-", string.Empty);
+        }
 
         public GenericFile(FileInfo file, FileDateTime dateTime)
         {
