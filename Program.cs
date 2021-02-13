@@ -69,54 +69,64 @@ namespace PhotoCopySort
     class Program
     {
 
-        private static List<IFile> DirSearch(string sDir, Options options)
+        private static IEnumerable<IFile> GetAllFilesInSubdir(string rootDir)
         {
-            var result = new List<IFile>();
-            try
+            var dirQueue = new Queue<string>();
+            dirQueue.Enqueue(rootDir);
+            var genericFileList = new List<IFile>();
+            var photoFileList = new List<PhotoFile>();
+
+            while (dirQueue.Count > 0)
             {
-                var fileList = System.IO.Directory.GetFiles(sDir)
-                    .Select(path => new FileInfo(path));
-
-                var genericFileList = new List<IFile>();
-                var photoFileList = new List<PhotoFile>();
-
-                foreach (var file in fileList)
+                var directory = dirQueue.Dequeue();
+                genericFileList.Clear();
+                photoFileList.Clear();
+                try
                 {
-                    var dateTime = GetDateTime(file);
-                    if (dateTime.IsFromExif)
+                    foreach (var file in System.IO.Directory.EnumerateFiles(directory).Select(path => new FileInfo(path)))
                     {
-                        photoFileList.Add(new PhotoFile(file, dateTime));
+                        var dateTime = GetDateTime(file);
+                        if (dateTime.IsFromExif)
+                        {
+                            photoFileList.Add(new PhotoFile(file, dateTime));
+                        }
+                        else
+                        {
+                            genericFileList.Add(new GenericFile(file, dateTime));
+                        }
                     }
-                    else
+
+                    foreach (var photo in photoFileList)
                     {
-                        genericFileList.Add(new GenericFile(file, dateTime));
+                        photo.AddRelatedFiles(genericFileList);
+                    }
+
+
+                    foreach (var genericFile in genericFileList)
+                    {
+                        Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file creation time.", LogLevel.Important);
                     }
                 }
-
-                foreach (var photo in photoFileList)
+                catch (DirectoryNotFoundException e)
                 {
-                    photo.AddRelatedFiles(genericFileList);
+                    Log.Print($"Source {e.Message} does not exist", LogLevel.ErrorsOnly);
                 }
 
-                result.AddRange(photoFileList);
-                result.AddRange(genericFileList);
+                foreach (var directoryPath in System.IO.Directory.GetDirectories(directory))
+                {
+                    dirQueue.Enqueue(directoryPath);
+                }
+
+                foreach (var photoFile in photoFileList)
+                {
+                    yield return photoFile;
+                }
 
                 foreach (var genericFile in genericFileList)
                 {
-                    Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file creation time.", LogLevel.Important);
-                }
-
-                foreach (var d in System.IO.Directory.GetDirectories(sDir))
-                {
-                    result.AddRange(DirSearch(d, options));
+                    yield return genericFile;
                 }
             }
-            catch (Exception e)
-            {
-                Log.Print($"Source {e.Message} does not exist", LogLevel.ErrorsOnly);
-            }
-
-            return result;
         }
 
         /// <summary>
@@ -225,9 +235,8 @@ namespace PhotoCopySort
                     if (!ValidateInput(options)) return;
                     ApplicationState.Options = options;
 
-                    var files = DirSearch(options.Source, options);
 
-                    foreach (var file in files)
+                    foreach (var file in GetAllFilesInSubdir(options.Source))
                     {
                         Log.Print($">> {file.File.FullName}", LogLevel.Verbose);
 
