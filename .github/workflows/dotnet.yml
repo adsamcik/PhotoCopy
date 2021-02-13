@@ -60,8 +60,8 @@ jobs:
           fi
           # Delete output directory
           rm -r "$release_name"
-          echo ::set-env name=CONTENT_TYPE::$name
-          echo ::set-env name=ARTIFACT::$release_name
+          echo "content_type=$type" >> $GITHUB_ENV
+          echo "artifact=$name" >> $GITHUB_ENV
       - name: Upload a Release Asset
         uses: actions/upload-release-asset@v1
         env:
@@ -70,9 +70,9 @@ jobs:
         # The URL for uploading assets to the release
           upload_url:  ${{steps.get_upload_url.outputs.url}}
         # The path to the asset you want to upload
-          asset_path: ./$CONTENT_TYPE
+          asset_path: ./${{ env.artifact }}
         # The name of the asset you want to upload
-          asset_name: $CONTENT_TYPE
+          asset_name: ${{ env.artifact }}
         # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
-          asset_content_type: application/$CONTENT_TYPE
+          asset_content_type: application/${{ env.content_type }}
 
