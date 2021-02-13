@@ -21,10 +21,10 @@ jobs:
             os: ubuntu-latest
             target: linux-arm
           - kind: windows
-            os: windows-latest
+            os: ubuntu-latest
             target: win-x64
           - kind: macOS-x64
-            os: macos-latest
+            os: ubuntu-latest
             target: osx-x64
     runs-on: ${{ matrix.os }}
     steps:
