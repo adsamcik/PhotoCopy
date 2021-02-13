@@ -37,7 +37,7 @@ jobs:
           dotnet-version: 5.0.x
 
       - name: Build
-        run: dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release -o "$release_name"
+        run: dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release
       - name: Publish
         uses: actions/upload-artifact@v2
         with:
