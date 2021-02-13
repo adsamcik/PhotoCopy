@@ -38,6 +38,8 @@ jobs:
 
       - name: Build
         run: dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release
+      - name: List
+        run: ls -l bin\Release\net5.0\${{ matrix.target }}\publish
       - name: Publish
         uses: actions/upload-artifact@v2
         with:
