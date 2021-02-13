@@ -106,6 +106,11 @@ namespace PhotoCopySort
                 result.AddRange(photoFileList);
                 result.AddRange(genericFileList);
 
+                foreach (var genericFile in genericFileList)
+                {
+                    Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file creation time.", LogLevel.Important);
+                }
+
                 foreach (var d in System.IO.Directory.GetDirectories(sDir))
                 {
                     result.AddRange(DirSearch(d, options));
@@ -199,11 +204,14 @@ namespace PhotoCopySort
             }
             catch (ImageProcessingException e)
             {
-                Log.Print($"{file.FullName} --- {e.Message}", LogLevel.ErrorsOnly);
+                if(e.Message != "File format could not be determined")
+                {
+                    Log.Print($"{file.FullName} --- {e.Message}", LogLevel.ErrorsOnly);
+                }
+                // do nothing
             }
 
 
-            Log.Print($"File {file.FullName} has no date in exif, defaulting to file creation time.", LogLevel.Important);
             return new FileDateTime
             {
                 DateTime = file.CreationTime,
