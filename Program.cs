@@ -39,13 +39,8 @@ namespace PhotoCopySort
         [Option('i', "input", Required = true, HelpText = "Set source folder")]
         public string Source { get; set; }
 
-        [Option('o', "output", Required = true, HelpText = "Set output folder")]
+        [Option('o', "output", Required = true, HelpText = "Set output folder. Supported variables (case-sensitive): {year}, {month}, {day}, {name}, {directory}, {extension}")]
         public string Destination { get; set; }
-
-        [Option('f', "format", Required = false, Default = "{directory}/{name}",
-            HelpText =
-                "Path format. Supported variables (case-sensitive): {year}, {month}, {day}, {name}, {directory}, {extension}")]
-        public string Format { get; set; }
 
         [Option('d', "dry", Required = false,
             HelpText = "True if no files should be moved and only printed to the command line.")]
@@ -206,13 +201,13 @@ namespace PhotoCopySort
             };
         }
 
-        private static string GeneratePath(Options options, string rootSourcePath, IFile source)
+        private static string GeneratePath(Options options, IFile source)
         {
-            var builder = new StringBuilder(options.Format)
+            var builder = new StringBuilder(options.Destination)
                 .Replace("{year}", source.FileDateTime.DateTime.Year.ToString())
                 .Replace("{month}", source.FileDateTime.DateTime.Month.ToString())
                 .Replace("{day}", source.FileDateTime.DateTime.Day.ToString())
-                .Replace("{directory}", Path.GetRelativePath(rootSourcePath, source.File.DirectoryName))
+                .Replace("{directory}", Path.GetRelativePath(options.Source, source.File.DirectoryName))
                 .Replace("{name}", source.File.Name)
                 .Replace("{extension}", source.File.Extension);
 
@@ -236,7 +231,7 @@ namespace PhotoCopySort
                     {
                         Log.Print($">> {file.File.FullName}", LogLevel.Verbose);
 
-                        var newPath = GeneratePath(options, options.Source, file);
+                        var newPath = GeneratePath(options, file);
                         var newFile = new FileInfo(newPath);
 
                         if (newFile.Exists)

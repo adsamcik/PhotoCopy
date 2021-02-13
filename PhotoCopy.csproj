@@ -6,6 +6,7 @@
     <AssemblyName>PhotoCopy</AssemblyName>
     <RootNamespace>PhotoCopy</RootNamespace>
     <Authors>Adsamcik</Authors>
+    <Version>2021.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
