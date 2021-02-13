@@ -66,7 +66,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
         # The URL for uploading assets to the release
-          upload_url: https://api.github.com/repos/${{ github.event.repository.owner }}/${{ github.event.repository.name }}/releases/${{ github.ref }}/assets
+          upload_url: https://api.github.com/repos/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}/releases/${{ github.event.release.release_id }}/assets
         # The path to the asset you want to upload
           asset_path: ./${{ env.artifact }}
         # The name of the asset you want to upload
