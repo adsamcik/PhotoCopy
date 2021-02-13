@@ -36,10 +36,6 @@ jobs:
         with:
           dotnet-version: 5.0.x
 
-      - name: Build
-        run: dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
-      - name: List
-        run: ls -l bin/Release/net5.0/${{ matrix.target }}/publish
       - name: Pack
         shell: bash
         run: |
@@ -58,6 +54,8 @@ jobs:
             tar czvf ${name} "$release_name"
             type="tar+gzip"
           fi
+          
+          ls -l $name
           # Delete output directory
           rm -r "$release_name"
           echo "content_type=$type" >> $GITHUB_ENV
