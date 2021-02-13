@@ -37,12 +37,42 @@ jobs:
           dotnet-version: 5.0.x
 
       - name: Build
-        run: dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release
+        run: dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
       - name: List
         run: ls -l bin/Release/net5.0/${{ matrix.target }}/publish
-      - name: Publish
-        uses: actions/upload-artifact@v2
+      - name: Pack
+        shell: bash
+        run: |
+          tag=$(git describe --tags --abbrev=0)
+          release_name="PhotoCopy-$tag-${{ matrix.target }}"
+          # Build everything
+          dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release -o "$release_name" /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
+          # Pack files
+          if [ "${{ matrix.target }}" == "win-x64" ]; then
+            name="${release_name}.zip"
+            # Pack to zip for Windows
+            7z a -tzip ${name} "./${release_name}/*"
+            type="zip"
+          else
+            name="${release_name}.tar.gz"
+            tar czvf ${name} "$release_name"
+            type="tar+gzip"
+          fi
+          # Delete output directory
+          rm -r "$release_name"
+          echo ::set-env name=CONTENT_TYPE::$name
+          echo ::set-env name=ARTIFACT::$release_name
+      - name: Upload a Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          name: PhotoCopy-$tag-${{ matrix.target }}
-          path: bin/Release/net5.0/${{ matrix.target }}/publish
+        # The URL for uploading assets to the release
+          upload_url:  ${{steps.get_upload_url.outputs.url}}
+        # The path to the asset you want to upload
+          asset_path: ./$CONTENT_TYPE
+        # The name of the asset you want to upload
+          asset_name: $CONTENT_TYPE
+        # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
+          asset_content_type: application/$CONTENT_TYPE
 
