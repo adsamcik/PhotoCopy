@@ -39,7 +39,7 @@ namespace PhotoCopySort
         [Option('i', "input", Required = true, HelpText = "Set source folder")]
         public string Source { get; set; }
 
-        [Option('o', "output", Required = true, HelpText = "Set output folder. Supported variables (case-sensitive): {year}, {month}, {day}, {name}, {directory}, {extension}")]
+        [Option('o', "output", Required = true, HelpText = "Set output folder. Supported variables (case-sensitive): {year}, {month}, {day}, {dayOfYear}, {name}, {directory}, {extension}, {nameNoExtension}")]
         public string Destination { get; set; }
 
         [Option('d', "dry", Required = false,
@@ -217,9 +217,11 @@ namespace PhotoCopySort
                 .Replace("{year}", source.FileDateTime.DateTime.Year.ToString())
                 .Replace("{month}", source.FileDateTime.DateTime.Month.ToString())
                 .Replace("{day}", source.FileDateTime.DateTime.Day.ToString())
+                .Replace("{dayOfYear}", source.FileDateTime.DateTime.DayOfYear.ToString())
                 .Replace("{directory}", Path.GetRelativePath(options.Source, source.File.DirectoryName))
                 .Replace("{name}", source.File.Name)
-                .Replace("{extension}", source.File.Extension.Substring(0, 1)/* Removes dot */);
+                .Replace("{extension}", source.File.Extension.Substring(0, 1)/* Removes dot */)
+                .Replace("{nameNoExtension}", Path.GetFileNameWithoutExtension(source.File.Name));
 
 
             return builder.ToString();
