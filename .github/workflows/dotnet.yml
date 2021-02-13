@@ -36,13 +36,13 @@ jobs:
         with:
           dotnet-version: 5.0.x
 
-      - name: Pack
+      - name: Publish
         shell: bash
         run: |
           tag=$(git describe --tags --abbrev=0)
           release_name="PhotoCopy-$tag-${{ matrix.target }}"
           # Build everything
-          dotnet publish --framework net5.0 --runtime "${{ matrix.target }}" -c Release -o "$release_name" /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
+          dotnet publish --framework net5.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
           # Pack files
           if [ "${{ matrix.target }}" == "win-x64" ]; then
             name="${release_name}.zip"
