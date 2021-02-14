@@ -22,7 +22,8 @@ namespace PhotoCopy.Files
                 if (file.FullName.StartsWith(File.FullName))
                 {
                     Log.Print($"Found related file {file.FullName} to file {File.FullName}", Options.LogLevel.verbose);
-                    _relatedFileList.Add(new RelatedFile(file, FileDateTime, file.FullName.Remove(0, File.FullName.Length)));
+                    _relatedFileList.Add(new RelatedFile(file, FileDateTime,
+                        file.FullName.Remove(0, File.FullName.Length)));
                     fileList.RemoveAt(i);
                     i--;
                 }
