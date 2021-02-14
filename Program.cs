@@ -1,13 +1,7 @@
 ﻿using CommandLine;
-using MetadataExtractor;
-using MetadataExtractor.Formats.Exif;
-using MetadataExtractor.Formats.QuickTime;
 using PhotoCopy.Files;
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
 
 namespace PhotoCopySort
 {
@@ -47,15 +41,15 @@ namespace PhotoCopySort
             public const string Extension = "{extension}";
         }
 
-
-        // todo: Unfortunately Default true causes problems so variables have default false for now
-
         [Option('i', "input", Required = true, HelpText = "Set source folder")]
         public string Source { get; set; }
 
         [Option('o', "output", Required = true,
             HelpText =
-                "Set output folder. Supported variables (case-sensitive): {year}, {month}, {day}, {dayOfYear}, {name}, {directory}, {extension}, {nameNoExtension}")]
+                "Set output folder. Supported variables (case-sensitive): " + DestinationEnum.Year + ", " +
+                DestinationEnum.Month + ", " + DestinationEnum.Day +
+                ", " + DestinationEnum.DayOfYear + ", " + DestinationEnum.Directory + ", " +
+                DestinationEnum.Name + ", " + DestinationEnum.NameNoExtension + ", " + DestinationEnum.Extension)]
         public string Destination { get; set; }
 
         [Option('d', "dry", Required = false,
@@ -63,14 +57,14 @@ namespace PhotoCopySort
         public bool DryRun { get; set; }
 
         [Option('m', "mode", Required = false, Default = OperationMode.copy,
-            HelpText = "Operation mode. Available modes: Move, Copy")]
+            HelpText = "Operation mode. Available modes: copy, move")]
         public OperationMode Mode { get; set; }
 
         [Option("skip-existing", Required = false, HelpText = "Skips file if it already exists in the output.")]
         public bool SkipExisting { get; set; }
 
         [Option('l', "logLevel", Required = false, Default = LogLevel.important,
-            HelpText = "Determines what is printed on screen. Options: Verbose, Important, ErrorsOnly")]
+            HelpText = "Determines what is printed on screen. Options: verbose, important, errorsOnly")]
         public LogLevel Log { get; set; }
 
         [Option("no-skip-duplicate", Required = false,
