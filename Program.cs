@@ -1,6 +1,7 @@
 ﻿using CommandLine;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
+using MetadataExtractor.Formats.QuickTime;
 using PhotoCopy.Files;
 using System;
 using System.Collections.Generic;
@@ -86,7 +87,7 @@ namespace PhotoCopySort
                     foreach (var file in System.IO.Directory.EnumerateFiles(directory).Select(path => new FileInfo(path)))
                     {
                         var dateTime = GetDateTime(file);
-                        if (dateTime.IsFromExif)
+                        if (dateTime.Source == DateSource.EXIF)
                         {
                             photoFileList.Add(new PhotoFile(file, dateTime));
                         }
@@ -104,7 +105,7 @@ namespace PhotoCopySort
 
                     foreach (var genericFile in genericFileList)
                     {
-                        Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file creation time.", LogLevel.important);
+                        Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.Source} time.", LogLevel.important);
                     }
                 }
                 catch (DirectoryNotFoundException e)
@@ -165,11 +166,23 @@ namespace PhotoCopySort
             return isValid;
         }
 
-        private static readonly int[] DateTags =
+        private class TagDirectory<T> where T : MetadataExtractor.Directory
         {
-            ExifDirectoryBase.TagDateTime,
-            ExifDirectoryBase.TagDateTimeOriginal,
-            ExifDirectoryBase.TagDateTimeDigitized
+            public MetadataExtractor.Directory GetDirectory(IReadOnlyList<MetadataExtractor.Directory> list) => list.OfType<T>().First();
+
+            public IReadOnlyList<int> tags;
+
+            public TagDirectory(IReadOnlyList<int> tags)
+            {
+                this.tags = tags ?? throw new ArgumentNullException(nameof(tags));
+            }
+        }
+
+        private static readonly (Func<IReadOnlyList<MetadataExtractor.Directory>, MetadataExtractor.Directory>, int[])[] DirectoryArray =
+        {
+            ((list) => list.OfType<ExifDirectoryBase>().FirstOrDefault(), new[] {ExifDirectoryBase.TagDateTime, ExifDirectoryBase.TagDateTimeOriginal, ExifDirectoryBase.TagDateTimeDigitized }),
+            ((list) => list.OfType<QuickTimeTrackHeaderDirectory>().FirstOrDefault(), new[] { QuickTimeTrackHeaderDirectory.TagCreated }),
+            ((list) => list.OfType<QuickTimeMovieHeaderDirectory>().FirstOrDefault(), new[] { QuickTimeMovieHeaderDirectory.TagCreated }),
         };
 
         private static FileDateTime GetDateTime(FileInfo file)
@@ -177,21 +190,27 @@ namespace PhotoCopySort
             try
             {
                 var directories = ImageMetadataReader.ReadMetadata(file.FullName);
-                var directory = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
-                if (directory != null)
+                foreach (var tagRequest in DirectoryArray)
                 {
-                    foreach (var tag in DateTags)
+                    var directory = tagRequest.Item1(directories);
+
+                    if (directory == default)
                     {
-                        directory.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var exifTime);
-                        if (exifTime != default)
+                        continue;
+                    }
+
+                    foreach (var tag in tagRequest.Item2)
+                    {
+                        if (directory.TryGetDateTime(tag, out var exifTime))
                         {
                             return new FileDateTime
                             {
                                 DateTime = exifTime,
-                                IsFromExif = true
+                                Source = DateSource.EXIF
                             };
                         }
                     }
+
                 }
             }
             catch (ImageProcessingException e)
@@ -203,12 +222,25 @@ namespace PhotoCopySort
                 // do nothing
             }
 
-
-            return new FileDateTime
+            // Assume creation was overwritten
+            if (file.CreationTime > file.LastWriteTime)
             {
-                DateTime = file.CreationTime,
-                IsFromExif = false
-            };
+                return new FileDateTime
+                {
+                    DateTime = file.LastWriteTime,
+                    Source = DateSource.FILE_MODIFICATION
+                };
+            }
+            else
+            {
+                return new FileDateTime
+                {
+                    DateTime = file.CreationTime,
+                    Source = DateSource.FILE_CREATION
+                };
+            }
+
+
         }
 
         private static string GeneratePath(Options options, IFile source)
