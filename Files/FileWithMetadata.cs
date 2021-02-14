@@ -1,26 +1,27 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using PhotoCopySort;
 
 namespace PhotoCopy.Files
 {
-    class PhotoFile : GenericFile
+    internal class FileWithMetadata : GenericFile
     {
         public IReadOnlyList<RelatedFile> RelatedFileList => _relatedFileList;
 
-        private readonly List<RelatedFile> _relatedFileList = new List<RelatedFile>();
+        private readonly List<RelatedFile> _relatedFileList = new();
 
-        public PhotoFile(FileInfo file, FileDateTime dateTime) : base(file, dateTime)
+        public FileWithMetadata(FileInfo file, FileDateTime dateTime) : base(file, dateTime)
         {
         }
 
         public void AddRelatedFiles(List<IFile> fileList)
         {
-            for (int i = 0; i < fileList.Count; i++)
+            for (var i = 0; i < fileList.Count; i++)
             {
                 var file = fileList[i].File;
                 if (file.FullName.StartsWith(File.FullName))
                 {
-                    Log.Print($"Found related file {file.FullName} to file {File.FullName}", PhotoCopySort.LogLevel.verbose);
+                    Log.Print($"Found related file {file.FullName} to file {File.FullName}", Options.LogLevel.verbose);
                     _relatedFileList.Add(new RelatedFile(file, FileDateTime, file.FullName.Remove(0, File.FullName.Length)));
                     fileList.RemoveAt(i);
                     i--;

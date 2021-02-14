@@ -4,12 +4,12 @@ namespace PhotoCopy.Files
 {
     public enum DateSource
     {
-        EXIF,
-        FILE_CREATION,
-        FILE_MODIFICATION
+        Exif,
+        FileCreation,
+        FileModification
     }
 
-    struct FileDateTime
+    internal struct FileDateTime
     {
         public DateTime DateTime;
         public DateSource Source;

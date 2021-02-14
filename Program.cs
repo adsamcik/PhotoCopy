@@ -7,18 +7,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 
 namespace PhotoCopySort
 {
-    public enum LogLevel
-    {
-        verbose,
-        important,
-        errorsOnly
-    }
-
     public static class ApplicationState
     {
         public static Options Options { get; set; }
@@ -35,12 +27,22 @@ namespace PhotoCopySort
             copy,
         }
 
+        public enum LogLevel
+        {
+            verbose,
+            important,
+            errorsOnly
+        }
+
+
         // todo: Unfortunately Default true causes problems so variables have default false for now
 
         [Option('i', "input", Required = true, HelpText = "Set source folder")]
         public string Source { get; set; }
 
-        [Option('o', "output", Required = true, HelpText = "Set output folder. Supported variables (case-sensitive): {year}, {month}, {day}, {dayOfYear}, {name}, {directory}, {extension}, {nameNoExtension}")]
+        [Option('o', "output", Required = true,
+            HelpText =
+                "Set output folder. Supported variables (case-sensitive): {year}, {month}, {day}, {dayOfYear}, {name}, {directory}, {extension}, {nameNoExtension}")]
         public string Destination { get; set; }
 
         [Option('d', "dry", Required = false,
@@ -56,7 +58,7 @@ namespace PhotoCopySort
 
         [Option('l', "logLevel", Required = false, Default = LogLevel.important,
             HelpText = "Determines what is printed on screen. Options: Verbose, Important, ErrorsOnly")]
-        public LogLevel LogLevel { get; set; }
+        public LogLevel Log { get; set; }
 
         [Option("no-skip-duplicate", Required = false,
             HelpText = "Disables duplicate skipping.")]
@@ -69,13 +71,12 @@ namespace PhotoCopySort
 
     class Program
     {
-
         private static IEnumerable<IFile> GetAllFilesInSubdir(string rootDir)
         {
             var dirQueue = new Queue<string>();
             dirQueue.Enqueue(rootDir);
             var genericFileList = new List<IFile>();
-            var photoFileList = new List<PhotoFile>();
+            var photoFileList = new List<FileWithMetadata>();
 
             while (dirQueue.Count > 0)
             {
@@ -84,12 +85,13 @@ namespace PhotoCopySort
                 photoFileList.Clear();
                 try
                 {
-                    foreach (var file in System.IO.Directory.EnumerateFiles(directory).Select(path => new FileInfo(path)))
+                    foreach (var file in System.IO.Directory.EnumerateFiles(directory)
+                        .Select(path => new FileInfo(path)))
                     {
                         var dateTime = GetDateTime(file);
-                        if (dateTime.Source == DateSource.EXIF)
+                        if (dateTime.Source == DateSource.Exif)
                         {
-                            photoFileList.Add(new PhotoFile(file, dateTime));
+                            photoFileList.Add(new FileWithMetadata(file, dateTime));
                         }
                         else
                         {
@@ -105,12 +107,14 @@ namespace PhotoCopySort
 
                     foreach (var genericFile in genericFileList)
                     {
-                        Log.Print($"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.Source} time.", LogLevel.important);
+                        Log.Print(
+                            $"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.Source} time.",
+                            Options.LogLevel.important);
                     }
                 }
                 catch (DirectoryNotFoundException e)
                 {
-                    Log.Print($"Source {e.Message} does not exist", LogLevel.errorsOnly);
+                    Log.Print($"Source {e.Message} does not exist", Options.LogLevel.errorsOnly);
                 }
 
                 foreach (var directoryPath in System.IO.Directory.GetDirectories(directory))
@@ -147,43 +151,39 @@ namespace PhotoCopySort
             var isValid = true;
             if (sourceFile.Exists)
             {
-                Log.Print($"Source {sourceFile.FullName} does not exist", LogLevel.errorsOnly);
+                Log.Print($"Source {sourceFile.FullName} does not exist", Options.LogLevel.errorsOnly);
                 isValid = false;
             }
 
             if (!sourceFile.Attributes.HasFlag(FileAttributes.Directory))
             {
-                Log.Print("Source is not a directory", LogLevel.errorsOnly);
+                Log.Print("Source is not a directory", Options.LogLevel.errorsOnly);
                 isValid = false;
             }
 
             if (!options.DuplicatesFormat.Contains("{number}"))
             {
-                Log.Print("Duplicates format does not contain {number}", LogLevel.errorsOnly);
+                Log.Print("Duplicates format does not contain {number}", Options.LogLevel.errorsOnly);
                 isValid = false;
             }
 
             return isValid;
         }
 
-        private class TagDirectory<T> where T : MetadataExtractor.Directory
-        {
-            public MetadataExtractor.Directory GetDirectory(IReadOnlyList<MetadataExtractor.Directory> list) => list.OfType<T>().First();
-
-            public IReadOnlyList<int> tags;
-
-            public TagDirectory(IReadOnlyList<int> tags)
+        private static readonly (Func<IReadOnlyList<MetadataExtractor.Directory>, MetadataExtractor.Directory>, int[])[]
+            DirectoryArray =
             {
-                this.tags = tags ?? throw new ArgumentNullException(nameof(tags));
-            }
-        }
-
-        private static readonly (Func<IReadOnlyList<MetadataExtractor.Directory>, MetadataExtractor.Directory>, int[])[] DirectoryArray =
-        {
-            ((list) => list.OfType<ExifDirectoryBase>().FirstOrDefault(), new[] {ExifDirectoryBase.TagDateTime, ExifDirectoryBase.TagDateTimeOriginal, ExifDirectoryBase.TagDateTimeDigitized }),
-            ((list) => list.OfType<QuickTimeTrackHeaderDirectory>().FirstOrDefault(), new[] { QuickTimeTrackHeaderDirectory.TagCreated }),
-            ((list) => list.OfType<QuickTimeMovieHeaderDirectory>().FirstOrDefault(), new[] { QuickTimeMovieHeaderDirectory.TagCreated }),
-        };
+                (list => list.OfType<ExifDirectoryBase>().FirstOrDefault(),
+                    new[]
+                    {
+                        ExifDirectoryBase.TagDateTime, ExifDirectoryBase.TagDateTimeOriginal,
+                        ExifDirectoryBase.TagDateTimeDigitized
+                    }),
+                (list => list.OfType<QuickTimeTrackHeaderDirectory>().FirstOrDefault(),
+                    new[] {QuickTimeTrackHeaderDirectory.TagCreated}),
+                (list => list.OfType<QuickTimeMovieHeaderDirectory>().FirstOrDefault(),
+                    new[] {QuickTimeMovieHeaderDirectory.TagCreated}),
+            };
 
         private static FileDateTime GetDateTime(FileInfo file)
         {
@@ -206,19 +206,19 @@ namespace PhotoCopySort
                             return new FileDateTime
                             {
                                 DateTime = exifTime,
-                                Source = DateSource.EXIF
+                                Source = DateSource.Exif
                             };
                         }
                     }
-
                 }
             }
             catch (ImageProcessingException e)
             {
                 if (e.Message != "File format could not be determined")
                 {
-                    Log.Print($"{file.FullName} --- {e.Message}", LogLevel.errorsOnly);
+                    Log.Print($"{file.FullName} --- {e.Message}", Options.LogLevel.errorsOnly);
                 }
+
                 // do nothing
             }
 
@@ -228,7 +228,7 @@ namespace PhotoCopySort
                 return new FileDateTime
                 {
                     DateTime = file.LastWriteTime,
-                    Source = DateSource.FILE_MODIFICATION
+                    Source = DateSource.FileModification
                 };
             }
             else
@@ -236,11 +236,9 @@ namespace PhotoCopySort
                 return new FileDateTime
                 {
                     DateTime = file.CreationTime,
-                    Source = DateSource.FILE_CREATION
+                    Source = DateSource.FileCreation
                 };
             }
-
-
         }
 
         private static string GeneratePath(Options options, IFile source)
@@ -272,7 +270,7 @@ namespace PhotoCopySort
 
                     foreach (var file in GetAllFilesInSubdir(options.Source))
                     {
-                        Log.Print($">> {file.File.FullName}", LogLevel.verbose);
+                        Log.Print($">> {file.File.FullName}", Options.LogLevel.verbose);
 
                         var newPath = GeneratePath(options, file);
                         var newFile = new FileInfo(newPath);
@@ -284,10 +282,11 @@ namespace PhotoCopySort
                                 continue;
                             }
 
-                            var newGenericFile = new GenericFile(newFile, new FileDateTime() { DateTime = newFile.CreationTime });
+                            var newGenericFile = new GenericFile(newFile,
+                                new FileDateTime() {DateTime = newFile.CreationTime});
                             if (!options.NoDuplicateSkip && EqualChecksum(file, newGenericFile))
                             {
-                                Log.Print($"Duplicate of {newFile.FullName}", LogLevel.verbose);
+                                Log.Print($"Duplicate of {newFile.FullName}", Options.LogLevel.verbose);
                                 if (!options.DryRun && options.Mode == Options.OperationMode.move)
                                 {
                                     file.File.Delete();
@@ -323,7 +322,7 @@ namespace PhotoCopySort
                             file.CopyTo(newFile.FullName, options.DryRun);
                         }
 
-                        Log.Print("", LogLevel.verbose);
+                        Log.Print("", Options.LogLevel.verbose);
                     }
                 });
         }

@@ -2,7 +2,7 @@
 
 namespace PhotoCopy.Files
 {
-    interface IFile
+    internal interface IFile
     {
         public FileInfo File { get; }
 
