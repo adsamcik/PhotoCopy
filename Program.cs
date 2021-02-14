@@ -220,7 +220,7 @@ namespace PhotoCopySort
                 .Replace("{dayOfYear}", source.FileDateTime.DateTime.DayOfYear.ToString())
                 .Replace("{directory}", Path.GetRelativePath(options.Source, source.File.DirectoryName))
                 .Replace("{name}", source.File.Name)
-                .Replace("{extension}", source.File.Extension.Substring(0, 1)/* Removes dot */)
+                .Replace("{extension}", source.File.Extension.TrimStart('.'))
                 .Replace("{nameNoExtension}", Path.GetFileNameWithoutExtension(source.File.Name));
 
 
