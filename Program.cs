@@ -27,11 +27,24 @@ namespace PhotoCopySort
             copy,
         }
 
+
         public enum LogLevel
         {
             verbose,
             important,
             errorsOnly
+        }
+
+        public static class DestinationEnum
+        {
+            public const string Year = "{year}";
+            public const string Month = "{month}";
+            public const string Day = "{day}";
+            public const string DayOfYear = "{dayOfYear}";
+            public const string Name = "{name}";
+            public const string NameNoExtension = "{nameNoExtension}";
+            public const string Directory = "{directory}";
+            public const string Extension = "{extension}";
         }
 
 
@@ -71,80 +84,11 @@ namespace PhotoCopySort
 
     class Program
     {
-        private static IEnumerable<IFile> GetAllFilesInSubdir(string rootDir)
-        {
-            var dirQueue = new Queue<string>();
-            dirQueue.Enqueue(rootDir);
-            var genericFileList = new List<IFile>();
-            var photoFileList = new List<FileWithMetadata>();
-
-            while (dirQueue.Count > 0)
-            {
-                var directory = dirQueue.Dequeue();
-                genericFileList.Clear();
-                photoFileList.Clear();
-                try
-                {
-                    foreach (var file in System.IO.Directory.EnumerateFiles(directory)
-                        .Select(path => new FileInfo(path)))
-                    {
-                        var dateTime = GetDateTime(file);
-                        if (dateTime.Source == DateSource.Exif)
-                        {
-                            photoFileList.Add(new FileWithMetadata(file, dateTime));
-                        }
-                        else
-                        {
-                            genericFileList.Add(new GenericFile(file, dateTime));
-                        }
-                    }
-
-                    foreach (var photo in photoFileList)
-                    {
-                        photo.AddRelatedFiles(genericFileList);
-                    }
-
-
-                    foreach (var genericFile in genericFileList)
-                    {
-                        Log.Print(
-                            $"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.Source} time.",
-                            Options.LogLevel.important);
-                    }
-                }
-                catch (DirectoryNotFoundException e)
-                {
-                    Log.Print($"Source {e.Message} does not exist", Options.LogLevel.errorsOnly);
-                }
-
-                foreach (var directoryPath in System.IO.Directory.GetDirectories(directory))
-                {
-                    dirQueue.Enqueue(directoryPath);
-                }
-
-                foreach (var photoFile in photoFileList)
-                {
-                    yield return photoFile;
-                }
-
-                foreach (var genericFile in genericFileList)
-                {
-                    yield return genericFile;
-                }
-            }
-        }
-
         /// <summary>
-        /// Checks if checksums for two files are identical
+        /// Validates whether input is valid.
         /// </summary>
-        /// <param name="fileA">File A</param>
-        /// <param name="fileB">File B</param>
-        /// <returns>True if checksum are identical</returns>
-        private static bool EqualChecksum(IFile fileA, IFile fileB)
-        {
-            return fileA.File.Length == fileB.File.Length && fileA.Checksum == fileB.Checksum;
-        }
-
+        /// <param name="options">Options</param>
+        /// <returns>True if input is valid</returns>
         private static bool ValidateInput(Options options)
         {
             var sourceFile = new FileInfo(options.Source);
@@ -167,95 +111,21 @@ namespace PhotoCopySort
                 isValid = false;
             }
 
+            if (!options.Destination.Contains(Options.DestinationEnum.Name) &&
+                !options.Destination.Contains(Options.DestinationEnum.NameNoExtension))
+            {
+                Console.WriteLine(
+                    "Your destination path does not contain name or name without extension. This will result in files losing their original name and is generally undesirable. Are you absolutely sure about this? Write yes to confirm, anything else to abort.");
+                var response = Console.ReadLine();
+                if (response != "yes")
+                {
+                    isValid = false;
+                }
+            }
+
             return isValid;
         }
 
-        private static readonly (Func<IReadOnlyList<MetadataExtractor.Directory>, MetadataExtractor.Directory>, int[])[]
-            DirectoryArray =
-            {
-                (list => list.OfType<ExifDirectoryBase>().FirstOrDefault(),
-                    new[]
-                    {
-                        ExifDirectoryBase.TagDateTime, ExifDirectoryBase.TagDateTimeOriginal,
-                        ExifDirectoryBase.TagDateTimeDigitized
-                    }),
-                (list => list.OfType<QuickTimeTrackHeaderDirectory>().FirstOrDefault(),
-                    new[] {QuickTimeTrackHeaderDirectory.TagCreated}),
-                (list => list.OfType<QuickTimeMovieHeaderDirectory>().FirstOrDefault(),
-                    new[] {QuickTimeMovieHeaderDirectory.TagCreated}),
-            };
-
-        private static FileDateTime GetDateTime(FileInfo file)
-        {
-            try
-            {
-                var directories = ImageMetadataReader.ReadMetadata(file.FullName);
-                foreach (var tagRequest in DirectoryArray)
-                {
-                    var directory = tagRequest.Item1(directories);
-
-                    if (directory == default)
-                    {
-                        continue;
-                    }
-
-                    foreach (var tag in tagRequest.Item2)
-                    {
-                        if (directory.TryGetDateTime(tag, out var exifTime))
-                        {
-                            return new FileDateTime
-                            {
-                                DateTime = exifTime,
-                                Source = DateSource.Exif
-                            };
-                        }
-                    }
-                }
-            }
-            catch (ImageProcessingException e)
-            {
-                if (e.Message != "File format could not be determined")
-                {
-                    Log.Print($"{file.FullName} --- {e.Message}", Options.LogLevel.errorsOnly);
-                }
-
-                // do nothing
-            }
-
-            // Assume creation was overwritten
-            if (file.CreationTime > file.LastWriteTime)
-            {
-                return new FileDateTime
-                {
-                    DateTime = file.LastWriteTime,
-                    Source = DateSource.FileModification
-                };
-            }
-            else
-            {
-                return new FileDateTime
-                {
-                    DateTime = file.CreationTime,
-                    Source = DateSource.FileCreation
-                };
-            }
-        }
-
-        private static string GeneratePath(Options options, IFile source)
-        {
-            var builder = new StringBuilder(options.Destination)
-                .Replace("{year}", source.FileDateTime.DateTime.Year.ToString())
-                .Replace("{month}", source.FileDateTime.DateTime.Month.ToString())
-                .Replace("{day}", source.FileDateTime.DateTime.Day.ToString())
-                .Replace("{dayOfYear}", source.FileDateTime.DateTime.DayOfYear.ToString())
-                .Replace("{directory}", Path.GetRelativePath(options.Source, source.File.DirectoryName))
-                .Replace("{name}", source.File.Name)
-                .Replace("{extension}", source.File.Extension.TrimStart('.'))
-                .Replace("{nameNoExtension}", Path.GetFileNameWithoutExtension(source.File.Name));
-
-
-            return builder.ToString();
-        }
 
         static void Main(string[] args)
         {
@@ -266,64 +136,7 @@ namespace PhotoCopySort
                 {
                     if (!ValidateInput(options)) return;
                     ApplicationState.Options = options;
-
-
-                    foreach (var file in GetAllFilesInSubdir(options.Source))
-                    {
-                        Log.Print($">> {file.File.FullName}", Options.LogLevel.verbose);
-
-                        var newPath = GeneratePath(options, file);
-                        var newFile = new FileInfo(newPath);
-
-                        if (newFile.Exists)
-                        {
-                            if (options.SkipExisting)
-                            {
-                                continue;
-                            }
-
-                            var newGenericFile = new GenericFile(newFile,
-                                new FileDateTime() {DateTime = newFile.CreationTime});
-                            if (!options.NoDuplicateSkip && EqualChecksum(file, newGenericFile))
-                            {
-                                Log.Print($"Duplicate of {newFile.FullName}", Options.LogLevel.verbose);
-                                if (!options.DryRun && options.Mode == Options.OperationMode.move)
-                                {
-                                    file.File.Delete();
-                                }
-
-                                continue;
-                            }
-                            else
-                            {
-                                var number = 0;
-                                do
-                                {
-                                    number++;
-                                    newFile = new FileInfo(Path.Combine(newFile.DirectoryName,
-                                        $"{Path.GetFileNameWithoutExtension(newPath)}" +
-                                        $"{options.DuplicatesFormat.Replace("{number}", number.ToString())}" +
-                                        $"{Path.GetExtension(newPath)}"));
-                                } while (newFile.Exists);
-                            }
-                        }
-
-                        if (!options.DryRun && !newFile.Directory.Exists)
-                        {
-                            newFile.Directory.Create();
-                        }
-
-                        if (options.Mode == Options.OperationMode.move)
-                        {
-                            file.MoveTo(newFile.FullName, options.DryRun);
-                        }
-                        else
-                        {
-                            file.CopyTo(newFile.FullName, options.DryRun);
-                        }
-
-                        Log.Print("", Options.LogLevel.verbose);
-                    }
+                    DirectoryCopier.Copy(options);
                 });
         }
     }
