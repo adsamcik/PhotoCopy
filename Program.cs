@@ -41,30 +41,27 @@ namespace PhotoCopySort
             public const string Extension = "{extension}";
         }
 
-        [Option('i', "input", Required = true, HelpText = "Set source folder")]
+        [Option('i', "input", Required = true, HelpText = "Path to a source directory, which will be scanned for files.")]
         public string Source { get; set; }
 
         [Option('o', "output", Required = true,
             HelpText =
-                "Set output folder. Supported variables (case-sensitive): " + DestinationEnum.Year + ", " +
+                "Destination path for the operation. Determines the final path files have. Supported variables (case-sensitive): " + DestinationEnum.Year + ", " +
                 DestinationEnum.Month + ", " + DestinationEnum.Day +
                 ", " + DestinationEnum.DayOfYear + ", " + DestinationEnum.Directory + ", " +
                 DestinationEnum.Name + ", " + DestinationEnum.NameNoExtension + ", " + DestinationEnum.Extension)]
         public string Destination { get; set; }
 
         [Option('d', "dry", Required = false,
-            HelpText = "True if no files should be moved and only printed to the command line.")]
+            HelpText = "Only prints what will happen without actually doing it. It is recommended to combine it with log level verbose.")]
         public bool DryRun { get; set; }
 
         [Option('m', "mode", Required = false, Default = OperationMode.copy,
             HelpText = "Operation mode. Available modes: copy, move")]
         public OperationMode Mode { get; set; }
 
-        [Option("skip-existing", Required = false, HelpText = "Skips file if it already exists in the output.")]
-        public bool SkipExisting { get; set; }
-
         [Option('l', "logLevel", Required = false, Default = LogLevel.important,
-            HelpText = "Determines what is printed on screen. Options: verbose, important, errorsOnly")]
+            HelpText = "Determines how much information is printed on the screen. Options: verbose, important, errorsOnly")]
         public LogLevel Log { get; set; }
 
         [Option("no-skip-duplicate", Required = false,
@@ -72,8 +69,11 @@ namespace PhotoCopySort
         public bool NoDuplicateSkip { get; set; }
 
         [Option("duplicate-format", Required = false, Default = "_{number}",
-            HelpText = "Format used for differentiating duplicates. Use {number} for number placeholder.")]
+            HelpText = "Format used for differentiating files with the same name. Use {number} for number placeholder.")]
         public string DuplicatesFormat { get; set; }
+
+        [Option("skip-existing", Required = false, HelpText = "Skips file if it already exists in the output.")]
+        public bool SkipExisting { get; set; }
     }
 
     class Program

@@ -13,29 +13,34 @@ where each file will retain its relative directory but will be placed in additio
 
 ### Options
 
--i, --input            Required. Set source folder
+__-i, --input__            Required. Path to a source directory, which will be scanned for files.
 
--o, --output           Required. Set output folder. Supported variables (case-sensitive): {year}, {month}, {day}, {name}, {directory}, {extension}
-
-Variables:
+__-o, --output__          Required. Destination path for the operation. Determines the final path files have. Supported
+                         variables (case-sensitive): {year}, {month}, {day}, {dayOfYear}, {directory}, {name},
+                         {nameNoExtension}, {extension}
 
 * {year} -  year extracted from file creation date or exif
 * {month} - month extracted from file creation date or exif
 * {day} - day extracted from file creation date or exif
 * {dayOfYear} - day of year (~1-365) from file creation date or exif
 * {directory} - relative directory structure from input path
-* {extension} - file extension
 * {name} - file name with extension
 * {nameNoExtension} - file name without extension
+* {extension} - file extension
 
--d, --dry              True if no files should be moved and only printed to the command line.
+__-d, --dry__              Only prints what will happen without actually doing it. It is recommended to combine it with
+                         log level verbose.
 
--m, --mode             (Default: Copy) Operation mode. Available modes: Move, Copy
+__-m, --mode__             (Default: copy) Operation mode. Available modes: copy, move
 
---skip-existing        Skips file if it already exists in the output.
+__-l, --logLevel__         (Default: important) Determines how much information is printed on the screen. Options:
+                         verbose, important, errorsOnly
 
--l, --logLevel         (Default: Important) Determines what is printed on screen. Options: Verbose, Important, ErrorsOnly
+__--no-skip-duplicate__    Disables duplicate skipping.
 
---no-skip-duplicate    Disables duplicate skipping.
+__--duplicate-format     (Default: _{number}) Format used for differentiating files with the same name. Use {number} for
+                         number placeholder.
 
---duplicate-format     (Default: _{number}) Format used for differentiating duplicates. Use {number} for number placeholder.
+__--skip-existing__        Skips file if it already exists in the output.
+
+
