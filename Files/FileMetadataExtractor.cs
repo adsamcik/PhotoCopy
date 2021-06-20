@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
+using MetadataExtractor.Formats.Jpeg;
 using MetadataExtractor.Formats.QuickTime;
 using PhotoCopy.Files;
 
@@ -19,11 +20,17 @@ namespace PhotoCopySort
                 (list => list.OfType<ExifDirectoryBase>().FirstOrDefault(),
                     new[]
                     {
-                        ExifDirectoryBase.TagDateTime, ExifDirectoryBase.TagDateTimeOriginal,
-                        ExifDirectoryBase.TagDateTimeDigitized
+                        ExifDirectoryBase.TagDateTime,
+                        ExifDirectoryBase.TagDateTimeOriginal,
+                        ExifDirectoryBase.TagDateTimeDigitized,
                     }),
+                (list => list.OfType<ExifSubIfdDirectory>().FirstOrDefault(), new[] {
+                        ExifDirectoryBase.TagDateTime,
+                        ExifDirectoryBase.TagDateTimeOriginal,
+                        ExifDirectoryBase.TagDateTimeDigitized,
+                }),
                 (list => list.OfType<QuickTimeTrackHeaderDirectory>().FirstOrDefault(),
-                    new[] {QuickTimeTrackHeaderDirectory.TagCreated}),
+                    new[] {QuickTimeTrackHeaderDirectory.TagCreated }),
                 (list => list.OfType<QuickTimeMovieHeaderDirectory>().FirstOrDefault(),
                     new[] {QuickTimeMovieHeaderDirectory.TagCreated}),
             };
