@@ -17,7 +17,7 @@ namespace PhotoCopySort
         /// <param name="options">Options</param>
         public static void Copy(Options options)
         {
-            foreach (var file in DirectoryScanner.EnumerateFiles(options.Source))
+            foreach (var file in DirectoryScanner.EnumerateFiles(options.Source, options))
             {
                 Log.Print($">> {file.File.FullName}", Options.LogLevel.verbose);
 
