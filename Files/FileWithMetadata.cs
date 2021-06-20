@@ -14,16 +14,32 @@ namespace PhotoCopy.Files
         {
         }
 
-        public void AddRelatedFiles(List<IFile> fileList)
+        public void AddRelatedFiles(List<IFile> fileList, Options.RelatedFileLookup mode)
         {
+            if(mode == Options.RelatedFileLookup.none)
+            {
+                return;
+            }
+
             for (var i = 0; i < fileList.Count; i++)
             {
                 var file = fileList[i].File;
-                if (file.FullName.StartsWith(File.FullName))
+                var found = false;
+
+                switch (mode)
+                {
+                    case Options.RelatedFileLookup.strict:
+                        found = file.FullName.StartsWith(File.FullName);
+                        break;
+                    case Options.RelatedFileLookup.loose:
+                        found = file.FullName.StartsWith(File.Name);
+                        break;
+                }
+
+                if (found)
                 {
                     Log.Print($"Found related file {file.FullName} to file {File.FullName}", Options.LogLevel.verbose);
-                    _relatedFileList.Add(new RelatedFile(file, FileDateTime,
-                        file.FullName.Remove(0, File.FullName.Length)));
+                    _relatedFileList.Add(new RelatedFile(file, FileDateTime, file.FullName.Remove(0, File.FullName.Length)));
                     fileList.RemoveAt(i);
                     i--;
                 }

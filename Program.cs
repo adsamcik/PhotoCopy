@@ -29,6 +29,13 @@ namespace PhotoCopySort
             errorsOnly
         }
 
+        public enum RelatedFileLookup
+        {
+            none,
+            strict,
+            loose
+        }
+
         public static class DestinationEnum
         {
             public const string Year = "{year}";
@@ -74,6 +81,12 @@ namespace PhotoCopySort
 
         [Option("skip-existing", Required = false, HelpText = "Skips file if it already exists in the output.")]
         public bool SkipExisting { get; set; }
+
+        [Option("require-exif", Required =false, HelpText = "Will ignore images where exif date was not found.")]
+        public bool RequireExif { get; set; }
+
+        [Option("related-file-mode", Required =false, HelpText = "Mode used for related file lookups. Options: none, strict, loose.")]
+        public RelatedFileLookup RelatedFileMode { get; set; }
     }
 
     class Program

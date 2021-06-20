@@ -13,7 +13,7 @@ namespace PhotoCopySort
         /// </summary>
         /// <param name="rootDir">Path to root directory</param>
         /// <returns>Enumerable of IFiles</returns>
-        public static IEnumerable<IFile> EnumerateFiles(string rootDir)
+        public static IEnumerable<IFile> EnumerateFiles(string rootDir, Options options)
         {
             var dirQueue = new Queue<string>();
             dirQueue.Enqueue(rootDir);
@@ -41,17 +41,31 @@ namespace PhotoCopySort
                         }
                     }
 
-                    foreach (var photo in photoFileList)
+                    if (options.RelatedFileMode != Options.RelatedFileLookup.none)
                     {
-                        photo.AddRelatedFiles(genericFileList);
+                        foreach (var photo in photoFileList)
+                        {
+                            photo.AddRelatedFiles(genericFileList, options.RelatedFileMode);
+                        }
                     }
 
-
-                    foreach (var genericFile in genericFileList)
+                    if (options.RequireExif)
                     {
-                        Log.Print(
-                            $"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.TimeSource} time.",
+                        foreach (var genericFile in genericFileList)
+                        {
+                            Log.Print(
+                            $"File {genericFile.File.FullName} has no date in exif, skipping.",
                             Options.LogLevel.important);
+                        }
+                    }
+                    else
+                    {
+                        foreach (var genericFile in genericFileList)
+                        {
+                            Log.Print(
+                                $"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.TimeSource} time.",
+                                Options.LogLevel.important);
+                        }
                     }
                 }
                 catch (DirectoryNotFoundException e)
