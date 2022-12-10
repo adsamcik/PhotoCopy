@@ -5,9 +5,8 @@ using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
 using MetadataExtractor.Formats.Jpeg;
 using MetadataExtractor.Formats.QuickTime;
-using PhotoCopy.Files;
 
-namespace PhotoCopySort
+namespace PhotoCopy.Files
 {
     internal static class FileMetadataExtractor
     {

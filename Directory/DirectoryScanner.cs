@@ -4,7 +4,7 @@ using System.Linq;
 using MetadataExtractor;
 using PhotoCopy.Files;
 
-namespace PhotoCopySort
+namespace PhotoCopy.Directory
 {
     internal static class DirectoryScanner
     {
@@ -25,6 +25,7 @@ namespace PhotoCopySort
                 var directory = dirQueue.Dequeue();
                 genericFileList.Clear();
                 photoFileList.Clear();
+                Log.Print($"Building file list for {directory}", Options.LogLevel.verbose);
                 try
                 {
                     foreach (var file in System.IO.Directory.EnumerateFiles(directory)
@@ -72,6 +73,7 @@ namespace PhotoCopySort
                 {
                     Log.Print($"Source {e.Message} does not exist", Options.LogLevel.errorsOnly);
                 }
+                Log.Print("Finished building file list", Options.LogLevel.verbose);
 
                 foreach (var directoryPath in System.IO.Directory.GetDirectories(directory))
                 {

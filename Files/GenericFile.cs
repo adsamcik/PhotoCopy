@@ -1,5 +1,4 @@
-﻿using PhotoCopySort;
-using System;
+﻿using System;
 using System.IO;
 using System.Security.Cryptography;
 
@@ -18,7 +17,7 @@ namespace PhotoCopy.Files
         private string CalculateChecksumSha256()
         {
             using var stream = new BufferedStream(File.OpenRead(), 12000);
-            var sha = new SHA256Managed();
+            var sha = SHA256.Create();
             var checksum = sha.ComputeHash(stream);
             return BitConverter.ToString(checksum).Replace("-", string.Empty);
         }

@@ -1,5 +1,4 @@
-﻿using PhotoCopySort;
-using System;
+﻿using System;
 
 namespace PhotoCopy.Files
 {
