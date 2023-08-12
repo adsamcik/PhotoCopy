@@ -32,7 +32,18 @@ namespace PhotoCopy.Files
         public virtual void CopyTo(string newPath, bool isDryRun)
         {
             Log.Print($"{File.FullName} >> cp >> {newPath}", Options.LogLevel.verbose);
-            if (!isDryRun)
+            if (isDryRun)
+            {
+                try
+                {
+                    _ = File.Attributes;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    Log.Print($"Cannot read file {File.FullName}.", Options.LogLevel.errorsOnly);
+                }
+            }
+            else
             {
                 File.CopyTo(newPath);
             }
@@ -41,7 +52,17 @@ namespace PhotoCopy.Files
         public virtual void MoveTo(string newPath, bool isDryRun)
         {
             Log.Print($"{File.FullName} >> mv >> {newPath}", Options.LogLevel.verbose);
-            if (!isDryRun)
+            if (isDryRun)
+            {
+                try
+                {
+                    _ = File.Attributes;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    Log.Print($"Cannot read file {File.FullName}.", Options.LogLevel.errorsOnly);
+                }
+            } else
             {
                 File.MoveTo(newPath);
             }
