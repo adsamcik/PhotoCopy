@@ -4,13 +4,8 @@ using System.Security.Cryptography;
 
 namespace PhotoCopy.Files;
 
-internal class GenericFile(FileInfo file, FileDateTime dateTime) : IFile
+internal record class GenericFile(FileInfo File, FileDateTime FileDateTime) : IFile
 {
-    public FileInfo File { get; } = file ?? throw new ArgumentNullException(nameof(file));
-
-    public FileDateTime FileDateTime { get; } = dateTime;
-
-
     private string _sha256;
     public string Checksum => _sha256 ??= CalculateChecksumSha256();
 

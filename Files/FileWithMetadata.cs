@@ -3,11 +3,11 @@ using System.IO;
 
 namespace PhotoCopy.Files;
 
-internal class FileWithMetadata(FileInfo file, FileDateTime dateTime) : GenericFile(file, dateTime)
+internal record class FileWithMetadata(FileInfo File, FileDateTime DateTime) : GenericFile(File, DateTime)
 {
     public IReadOnlyList<RelatedFile> RelatedFileList => _relatedFileList;
 
-    private readonly List<RelatedFile> _relatedFileList = new();
+    private readonly List<RelatedFile> _relatedFileList = [];
 
     public void AddRelatedFiles(List<IFile> fileList, Options.RelatedFileLookup mode)
     {
@@ -59,10 +59,8 @@ internal class FileWithMetadata(FileInfo file, FileDateTime dateTime) : GenericF
         }
     }
 
-    public class RelatedFile(FileInfo file, FileDateTime dateTime, string extension) : GenericFile(file, dateTime)
+    public record class RelatedFile(FileInfo File, FileDateTime DateTime, string Extension) : GenericFile(File, DateTime)
     {
-        public string Extension { get; } = extension;
-
         public override void CopyTo(string newPath, bool isDryRun)
         {
             base.CopyTo(newPath + Extension, isDryRun);

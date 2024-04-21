@@ -53,7 +53,7 @@ internal static class FileMetadataExtractor
                         return new FileDateTime
                         {
                             DateTime = exifTime,
-                            TimeSource = DateTimeSource.Exif
+                            DateTimeSource = DateTimeSource.Exif
                         };
                     }
                 }
@@ -75,14 +75,14 @@ internal static class FileMetadataExtractor
             return new FileDateTime
             {
                 DateTime = file.LastWriteTime,
-                TimeSource = DateTimeSource.FileModification
+                DateTimeSource = DateTimeSource.FileModification
             };
         }
 
         return new FileDateTime
         {
             DateTime = file.CreationTime,
-            TimeSource = DateTimeSource.FileCreation
+            DateTimeSource = DateTimeSource.FileCreation
         };
     }
 }

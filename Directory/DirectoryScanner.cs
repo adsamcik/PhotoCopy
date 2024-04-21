@@ -31,7 +31,7 @@ internal static class DirectoryScanner
                     .Select(path => new FileInfo(path)))
                 {
                     var dateTime = FileMetadataExtractor.GetDateTime(file);
-                    if (dateTime.TimeSource == DateTimeSource.Exif)
+                    if (dateTime.DateTimeSource == DateTimeSource.Exif)
                     {
                         photoFileList.Add(new FileWithMetadata(file, dateTime));
                     }
@@ -63,7 +63,7 @@ internal static class DirectoryScanner
                     foreach (var genericFile in genericFileList)
                     {
                         Log.Print(
-                            $"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.TimeSource} time.",
+                            $"File {genericFile.File.FullName} has no date in exif, defaulting to file {genericFile.FileDateTime.DateTimeSource} time.",
                             Options.LogLevel.important);
                     }
                 }

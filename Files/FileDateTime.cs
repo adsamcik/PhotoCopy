@@ -15,8 +15,4 @@ internal enum DateTimeSource
 /// <summary>
 /// File date time
 /// </summary>
-internal struct FileDateTime
-{
-    public DateTime DateTime;
-    public DateTimeSource TimeSource;
-}
+internal record struct FileDateTime(DateTime DateTime, DateTimeSource DateTimeSource);
