@@ -3,7 +3,6 @@ using System.IO;
 using System.Linq;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
-using MetadataExtractor.Formats.Jpeg;
 using MetadataExtractor.Formats.QuickTime;
 
 namespace PhotoCopy.Files;
