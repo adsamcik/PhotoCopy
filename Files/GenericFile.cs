@@ -2,70 +2,69 @@
 using System.IO;
 using System.Security.Cryptography;
 
-namespace PhotoCopy.Files
+namespace PhotoCopy.Files;
+
+internal class GenericFile : IFile
 {
-    internal class GenericFile : IFile
+    public FileInfo File { get; }
+
+    public FileDateTime FileDateTime { get; }
+
+
+    private string _sha256;
+    public string Checksum => _sha256 ??= CalculateChecksumSha256();
+
+    private string CalculateChecksumSha256()
     {
-        public FileInfo File { get; }
+        using var stream = new BufferedStream(File.OpenRead(), 12000);
+        var sha = SHA256.Create();
+        var checksum = sha.ComputeHash(stream);
+        return BitConverter.ToString(checksum).Replace("-", string.Empty);
+    }
 
-        public FileDateTime FileDateTime { get; }
+    public GenericFile(FileInfo file, FileDateTime dateTime)
+    {
+        File = file ?? throw new ArgumentNullException(nameof(file));
+        FileDateTime = dateTime;
+    }
 
 
-        private string _sha256;
-        public string Checksum => _sha256 ??= CalculateChecksumSha256();
-
-        private string CalculateChecksumSha256()
+    public virtual void CopyTo(string newPath, bool isDryRun)
+    {
+        Log.Print($"cp {File.FullName} --> {newPath}", Options.LogLevel.verbose);
+        if (isDryRun)
         {
-            using var stream = new BufferedStream(File.OpenRead(), 12000);
-            var sha = SHA256.Create();
-            var checksum = sha.ComputeHash(stream);
-            return BitConverter.ToString(checksum).Replace("-", string.Empty);
-        }
-
-        public GenericFile(FileInfo file, FileDateTime dateTime)
-        {
-            File = file ?? throw new ArgumentNullException(nameof(file));
-            FileDateTime = dateTime;
-        }
-
-
-        public virtual void CopyTo(string newPath, bool isDryRun)
-        {
-            Log.Print($"cp {File.FullName} --> {newPath}", Options.LogLevel.verbose);
-            if (isDryRun)
+            try
             {
-                try
-                {
-                    _ = File.Attributes;
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    Log.Print($"Cannot read file {File.FullName}.", Options.LogLevel.errorsOnly);
-                }
+                _ = File.Attributes;
             }
-            else
+            catch (UnauthorizedAccessException)
             {
-                File.CopyTo(newPath);
+                Log.Print($"Cannot read file {File.FullName}.", Options.LogLevel.errorsOnly);
             }
         }
-
-        public virtual void MoveTo(string newPath, bool isDryRun)
+        else
         {
-            Log.Print($"mv {File.FullName} --> {newPath}", Options.LogLevel.verbose);
-            if (isDryRun)
+            File.CopyTo(newPath);
+        }
+    }
+
+    public virtual void MoveTo(string newPath, bool isDryRun)
+    {
+        Log.Print($"mv {File.FullName} --> {newPath}", Options.LogLevel.verbose);
+        if (isDryRun)
+        {
+            try
             {
-                try
-                {
-                    _ = File.Attributes;
-                }
-                catch (UnauthorizedAccessException)
-                {
-                    Log.Print($"Cannot read file {File.FullName}.", Options.LogLevel.errorsOnly);
-                }
-            } else
-            {
-                File.MoveTo(newPath);
+                _ = File.Attributes;
             }
+            catch (UnauthorizedAccessException)
+            {
+                Log.Print($"Cannot read file {File.FullName}.", Options.LogLevel.errorsOnly);
+            }
+        } else
+        {
+            File.MoveTo(newPath);
         }
     }
 }

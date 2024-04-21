@@ -1,20 +1,19 @@
 ﻿using PhotoCopy.Files;
 using System;
 
-namespace PhotoCopy.Validators
+namespace PhotoCopy.Validators;
+
+internal class MaxDateValidator : IValidator
 {
-    internal class MaxDateValidator : IValidator
+    private readonly DateTime _date;
+
+    public MaxDateValidator(Options options)
     {
-        private readonly DateTime _date;
+        _date = options.MaxDate.Value;
+    }
 
-        public MaxDateValidator(Options options)
-        {
-            _date = options.MaxDate.Value;
-        }
-
-        public bool Validate(IFile file)
-        {
-            return file.FileDateTime.DateTime <= _date;
-        }
+    public bool Validate(IFile file)
+    {
+        return file.FileDateTime.DateTime <= _date;
     }
 }

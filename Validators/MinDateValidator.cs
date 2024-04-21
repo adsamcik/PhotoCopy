@@ -1,20 +1,19 @@
 ﻿using PhotoCopy.Files;
 using System;
 
-namespace PhotoCopy.Validators
+namespace PhotoCopy.Validators;
+
+internal class MinDateValidator : IValidator
 {
-    internal class MinDateValidator : IValidator
+    private readonly DateTime _date;
+
+    public MinDateValidator(Options options)
     {
-        private readonly DateTime _date;
+        _date = options.MinDate.Value;
+    }
 
-        public MinDateValidator(Options options)
-        {
-            _date = options.MinDate.Value;
-        }
-
-        public bool Validate(IFile file)
-        {
-            return file.FileDateTime.DateTime >= _date;
-        }
+    public bool Validate(IFile file)
+    {
+        return file.FileDateTime.DateTime >= _date;
     }
 }

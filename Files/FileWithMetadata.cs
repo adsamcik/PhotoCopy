@@ -1,86 +1,85 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 
-namespace PhotoCopy.Files
+namespace PhotoCopy.Files;
+
+internal class FileWithMetadata : GenericFile
 {
-    internal class FileWithMetadata : GenericFile
+    public IReadOnlyList<RelatedFile> RelatedFileList => _relatedFileList;
+
+    private readonly List<RelatedFile> _relatedFileList = new();
+
+    public FileWithMetadata(FileInfo file, FileDateTime dateTime) : base(file, dateTime)
     {
-        public IReadOnlyList<RelatedFile> RelatedFileList => _relatedFileList;
+    }
 
-        private readonly List<RelatedFile> _relatedFileList = new();
-
-        public FileWithMetadata(FileInfo file, FileDateTime dateTime) : base(file, dateTime)
+    public void AddRelatedFiles(List<IFile> fileList, Options.RelatedFileLookup mode)
+    {
+        if(mode == Options.RelatedFileLookup.none)
         {
+            return;
         }
 
-        public void AddRelatedFiles(List<IFile> fileList, Options.RelatedFileLookup mode)
+        for (var i = 0; i < fileList.Count; i++)
         {
-            if(mode == Options.RelatedFileLookup.none)
+            var file = fileList[i].File;
+            var found = false;
+
+            switch (mode)
             {
-                return;
+                case Options.RelatedFileLookup.strict:
+                    found = file.FullName.StartsWith(File.FullName);
+                    break;
+                case Options.RelatedFileLookup.loose:
+                    found = file.FullName.StartsWith(File.Name);
+                    break;
             }
 
-            for (var i = 0; i < fileList.Count; i++)
+            if (found)
             {
-                var file = fileList[i].File;
-                var found = false;
-
-                switch (mode)
-                {
-                    case Options.RelatedFileLookup.strict:
-                        found = file.FullName.StartsWith(File.FullName);
-                        break;
-                    case Options.RelatedFileLookup.loose:
-                        found = file.FullName.StartsWith(File.Name);
-                        break;
-                }
-
-                if (found)
-                {
-                    Log.Print($"Found related file {file.FullName} to file {File.FullName}", Options.LogLevel.verbose);
-                    _relatedFileList.Add(new RelatedFile(file, FileDateTime, file.FullName.Remove(0, File.FullName.Length)));
-                    fileList.RemoveAt(i);
-                    i--;
-                }
+                Log.Print($"Found related file {file.FullName} to file {File.FullName}", Options.LogLevel.verbose);
+                _relatedFileList.Add(new RelatedFile(file, FileDateTime, file.FullName.Remove(0, File.FullName.Length)));
+                fileList.RemoveAt(i);
+                i--;
             }
+        }
+    }
+
+    public override void CopyTo(string newPath, bool isDryRun)
+    {
+        base.CopyTo(newPath, isDryRun);
+        foreach (var relatedFile in _relatedFileList)
+        {
+            relatedFile.CopyTo(newPath, isDryRun);
+        }
+    }
+
+    public override void MoveTo(string newPath, bool isDryRun)
+    {
+        base.MoveTo(newPath, isDryRun);
+        foreach (var relatedFile in _relatedFileList)
+        {
+            relatedFile.MoveTo(newPath, isDryRun);
+        }
+    }
+
+    public class RelatedFile : GenericFile
+    {
+        public string Extension { get; }
+
+        public RelatedFile(FileInfo file, FileDateTime dateTime, string extension) : base(file, dateTime)
+        {
+            Extension = extension;
         }
 
         public override void CopyTo(string newPath, bool isDryRun)
         {
-            base.CopyTo(newPath, isDryRun);
-            foreach (var relatedFile in _relatedFileList)
-            {
-                relatedFile.CopyTo(newPath, isDryRun);
-            }
+            base.CopyTo(newPath + Extension, isDryRun);
         }
 
         public override void MoveTo(string newPath, bool isDryRun)
         {
-            base.MoveTo(newPath, isDryRun);
-            foreach (var relatedFile in _relatedFileList)
-            {
-                relatedFile.MoveTo(newPath, isDryRun);
-            }
-        }
-
-        public class RelatedFile : GenericFile
-        {
-            public string Extension { get; }
-
-            public RelatedFile(FileInfo file, FileDateTime dateTime, string extension) : base(file, dateTime)
-            {
-                Extension = extension;
-            }
-
-            public override void CopyTo(string newPath, bool isDryRun)
-            {
-                base.CopyTo(newPath + Extension, isDryRun);
-            }
-
-            public override void MoveTo(string newPath, bool isDryRun)
-            {
-                base.MoveTo(newPath + Extension, isDryRun);
-            }
+            base.MoveTo(newPath + Extension, isDryRun);
         }
     }
 }
