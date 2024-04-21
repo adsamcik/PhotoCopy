@@ -40,7 +40,7 @@ namespace PhotoCopy.Directory
                 var directory = newFile.Directory;
                 if (!options.DryRun && directory?.Exists == false)
                 {
-                    directory.Create();
+                    System.IO.Directory.CreateDirectory(newPath);
                 }
 
                 if (options.Mode == Options.OperationMode.move)
