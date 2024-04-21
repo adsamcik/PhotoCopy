@@ -15,24 +15,23 @@ internal static class FileMetadataExtractor
             MetadataExtractor.Directory>, int[]
         )[]
         DirectoryArray =
-        {
+        [
             (list => list.OfType<ExifDirectoryBase>().FirstOrDefault(),
-                new[]
-                {
+                [
                     ExifDirectoryBase.TagDateTime,
                     ExifDirectoryBase.TagDateTimeOriginal,
                     ExifDirectoryBase.TagDateTimeDigitized,
-                }),
-            (list => list.OfType<ExifSubIfdDirectory>().FirstOrDefault(), new[] {
+                ]),
+            (list => list.OfType<ExifSubIfdDirectory>().FirstOrDefault(), [
                     ExifDirectoryBase.TagDateTime,
                     ExifDirectoryBase.TagDateTimeOriginal,
                     ExifDirectoryBase.TagDateTimeDigitized,
-            }),
+            ]),
             (list => list.OfType<QuickTimeTrackHeaderDirectory>().FirstOrDefault(),
-                new[] {QuickTimeTrackHeaderDirectory.TagCreated }),
+                [QuickTimeTrackHeaderDirectory.TagCreated]),
             (list => list.OfType<QuickTimeMovieHeaderDirectory>().FirstOrDefault(),
-                new[] {QuickTimeMovieHeaderDirectory.TagCreated}),
-        };
+                [QuickTimeMovieHeaderDirectory.TagCreated]),
+        ];
 
     public static FileDateTime GetDateTime(FileSystemInfo file)
     {
