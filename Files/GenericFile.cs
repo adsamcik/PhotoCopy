@@ -4,11 +4,11 @@ using System.Security.Cryptography;
 
 namespace PhotoCopy.Files;
 
-internal class GenericFile : IFile
+internal class GenericFile(FileInfo file, FileDateTime dateTime) : IFile
 {
-    public FileInfo File { get; }
+    public FileInfo File { get; } = file ?? throw new ArgumentNullException(nameof(file));
 
-    public FileDateTime FileDateTime { get; }
+    public FileDateTime FileDateTime { get; } = dateTime;
 
 
     private string _sha256;
@@ -21,13 +21,6 @@ internal class GenericFile : IFile
         var checksum = sha.ComputeHash(stream);
         return BitConverter.ToString(checksum).Replace("-", string.Empty);
     }
-
-    public GenericFile(FileInfo file, FileDateTime dateTime)
-    {
-        File = file ?? throw new ArgumentNullException(nameof(file));
-        FileDateTime = dateTime;
-    }
-
 
     public virtual void CopyTo(string newPath, bool isDryRun)
     {
