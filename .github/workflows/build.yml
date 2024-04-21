@@ -1,0 +1,63 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build
+    strategy:
+      matrix:
+        kind:
+          [
+            "linux-x64",
+            "linux-arm",
+            "linux-arm64",
+            "windows",
+            "macOS-x64",
+            "macOS-M1",
+          ]
+        include:
+          - kind: linux-x64
+            os: ubuntu-latest
+            target: linux-x64
+          - kind: linux-arm64
+            os: ubuntu-latest
+            target: linux-arm64
+          - kind: linux-arm
+            os: ubuntu-latest
+            target: linux-arm
+          - kind: windows
+            os: ubuntu-latest
+            target: win-x64
+          - kind: macOS-x64
+            os: ubuntu-latest
+            target: osx-x64
+          - kind: macOS-ARM
+            os: ubuntu-latest
+            target: osx-arm64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build
+        shell: bash
+        run: |
+          tag=$(git describe --tags --abbrev=0)
+          release_name="PhotoCopy-$tag-${{ matrix.target }}"
+          # Build everything
+          dotnet publish --framework net8.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
+
+      - name: Upload Build Assemblies
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.target }}
+          path: ./${{ env.release_name }}
