@@ -5,19 +5,11 @@ on:
     types: [published]
 
 jobs:
-  publish:
-    name: Publish
+  release:
+    name: Release
     strategy:
       matrix:
-        kind:
-          [
-            "linux-x64",
-            "linux-arm",
-            "linux-arm64",
-            "windows",
-            "macOS-x64",
-            "macOS-arm64",
-          ]
+        kind: ["linux-x64", "linux-arm", "linux-arm64", "windows", "macOS-x64"]
         include:
           - kind: linux-x64
             os: ubuntu-latest
@@ -47,17 +39,13 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Download Build Assemblies
-        uses: actions/download-artifact@v2
-        with:
-          name: ${{ matrix.target }}
-          path: ./
-
       - name: Publish
         shell: bash
         run: |
           tag=$(git describe --tags --abbrev=0)
           release_name="PhotoCopy-$tag-${{ matrix.target }}"
+          # Build everything
+          dotnet publish --framework net8.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
           # Pack files
           if [ "${{ matrix.target }}" == "win-x64" ]; then
             name="${release_name}.zip"
@@ -75,7 +63,6 @@ jobs:
           rm -r "$release_name"
           echo "content_type=$type" >> $GITHUB_ENV
           echo "artifact=$name" >> $GITHUB_ENV
-
       - name: Upload a Release Asset
         uses: actions/upload-release-asset@v1
         env:
