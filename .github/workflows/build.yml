@@ -17,7 +17,7 @@ jobs:
             "linux-arm64",
             "windows",
             "macOS-x64",
-            "macOS-M1",
+            "macOS-arm64",
           ]
         include:
           - kind: linux-x64
@@ -35,7 +35,7 @@ jobs:
           - kind: macOS-x64
             os: ubuntu-latest
             target: osx-x64
-          - kind: macOS-ARM
+          - kind: macOS-arm64
             os: ubuntu-latest
             target: osx-arm64
     runs-on: ${{ matrix.os }}
