@@ -9,7 +9,7 @@ jobs:
     name: Release
     strategy:
       matrix:
-        kind: ['linux-x64', 'linux-arm', 'linux-arm64', 'windows', 'macOS-x64']
+        kind: ["linux-x64", "linux-arm", "linux-arm64", "windows", "macOS-x64"]
         include:
           - kind: linux-x64
             os: ubuntu-latest
@@ -34,7 +34,7 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: 7.0.x
+          dotnet-version: 8.0.x
 
       - name: Publish
         shell: bash
@@ -42,7 +42,7 @@ jobs:
           tag=$(git describe --tags --abbrev=0)
           release_name="PhotoCopy-$tag-${{ matrix.target }}"
           # Build everything
-          dotnet publish --framework net7.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
+          dotnet publish --framework net8.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
           # Pack files
           if [ "${{ matrix.target }}" == "win-x64" ]; then
             name="${release_name}.zip"
@@ -54,7 +54,7 @@ jobs:
             tar czvf ${name} "$release_name"
             type="tar+gzip"
           fi
-          
+
           ls -l $name
           # Delete output directory
           rm -r "$release_name"
@@ -65,12 +65,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-        # The URL for uploading assets to the release
+          # The URL for uploading assets to the release
           upload_url: https://uploads.github.com/repos/${{ github.event.repository.owner.login }}/${{ github.event.repository.name }}/releases/${{ github.event.release.id }}/assets{?name,label}
-        # The path to the asset you want to upload
+          # The path to the asset you want to upload
           asset_path: ./${{ env.artifact }}
-        # The name of the asset you want to upload
+          # The name of the asset you want to upload
           asset_name: ${{ env.artifact }}
-        # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
+          # The content-type of the asset you want to upload. See the supported Media Types here: https://www.iana.org/assignments/media-types/media-types.xhtml for more information
           asset_content_type: application/${{ env.content_type }}
-
