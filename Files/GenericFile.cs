@@ -31,7 +31,7 @@ namespace PhotoCopy.Files
 
         public virtual void CopyTo(string newPath, bool isDryRun)
         {
-            Log.Print($"{File.FullName} >> cp >> {newPath}", Options.LogLevel.verbose);
+            Log.Print($"cp {File.FullName} --> {newPath}", Options.LogLevel.verbose);
             if (isDryRun)
             {
                 try
@@ -51,7 +51,7 @@ namespace PhotoCopy.Files
 
         public virtual void MoveTo(string newPath, bool isDryRun)
         {
-            Log.Print($"{File.FullName} >> mv >> {newPath}", Options.LogLevel.verbose);
+            Log.Print($"mv {File.FullName} --> {newPath}", Options.LogLevel.verbose);
             if (isDryRun)
             {
                 try
