@@ -7,7 +7,6 @@
 		<RootNamespace>PhotoCopy</RootNamespace>
 		<Authors>Adsamcik</Authors>
 		<Version>2024.1</Version>
-		<PublishAot>true</PublishAot>
 	</PropertyGroup>
 
 	<ItemGroup>
