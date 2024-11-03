@@ -7,6 +7,7 @@ namespace PhotoCopy.Files;
 internal record class GenericFile(FileInfo File, FileDateTime FileDateTime) : IFile
 {
     private string _sha256;
+
     public string Checksum => _sha256 ??= CalculateChecksumSha256();
 
     private string CalculateChecksumSha256()

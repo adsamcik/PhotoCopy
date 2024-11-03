@@ -9,9 +9,10 @@ internal record class FileWithMetadata(FileInfo File, FileDateTime DateTime) : G
 
     private readonly List<RelatedFile> _relatedFileList = [];
 
-    public void AddRelatedFiles(List<IFile> fileList, Options.RelatedFileLookup mode)
+    public void AddRelatedFiles<TFile>(List<TFile> fileList, Options.RelatedFileLookup mode)
+        where TFile : IFile
     {
-        if(mode == Options.RelatedFileLookup.none)
+        if (mode == Options.RelatedFileLookup.none)
         {
             return;
         }

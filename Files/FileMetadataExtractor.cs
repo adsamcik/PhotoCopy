@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using MetadataExtractor;
@@ -67,6 +68,10 @@ internal static class FileMetadataExtractor
             }
 
             // do nothing
+        }
+        catch (Exception e)
+        {
+            Log.Print($"{file.FullName} --- Fatal error encountered while reading metadata. {e.Message}", Options.LogLevel.errorsOnly);
         }
 
         // Assume creation was overwritten
