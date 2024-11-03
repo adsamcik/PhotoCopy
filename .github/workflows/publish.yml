@@ -45,7 +45,7 @@ jobs:
           tag=$(git describe --tags --abbrev=0)
           release_name="PhotoCopy-$tag-${{ matrix.target }}"
           # Build everything
-          dotnet publish --framework net8 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
+          dotnet publish --framework net8.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
           # Pack files
           if [ "${{ matrix.target }}" == "win-x64" ]; then
             name="${release_name}.zip"
