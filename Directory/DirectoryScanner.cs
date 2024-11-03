@@ -9,8 +9,11 @@ internal static class DirectoryScanner
 {
     public static IEnumerable<IFile> EnumerateFiles(string rootDir, Options options)
     {
-        Stack<string> dirStack = [];
-        dirStack.Push(rootDir);
+        Stack<string> dirStack = new Stack<string>();
+        if (Directory.Exists(rootDir))
+        {
+            dirStack.Push(rootDir);
+        }
 
         while (dirStack.Count > 0)
         {
@@ -23,7 +26,7 @@ internal static class DirectoryScanner
             }
 
             // Push subdirectories onto the stack for depth-first traversal
-            foreach (string subdirectory in System.IO.Directory.GetDirectories(directory))
+            foreach (string subdirectory in Directory.GetDirectories(directory))
             {
                 dirStack.Push(subdirectory);
             }

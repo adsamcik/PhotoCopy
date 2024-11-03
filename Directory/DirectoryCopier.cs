@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.Security;
 using System.Text;
@@ -56,7 +57,8 @@ internal static class DirectoryCopier
         }
     }
 
-    private static bool ShouldCopy(IReadOnlyCollection<IValidator> validators, IFile file)
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    internal static bool ShouldCopy(IReadOnlyCollection<IValidator> validators, IFile file)
     {
         foreach (var validator in validators)
         {
@@ -70,7 +72,8 @@ internal static class DirectoryCopier
         return true;
     }
 
-    private static bool ResolveDuplicate(Options options, IFile file, ref FileInfo newFile)
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    internal static bool ResolveDuplicate(Options options, IFile file, ref FileInfo newFile)
     {
         if (!newFile.Exists)
         {
@@ -126,7 +129,8 @@ internal static class DirectoryCopier
         return true;
     }
 
-    private static string GeneratePath(Options options, IFile source)
+    [EditorBrowsable(EditorBrowsableState.Never)]
+    internal static string GeneratePath(Options options, IFile source)
     {
         var builder = new StringBuilder(options.Destination)
             .Replace(Options.DestinationVariables.Year, source.FileDateTime.DateTime.Year.ToString())
