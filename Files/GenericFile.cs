@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace PhotoCopy.Files;
 
@@ -12,10 +13,15 @@ internal record class GenericFile(FileInfo File, FileDateTime FileDateTime) : IF
 
     private string CalculateChecksumSha256()
     {
-        using var stream = new BufferedStream(File.OpenRead(), 12000);
-        var sha = SHA256.Create();
-        var checksum = sha.ComputeHash(stream);
-        return BitConverter.ToString(checksum).Replace("-", string.Empty);
+        using var stream = new BufferedStream(File.OpenRead(), 65536);
+        using var sha = SHA256.Create();
+        byte[] checksum = sha.ComputeHash(stream);
+
+        var sb = new StringBuilder(checksum.Length * 2);
+        foreach (var b in checksum)
+            sb.Append(b.ToString("x2"));
+
+        return sb.ToString();
     }
 
     public virtual void CopyTo(string newPath, bool isDryRun)
