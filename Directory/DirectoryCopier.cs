@@ -24,7 +24,7 @@ internal static class DirectoryCopier
         {
             Log.Print($">> {file.File.FullName}", Options.LogLevel.verbose);
 
-            if (ShouldCopy(validators, file))
+            if (!ShouldCopy(validators, file))
             {
                 continue;
             }
@@ -40,7 +40,7 @@ internal static class DirectoryCopier
             var directory = newFile.Directory;
             if (!options.DryRun && directory?.Exists == false)
             {
-                System.IO.Directory.CreateDirectory(newPath);
+                System.IO.Directory.CreateDirectory(directory.FullName);
             }
 
             if (options.Mode == Options.OperationMode.move)
@@ -63,11 +63,11 @@ internal static class DirectoryCopier
             if (!validator.Validate(file))
             {
                 Log.Print($"\tFiltered by {validator.GetType().Name.Humanize().ToLowerInvariant()}", Options.LogLevel.verbose);
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
     private static bool ResolveDuplicate(Options options, IFile file, ref FileInfo newFile)
@@ -96,7 +96,7 @@ internal static class DirectoryCopier
         }
 
         var number = 0;
-        var originalNewPath = newFile.FullName;
+        var originalNewPath = newFile.Name;
         try
         {
             var directoryPath = newFile.DirectoryName ?? "";
