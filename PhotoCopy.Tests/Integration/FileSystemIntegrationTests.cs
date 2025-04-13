@@ -5,19 +5,20 @@ using PhotoCopy.Abstractions;
 using PhotoCopy.Files;
 using Xunit;
 
-namespace PhotoCopy.Tests.Abstractions;
+namespace PhotoCopy.Tests.Integration;
 
-public class FileSystemTests : IClassFixture<ApplicationStateFixture>
+[Trait("Category", "Integration")]
+public class FileSystemIntegrationTests : IClassFixture<ApplicationStateFixture>
 {
     private readonly ApplicationStateFixture _fixture;
     private readonly FileSystem _fileSystem;
     private readonly string _baseTestDirectory;
 
-    public FileSystemTests(ApplicationStateFixture fixture)
+    public FileSystemIntegrationTests(ApplicationStateFixture fixture)
     {
         _fixture = fixture;
         ApplicationState.Options = new Options();
-        _baseTestDirectory = Path.Combine(Path.GetTempPath(), "FileSystemTests");
+        _baseTestDirectory = Path.Combine(Path.GetTempPath(), "FileSystemIntegrationTests");
         _fileSystem = new FileSystem();
         
         // Create base test directory if it doesn't exist
