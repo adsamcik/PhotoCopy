@@ -11,10 +11,16 @@ using System.IO;
 
 namespace PhotoCopy;
 
-public static class ApplicationState
+public interface IApplicationState
 {
-    public static Options Options { get; set; }
+    Options Options { get; set; }
 }
+
+public class ApplicationState : IApplicationState
+{
+    public Options Options { get; set; }
+}
+
 public class Program
 {
     static int Main(string[] args)
@@ -25,6 +31,8 @@ public class Program
         services.AddSingleton<IFileOperation, FileOperation>();
         services.AddTransient<IDirectoryCopier, DirectoryCopier>();
         services.AddTransient<IValidatorFactory, ValidatorFactory>();
+        services.AddSingleton<IApplicationState, ApplicationState>();
+        
         var provider = services.BuildServiceProvider();
         var logger = provider.GetRequiredService<ILogger<Program>>();
 
@@ -32,6 +40,8 @@ public class Program
         {
             if (!ValidateInput(options, logger)) return 1;
             PrintParsedOptions(options, logger);
+            var appState = provider.GetRequiredService<IApplicationState>();
+            appState.Options = options;
             var validators = provider.GetRequiredService<IValidatorFactory>().Create(options);
             provider.GetRequiredService<IDirectoryCopier>().Copy(options, validators);
             return 0;

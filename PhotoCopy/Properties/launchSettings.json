@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PhotoCopy": {
+      "commandName": "Project",
+      "commandLineArgs": "-i \"E:\\Backup\\Syncthing\\Backup\\Camera\\Expert RAW\" -o \"E:\\Backup\\Photos\\{year}\\{month}\\{name}\" --max-date \"1 August 2024\" -l verbose -m move"
+    }
+  }
+}
