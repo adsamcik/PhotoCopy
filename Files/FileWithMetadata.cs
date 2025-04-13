@@ -28,14 +28,19 @@ internal record class FileWithMetadata(FileInfo File, FileDateTime DateTime) : G
                     found = file.FullName.StartsWith(File.FullName);
                     break;
                 case Options.RelatedFileLookup.loose:
-                    found = file.FullName.StartsWith(File.Name);
+                    // In loose mode, check if the file name (without path) starts with our file name
+                    var otherFileName = Path.GetFileName(file.FullName);
+                    found = otherFileName.StartsWith(Path.GetFileNameWithoutExtension(File.Name));
                     break;
             }
 
             if (found)
             {
                 Log.Print($"Found related file {file.FullName} to file {File.FullName}", Options.LogLevel.verbose);
-                _relatedFileList.Add(new RelatedFile(file, FileDateTime, file.FullName.Remove(0, File.FullName.Length)));
+                var extension = mode == Options.RelatedFileLookup.strict 
+                    ? file.FullName.Remove(0, File.FullName.Length)
+                    : Path.GetExtension(file.FullName);
+                _relatedFileList.Add(new RelatedFile(file, FileDateTime, extension));
                 fileList.RemoveAt(i);
                 i--;
             }

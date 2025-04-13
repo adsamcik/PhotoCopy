@@ -1,9 +1,22 @@
-﻿using FluentAssertions;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using Xunit;
+using FluentAssertions;
 
-namespace PhotoCopy.Tests;
+namespace PhotoCopy.Tests.Directories;
 
 public class DirectoryScannerTests : IClassFixture<ApplicationStateFixture>
 {
+    private readonly ApplicationStateFixture _fixture;
+
+    public DirectoryScannerTests(ApplicationStateFixture fixture)
+    {
+        _fixture = fixture;
+        ApplicationState.Options = new Options();
+    }
+
     [Fact]
     public void EnumerateFiles_MultipleFiles_ReturnsAllFiles()
     {

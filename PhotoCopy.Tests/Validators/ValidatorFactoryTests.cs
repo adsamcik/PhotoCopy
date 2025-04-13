@@ -22,7 +22,7 @@ public class ValidatorFactoryTests
         };
 
         // Act
-        IReadOnlyCollection<IValidator> validators = ValidatorFactory.Create(options);
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory().Create(options);
 
         // Assert
         Assert.Equal(2, validators.Count);
@@ -43,7 +43,7 @@ public class ValidatorFactoryTests
         };
 
         // Act
-        IReadOnlyCollection<IValidator> validators = ValidatorFactory.Create(options);
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory().Create(options);
 
         // Assert
         Assert.Single(validators);
@@ -63,7 +63,7 @@ public class ValidatorFactoryTests
         };
 
         // Act
-        IReadOnlyCollection<IValidator> validators = ValidatorFactory.Create(options);
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory().Create(options);
 
         // Assert
         Assert.Single(validators);
@@ -83,7 +83,7 @@ public class ValidatorFactoryTests
         };
 
         // Act
-        IReadOnlyCollection<IValidator> validators = ValidatorFactory.Create(options);
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory().Create(options);
 
         // Assert
         Assert.Empty(validators);

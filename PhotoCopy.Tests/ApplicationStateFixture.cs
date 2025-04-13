@@ -1,10 +1,24 @@
-﻿namespace PhotoCopy.Tests;
+﻿using System;
+using PhotoCopy;
 
-
-public class ApplicationStateFixture
+namespace PhotoCopy.Tests
 {
-    public ApplicationStateFixture()
+    public class ApplicationStateFixture : IDisposable
     {
-        ApplicationState.Options = new Options();
+        private readonly Options originalOptions;
+
+        public ApplicationStateFixture()
+        {
+            // Store the original options
+            originalOptions = ApplicationState.Options;
+            // Initialize with fresh options for tests
+            ApplicationState.Options = new Options();
+        }
+
+        public void Dispose()
+        {
+            // Restore original options after tests
+            ApplicationState.Options = originalOptions;
+        }
     }
 }

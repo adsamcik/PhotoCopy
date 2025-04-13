@@ -2,10 +2,10 @@
 
 namespace PhotoCopy.Validators;
 
-internal static class ValidatorFactory
+internal class ValidatorFactory : IValidatorFactory
 {
 
-    public static IReadOnlyCollection<IValidator> Create(Options options)
+    public IReadOnlyCollection<IValidator> Create(Options options)
     {
         var filters = new List<IValidator>();
         if (options.MaxDate.HasValue)
