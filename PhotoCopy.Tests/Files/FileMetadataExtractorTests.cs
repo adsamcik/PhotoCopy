@@ -4,14 +4,13 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using PhotoCopy.Files;
 using PhotoCopy.Configuration;
-using Xunit;
 
 namespace PhotoCopy.Tests.Files;
 
 public class FileMetadataExtractorTests : TestBase
 {
-    [Fact]
-    public void GetDateTime_WithNoExifData_ReturnsFileCreationTime()
+    [Test]
+    public async Task GetDateTime_WithNoExifData_ReturnsFileCreationTime()
     {
         // Arrange
         var tempFile = Path.GetTempFileName();
@@ -28,8 +27,8 @@ public class FileMetadataExtractorTests : TestBase
             var result = extractor.GetDateTime(fileInfo);
 
             // Assert
-            Assert.Equal(fileInfo.CreationTime, result.Created);
-            Assert.Equal(fileInfo.CreationTime, result.DateTime); // Main DateTime should be creation time
+            await Assert.That(result.Created).IsEqualTo(fileInfo.CreationTime);
+            await Assert.That(result.DateTime).IsEqualTo(fileInfo.CreationTime); // Main DateTime should be creation time
         }
         finally
         {
@@ -38,8 +37,8 @@ public class FileMetadataExtractorTests : TestBase
         }
     }
 
-    [Fact]
-    public void GetDateTime_WhenCreationTimeIsNewerThanModified_ReturnsModificationTime()
+    [Test]
+    public async Task GetDateTime_WhenCreationTimeIsNewerThanModified_ReturnsModificationTime()
     {
         // Arrange
         var tempFile = Path.GetTempFileName();
@@ -60,8 +59,8 @@ public class FileMetadataExtractorTests : TestBase
             var result = extractor.GetDateTime(fileInfo);
 
             // Assert
-            Assert.Equal(fileInfo.CreationTime, result.Created);
-            Assert.Equal(fileInfo.LastWriteTime, result.Modified);
+            await Assert.That(result.Created).IsEqualTo(fileInfo.CreationTime);
+            await Assert.That(result.Modified).IsEqualTo(fileInfo.LastWriteTime);
         }
         finally
         {

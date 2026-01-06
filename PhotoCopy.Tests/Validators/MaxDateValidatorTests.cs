@@ -2,14 +2,13 @@
 using PhotoCopy.Files;
 using PhotoCopy.Validators;
 using System;
-using Xunit;
 
 namespace PhotoCopy.Tests.Validators;
 
 public class MaxDateValidatorTests
 {
-    [Fact]
-    public void Validate_ReturnsTrue_WhenFileDateTimeIsBeforeMaxDate()
+    [Test]
+    public async Task Validate_ReturnsTrue_WhenFileDateTimeIsBeforeMaxDate()
     {
         // Arrange
         var maxDate = new DateTime(2023, 1, 1);
@@ -25,12 +24,12 @@ public class MaxDateValidatorTests
         var result = validator.Validate(file);
 
         // Assert
-        Assert.True(result.IsValid);
-        Assert.Equal(nameof(MaxDateValidator), result.ValidatorName);
+        await Assert.That(result.IsValid).IsTrue();
+        await Assert.That(result.ValidatorName).IsEqualTo(nameof(MaxDateValidator));
     }
 
-    [Fact]
-    public void Validate_ReturnsTrue_WhenFileDateTimeEqualsMaxDate()
+    [Test]
+    public async Task Validate_ReturnsTrue_WhenFileDateTimeEqualsMaxDate()
     {
         // Arrange
         var maxDate = new DateTime(2023, 1, 1);
@@ -44,11 +43,11 @@ public class MaxDateValidatorTests
         var result = validator.Validate(file);
 
         // Assert
-        Assert.True(result.IsValid);
+        await Assert.That(result.IsValid).IsTrue();
     }
 
-    [Fact]
-    public void Validate_ReturnsFalse_WhenFileDateTimeIsAfterMaxDate()
+    [Test]
+    public async Task Validate_ReturnsFalse_WhenFileDateTimeIsAfterMaxDate()
     {
         // Arrange
         var maxDate = new DateTime(2023, 1, 1);
@@ -62,8 +61,8 @@ public class MaxDateValidatorTests
         var result = validator.Validate(file);
 
         // Assert
-        Assert.False(result.IsValid);
-        Assert.Equal(nameof(MaxDateValidator), result.ValidatorName);
-        Assert.Contains("exceeds", result.Reason, StringComparison.OrdinalIgnoreCase);
+        await Assert.That(result.IsValid).IsFalse();
+        await Assert.That(result.ValidatorName).IsEqualTo(nameof(MaxDateValidator));
+        await Assert.That(result.Reason).Contains("exceeds");
     }
 }

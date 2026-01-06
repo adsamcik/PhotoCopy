@@ -9,7 +9,6 @@ using PhotoCopy.Files;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Directories;
 using PhotoCopy.Configuration;
-using Xunit;
 
 namespace PhotoCopy.Tests.Directories;
 
@@ -43,7 +42,7 @@ public class DirectoryScannerTests
         _scanner = new DirectoryScanner(_logger, _options, _fileFactory);
     }
 
-    [Fact]
+    [Test]
     public void EnumerateFiles_MultipleFiles_ReturnsAllFiles()
     {
         // Arrange
@@ -85,7 +84,7 @@ public class DirectoryScannerTests
         }
     }
 
-    [Fact]
+    [Test]
     public void EnumerateFiles_DirectoryDoesNotExist_SkipsDirectory()
     {
         // Arrange

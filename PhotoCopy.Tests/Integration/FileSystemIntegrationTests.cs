@@ -10,11 +10,10 @@ using PhotoCopy.Files;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files.Metadata;
-using Xunit;
 
 namespace PhotoCopy.Tests.Integration;
 
-[Trait("Category", "Integration")]
+[Property("Category", "Integration")]
 public class FileSystemIntegrationTests
 {
     private readonly PhotoCopy.Files.FileSystem _fileSystem;
@@ -90,8 +89,8 @@ public class FileSystemIntegrationTests
         }
     }
 
-    [Fact]
-    public void EnumerateFiles_WithValidDirectory_ReturnsFiles()
+    [Test]
+    public async Task EnumerateFiles_WithValidDirectory_ReturnsFiles()
     {
         var testDirectory = CreateUniqueTestDirectory();
         try
@@ -104,8 +103,8 @@ public class FileSystemIntegrationTests
             var files = _fileSystem.EnumerateFiles(testDirectory).ToList();
 
             // Assert
-            Assert.Single(files);
-            Assert.Equal(testFile, files[0].File.FullName);
+            await Assert.That(files.Count).IsEqualTo(1);
+            await Assert.That(files[0].File.FullName).IsEqualTo(testFile);
         }
         finally
         {
@@ -113,8 +112,8 @@ public class FileSystemIntegrationTests
         }
     }
 
-    [Fact]
-    public void CreateDirectory_CreatesNewDirectory()
+    [Test]
+    public async Task CreateDirectory_CreatesNewDirectory()
     {
         var testDirectory = CreateUniqueTestDirectory();
         try
@@ -126,7 +125,7 @@ public class FileSystemIntegrationTests
             _fileSystem.CreateDirectory(newDir);
 
             // Assert
-            Assert.True(Directory.Exists(newDir));
+            await Assert.That(Directory.Exists(newDir)).IsTrue();
         }
         finally
         {
@@ -134,8 +133,8 @@ public class FileSystemIntegrationTests
         }
     }
 
-    [Fact]
-    public void DirectoryExists_WithExistingDirectory_ReturnsTrue()
+    [Test]
+    public async Task DirectoryExists_WithExistingDirectory_ReturnsTrue()
     {
         var testDirectory = CreateUniqueTestDirectory();
         try
@@ -144,7 +143,7 @@ public class FileSystemIntegrationTests
             var exists = _fileSystem.DirectoryExists(testDirectory);
 
             // Assert
-            Assert.True(exists);
+            await Assert.That(exists).IsTrue();
         }
         finally
         {
@@ -152,8 +151,8 @@ public class FileSystemIntegrationTests
         }
     }
 
-    [Fact]
-    public void DirectoryExists_WithNonExistentDirectory_ReturnsFalse()
+    [Test]
+    public async Task DirectoryExists_WithNonExistentDirectory_ReturnsFalse()
     {
         var testDirectory = Path.Combine(_baseTestDirectory, "NonExistentDirectory");
         
@@ -161,6 +160,6 @@ public class FileSystemIntegrationTests
         var exists = _fileSystem.DirectoryExists(testDirectory);
 
         // Assert
-        Assert.False(exists);
+        await Assert.That(exists).IsFalse();
     }
 }

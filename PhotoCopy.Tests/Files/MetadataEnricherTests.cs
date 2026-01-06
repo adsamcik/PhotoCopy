@@ -9,7 +9,6 @@ using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files;
 using PhotoCopy.Files.Metadata;
-using Xunit;
 
 namespace PhotoCopy.Tests.Files;
 
@@ -29,7 +28,7 @@ public class MetadataEnricherTests
 
     #region MetadataEnricher Core Tests
 
-    [Fact]
+    [Test]
     public void Enrich_WithNoSteps_ReturnsDefaultMetadata()
     {
         // Arrange
@@ -53,7 +52,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void Enrich_WithMultipleSteps_ExecutesAllStepsInOrder()
     {
         // Arrange
@@ -85,7 +84,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void Enrich_StepsShareSameContext()
     {
         // Arrange
@@ -117,7 +116,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void Enrich_EarlierStepModifiesContext_LaterStepsSeesModification()
     {
         // Arrange
@@ -159,7 +158,7 @@ public class MetadataEnricherTests
 
     #region DateTimeMetadataEnrichmentStep Tests
 
-    [Fact]
+    [Test]
     public void DateTimeStep_UpdatesDateTimeFromExtractor()
     {
         // Arrange
@@ -189,7 +188,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void DateTimeStep_PreservesExistingMetadataProperties()
     {
         // Arrange
@@ -225,7 +224,7 @@ public class MetadataEnricherTests
 
     #region LocationMetadataEnrichmentStep Tests
 
-    [Fact]
+    [Test]
     public void LocationStep_WithCoordinates_SetsLocation()
     {
         // Arrange
@@ -258,7 +257,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void LocationStep_WithoutCoordinates_LeavesLocationNull()
     {
         // Arrange
@@ -291,7 +290,7 @@ public class MetadataEnricherTests
 
     #region ChecksumMetadataEnrichmentStep Tests
 
-    [Fact]
+    [Test]
     public void ChecksumStep_WhenEnabled_CalculatesChecksum()
     {
         // Arrange
@@ -321,7 +320,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void ChecksumStep_WhenDisabled_SkipsCalculation()
     {
         // Arrange
@@ -354,7 +353,7 @@ public class MetadataEnricherTests
 
     #region FileMetadataContext Tests
 
-    [Fact]
+    [Test]
     public void FileMetadataContext_InitializesWithFileInfo()
     {
         // Arrange
@@ -377,7 +376,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void FileMetadataContext_InitializesWithDefaultDateTime()
     {
         // Arrange
@@ -404,7 +403,7 @@ public class MetadataEnricherTests
 
     #region Integration Tests - Full Pipeline
 
-    [Fact]
+    [Test]
     public void FullPipeline_AllStepsExecute_MetadataFullyPopulated()
     {
         // Arrange
@@ -452,7 +451,7 @@ public class MetadataEnricherTests
         }
     }
 
-    [Fact]
+    [Test]
     public void FullPipeline_WithMissingOptionalData_HandlesGracefully()
     {
         // Arrange

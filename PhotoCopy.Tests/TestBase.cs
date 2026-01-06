@@ -12,7 +12,6 @@ using PhotoCopy.Files;
 using PhotoCopy.Files.Metadata;
 using PhotoCopy.Tests.TestingImplementation;
 using PhotoCopy.Validators;
-using Xunit.Abstractions;
 
 namespace PhotoCopy.Tests;
 
@@ -22,12 +21,9 @@ public class TestBase : IDisposable
     protected readonly ILogger Logger;
     protected readonly FakeLogger GenericLogger;
     protected readonly PhotoCopyConfig DefaultConfig;
-    private readonly ITestOutputHelper? _output;
     
-    public TestBase(ITestOutputHelper? output = null)
+    public TestBase()
     {
-        _output = output;
-        
         // Create the generic logger
         GenericLogger = new FakeLogger();
         

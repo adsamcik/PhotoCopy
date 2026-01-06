@@ -7,14 +7,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Xunit;
 
 namespace PhotoCopy.Tests.Validators;
 
 public class ValidatorFactoryTests
 {
-    [Fact]
-    public void Create_ReturnsBothValidators_WhenBothMaxAndMinDatesAreProvided()
+    [Test]
+    public async Task Create_ReturnsBothValidators_WhenBothMaxAndMinDatesAreProvided()
     {
         // Arrange
         var config = new PhotoCopyConfig
@@ -31,13 +30,13 @@ public class ValidatorFactoryTests
         IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
 
         // Assert
-        Assert.Equal(2, validators.Count);
-        Assert.Contains(validators, v => v.GetType() == typeof(MaxDateValidator));
-        Assert.Contains(validators, v => v.GetType() == typeof(MinDateValidator));
+        await Assert.That(validators.Count).IsEqualTo(2);
+        await Assert.That(validators.Any(v => v.GetType() == typeof(MaxDateValidator))).IsTrue();
+        await Assert.That(validators.Any(v => v.GetType() == typeof(MinDateValidator))).IsTrue();
     }
 
-    [Fact]
-    public void Create_ReturnsOnlyMaxDateValidator_WhenOnlyMaxDateIsProvided()
+    [Test]
+    public async Task Create_ReturnsOnlyMaxDateValidator_WhenOnlyMaxDateIsProvided()
     {
         // Arrange
         var config = new PhotoCopyConfig
@@ -54,12 +53,12 @@ public class ValidatorFactoryTests
         IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
 
         // Assert
-        Assert.Single(validators);
-        Assert.Contains(validators, v => v.GetType() == typeof(MaxDateValidator));
+        await Assert.That(validators.Count).IsEqualTo(1);
+        await Assert.That(validators.Any(v => v.GetType() == typeof(MaxDateValidator))).IsTrue();
     }
 
-    [Fact]
-    public void Create_ReturnsOnlyMinDateValidator_WhenOnlyMinDateIsProvided()
+    [Test]
+    public async Task Create_ReturnsOnlyMinDateValidator_WhenOnlyMinDateIsProvided()
     {
         // Arrange
         var config = new PhotoCopyConfig
@@ -76,12 +75,12 @@ public class ValidatorFactoryTests
         IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
 
         // Assert
-        Assert.Single(validators);
-        Assert.Contains(validators, v => v.GetType() == typeof(MinDateValidator));
+        await Assert.That(validators.Count).IsEqualTo(1);
+        await Assert.That(validators.Any(v => v.GetType() == typeof(MinDateValidator))).IsTrue();
     }
 
-    [Fact]
-    public void Create_ReturnsEmptyCollection_WhenNeitherMaxNorMinDatesAreProvided()
+    [Test]
+    public async Task Create_ReturnsEmptyCollection_WhenNeitherMaxNorMinDatesAreProvided()
     {
         // Arrange
         var config = new PhotoCopyConfig
@@ -98,6 +97,6 @@ public class ValidatorFactoryTests
         IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
 
         // Assert
-        Assert.Empty(validators);
+        await Assert.That(validators).IsEmpty();
     }
 }

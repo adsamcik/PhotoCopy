@@ -10,7 +10,6 @@ using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Files;
 using PhotoCopy.Validators;
-using Xunit;
 
 namespace PhotoCopy.Tests.Directories;
 
@@ -39,7 +38,7 @@ public class CopyPlanTests
 
     #region CopyPlan Record Tests
 
-    [Fact]
+    [Test]
     public void CopyPlan_Constructor_SetsAllProperties()
     {
         // Arrange
@@ -61,7 +60,7 @@ public class CopyPlanTests
         plan.TotalBytes.Should().Be(1024L);
     }
 
-    [Fact]
+    [Test]
     public void CopyPlan_WithSkippedFiles_TracksValidationFailures()
     {
         // Arrange
@@ -83,7 +82,7 @@ public class CopyPlanTests
         plan.SkippedFiles[0].Reason.Should().Contain("2019-01-01");
     }
 
-    [Fact]
+    [Test]
     public void FileCopyPlan_WithRelatedFiles_IncludesAllRelatedPlans()
     {
         // Arrange
@@ -106,7 +105,7 @@ public class CopyPlanTests
         plan.RelatedFiles.Should().HaveCount(2);
     }
 
-    [Fact]
+    [Test]
     public void ValidationFailure_CapturesAllDetails()
     {
         // Arrange
@@ -121,7 +120,7 @@ public class CopyPlanTests
         failure.Reason.Should().Be("Test reason");
     }
 
-    [Fact]
+    [Test]
     public void ValidationFailure_AllowsNullReason()
     {
         // Arrange
@@ -138,7 +137,7 @@ public class CopyPlanTests
 
     #region CopyPlan Aggregation Tests
 
-    [Fact]
+    [Test]
     public void CopyPlan_TotalBytes_SumsAllFileSizes()
     {
         // Arrange
@@ -161,7 +160,7 @@ public class CopyPlanTests
         plan.Operations.Should().HaveCount(3);
     }
 
-    [Fact]
+    [Test]
     public void CopyPlan_DirectoriesToCreate_DeduplicatesDirectories()
     {
         // Arrange
@@ -183,7 +182,7 @@ public class CopyPlanTests
 
     #region CopyPlan Building Integration Tests
 
-    [Fact]
+    [Test]
     public void BuildCopyPlan_WithValidFiles_CreatesOperationsForEachFile()
     {
         // Arrange
@@ -208,7 +207,7 @@ public class CopyPlanTests
             Arg.Any<Func<object, Exception?, string>>());
     }
 
-    [Fact]
+    [Test]
     public void BuildCopyPlan_WithFailingValidator_SkipsFile()
     {
         // Arrange
@@ -232,7 +231,7 @@ public class CopyPlanTests
             Arg.Any<Func<object, Exception?, string>>());
     }
 
-    [Fact]
+    [Test]
     public void BuildCopyPlan_WithMultipleValidators_AppliesAllValidators()
     {
         // Arrange
@@ -256,7 +255,7 @@ public class CopyPlanTests
         validator2.Received(1).Validate(file);
     }
 
-    [Fact]
+    [Test]
     public void BuildCopyPlan_WithFirstValidatorFailing_DoesNotCallSubsequentValidators()
     {
         // Arrange
