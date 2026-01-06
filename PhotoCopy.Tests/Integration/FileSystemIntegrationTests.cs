@@ -1,25 +1,61 @@
 using System;
 using System.IO;
 using System.Linq;
-using PhotoCopy.Abstractions;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+using PhotoCopy.Directories;
 using PhotoCopy.Files;
+using PhotoCopy.Abstractions;
+using PhotoCopy.Configuration;
+using PhotoCopy.Files.Metadata;
 using Xunit;
 
 namespace PhotoCopy.Tests.Integration;
 
 [Trait("Category", "Integration")]
-public class FileSystemIntegrationTests : IClassFixture<ApplicationStateFixture>
+public class FileSystemIntegrationTests
 {
-    private readonly ApplicationStateFixture _fixture;
-    private readonly FileSystem _fileSystem;
+    private readonly PhotoCopy.Files.FileSystem _fileSystem;
     private readonly string _baseTestDirectory;
+    private readonly ILogger<FileSystem> _logger;
+    private readonly IOptions<PhotoCopyConfig> _options;
+    private readonly IDirectoryScanner _directoryScanner;
 
-    public FileSystemIntegrationTests(ApplicationStateFixture fixture)
+    public FileSystemIntegrationTests()
     {
-        _fixture = fixture;
-        ApplicationState.Options = new Options();
         _baseTestDirectory = Path.Combine(Path.GetTempPath(), "FileSystemIntegrationTests");
-        _fileSystem = new FileSystem();
+        
+        // Create test dependencies directly
+        _logger = Substitute.For<ILogger<FileSystem>>();
+        _options = Substitute.For<IOptions<PhotoCopyConfig>>();
+        _options.Value.Returns(new PhotoCopyConfig
+        {
+            Source = "test-source",
+            Destination = "test-destination",
+            RelatedFileMode = RelatedFileLookup.None
+        });
+        
+        // Create real dependencies for integration tests
+        var metadataExtractorLogger = Substitute.For<ILogger<FileMetadataExtractor>>();
+        var metadataExtractor = new FileMetadataExtractor(metadataExtractorLogger, _options);
+        
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+        var fileWithMetadataLogger = Substitute.For<ILogger<FileWithMetadata>>();
+        var checksumCalculator = new Sha256ChecksumCalculator();
+        var metadataEnricher = new MetadataEnricher(new IMetadataEnrichmentStep[]
+        {
+            new DateTimeMetadataEnrichmentStep(metadataExtractor),
+            new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService),
+            new ChecksumMetadataEnrichmentStep(checksumCalculator, _options)
+        });
+        var fileFactory = new FileFactory(metadataEnricher, fileWithMetadataLogger, _options);
+        
+        var scannerLogger = Substitute.For<ILogger<DirectoryScanner>>();
+        _directoryScanner = new DirectoryScanner(scannerLogger, _options, fileFactory);
+        
+        _fileSystem = new PhotoCopy.Files.FileSystem(_logger, _directoryScanner);
         
         // Create base test directory if it doesn't exist
         if (!Directory.Exists(_baseTestDirectory))
@@ -64,15 +100,8 @@ public class FileSystemIntegrationTests : IClassFixture<ApplicationStateFixture>
             var testFile = Path.Combine(testDirectory, "test.txt");
             File.WriteAllText(testFile, "test content");
 
-            var options = new Options
-            {
-                Source = testDirectory,
-                Destination = "dummy",
-                RelatedFileMode = Options.RelatedFileLookup.none
-            };
-
             // Act
-            var files = _fileSystem.EnumerateFiles(testDirectory, options).ToList();
+            var files = _fileSystem.EnumerateFiles(testDirectory).ToList();
 
             // Assert
             Assert.Single(files);

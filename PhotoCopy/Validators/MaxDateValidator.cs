@@ -3,12 +3,20 @@ using System;
 
 namespace PhotoCopy.Validators;
 
-internal class MaxDateValidator(Options options) : IValidator
+internal class MaxDateValidator(DateTime date) : IValidator
 {
-    private readonly DateTime _date = options.MaxDate.Value;
+    private readonly DateTime _date = date;
 
-    public bool Validate(IFile file)
+    public string Name => nameof(MaxDateValidator);
+
+    public ValidationResult Validate(IFile file)
     {
-        return file.FileDateTime.DateTime <= _date;
+        if (file.FileDateTime.DateTime <= _date)
+        {
+            return ValidationResult.Success(Name);
+        }
+
+        var reason = $"File date {file.FileDateTime.DateTime:u} exceeds configured max {_date:u}";
+        return ValidationResult.Fail(Name, reason);
     }
 }

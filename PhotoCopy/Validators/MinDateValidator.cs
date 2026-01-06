@@ -3,12 +3,20 @@ using System;
 
 namespace PhotoCopy.Validators;
 
-internal class MinDateValidator(Options options) : IValidator
+internal class MinDateValidator(DateTime date) : IValidator
 {
-    private readonly DateTime _date = options.MinDate.Value;
+    private readonly DateTime _date = date;
 
-    public bool Validate(IFile file)
+    public string Name => nameof(MinDateValidator);
+
+    public ValidationResult Validate(IFile file)
     {
-        return file.FileDateTime.DateTime >= _date;
+        if (file.FileDateTime.DateTime >= _date)
+        {
+            return ValidationResult.Success(Name);
+        }
+
+        var reason = $"File date {file.FileDateTime.DateTime:u} is earlier than configured min {_date:u}";
+        return ValidationResult.Fail(Name, reason);
     }
 }

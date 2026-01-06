@@ -1,171 +1,328 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.IO;
-using System.Security;
-using System.Text;
-using Humanizer;
+using System.Linq;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using PhotoCopy.Abstractions;
-using PhotoCopy.Extensions;
 using PhotoCopy.Files;
 using PhotoCopy.Validators;
+using PhotoCopy.Configuration;
+using PhotoCopy; // For Enums
 
 namespace PhotoCopy.Directories;
 
-/// <summary>
-/// Handles copying of files in a directory.
-/// </summary>
-internal class DirectoryCopier : IDirectoryCopier
+public class DirectoryCopier : IDirectoryCopier
 {
+    private readonly ILogger<DirectoryCopier> _logger;
     private readonly IFileSystem _fileSystem;
-    private readonly IFileOperation _fileOperation;
-    private readonly ILogger _logger;
+    private readonly PhotoCopyConfig _config;
 
-    public DirectoryCopier(IFileSystem fileSystem, IFileOperation fileOperation, ILogger logger)
+    public DirectoryCopier(ILogger<DirectoryCopier> logger, IFileSystem fileSystem, IOptions<PhotoCopyConfig> options)
     {
-        _fileSystem = fileSystem;
-        _fileOperation = fileOperation;
         _logger = logger;
+        _fileSystem = fileSystem;
+        _config = options.Value;
     }
 
-    /// <summary>
-    /// Copies files from the input folder to the output folder based on options.
-    /// </summary>
-    public void Copy(Options options, IReadOnlyCollection<IValidator> validators)
+    public void Copy(IReadOnlyCollection<IValidator> validators)
     {
-        foreach (var file in _fileSystem.EnumerateFiles(options.Source, options))
+        var files = _fileSystem.EnumerateFiles(_config.Source);
+        var plan = BuildCopyPlan(files, validators);
+
+        if (_config.DryRun)
         {
-            _logger.Log($">> {file.File.FullName}", Options.LogLevel.verbose);
-
-            if (!ShouldCopy(validators, file, options))
-            {
-                continue;
-            }
-
-            var relativePath = GeneratePath(options, file);
-            var fullPath = Path.GetFullPath(relativePath);
-            var newFile = new FileInfo(fullPath);
-
-            if (!ResolveDuplicate(options, file, ref newFile))
-            {
-                continue;
-            }
-
-            var directory = Path.GetDirectoryName(relativePath);
-            if (!options.DryRun && !string.IsNullOrEmpty(directory))
-            {
-                _fileSystem.CreateDirectory(directory);
-            }
-
-            if (options.Mode == Options.OperationMode.move)
-            {
-                _fileOperation.MoveFile(file, newFile.FullName, options.DryRun);
-            }
-            else
-            {
-                _fileOperation.CopyFile(file, newFile.FullName, options.DryRun);
-            }
-
-            _logger.Log(string.Empty, Options.LogLevel.verbose);
+            LogDryRunSummary(plan);
         }
+
+        ExecutePlan(plan);
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    internal bool ShouldCopy(IReadOnlyCollection<IValidator> validators, IFile file, Options options)
+    private CopyPlan BuildCopyPlan(IEnumerable<IFile> files, IReadOnlyCollection<IValidator> validators)
+    {
+        var operations = new List<FileCopyPlan>();
+        var skipped = new List<ValidationFailure>();
+        var directories = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        long totalBytes = 0;
+
+        foreach (var file in files)
+        {
+            var failure = EvaluateValidators(file, validators);
+            if (failure is not null)
+            {
+                skipped.Add(failure);
+                _logger.LogDebug("File {File} skipped by validator {Validator}: {Reason}", file.File.Name, failure.ValidatorName, failure.Reason);
+                continue;
+            }
+
+            var destinationPath = GeneratePath(file);
+            var resolvedPath = ResolveDuplicate(destinationPath);
+            if (resolvedPath is null)
+            {
+                continue;
+            }
+
+            RegisterDirectory(resolvedPath, directories);
+            totalBytes += SafeFileLength(file);
+
+            var relatedPlans = BuildRelatedPlans(file, resolvedPath, directories, ref totalBytes);
+            operations.Add(new FileCopyPlan(file, resolvedPath, relatedPlans));
+        }
+
+        return new CopyPlan(operations, skipped, directories, totalBytes);
+    }
+
+    private ValidationFailure? EvaluateValidators(IFile file, IReadOnlyCollection<IValidator> validators)
     {
         foreach (var validator in validators)
         {
-            if (!validator.Validate(file))
+            var result = validator.Validate(file);
+            if (!result.IsValid)
             {
-                _logger.Log($"\tFiltered by {validator.GetType().Name.Humanize().ToLowerInvariant()}", Options.LogLevel.verbose);
-                return false;
+                return new ValidationFailure(file, result.ValidatorName, result.Reason);
             }
         }
-        return true;
+
+        return null;
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    internal bool ResolveDuplicate(Options options, IFile file, ref FileInfo newFile)
+    private IReadOnlyCollection<RelatedFilePlan> BuildRelatedPlans(
+        IFile file,
+        string primaryDestination,
+        ISet<string> directories,
+        ref long totalBytes)
     {
-        if (!newFile.Exists)
+        if (file is not FileWithMetadata metadata || metadata.RelatedFiles.Count == 0)
         {
-            return true;
+            return Array.Empty<RelatedFilePlan>();
         }
 
-        if (options.SkipExisting)
+        var plans = new List<RelatedFilePlan>();
+        foreach (var related in metadata.RelatedFiles)
         {
-            return false;
+            var relatedDestPath = metadata.GetRelatedPath(primaryDestination, related);
+            RegisterDirectory(relatedDestPath, directories);
+            totalBytes += SafeFileLength(related);
+            plans.Add(new RelatedFilePlan(related, relatedDestPath));
         }
 
-        // Create a GenericFile using newFile info.
-        var newGenericFile = new GenericFile(newFile, new FileDateTime(newFile.CreationTime, DateTimeSource.FileCreation));
+        return plans;
+    }
 
-        if (!options.NoDuplicateSkip && EqualChecksum(file, newGenericFile))
+    private void ExecutePlan(CopyPlan plan)
+    {
+        foreach (var operation in plan.Operations)
         {
-            _logger.Log($"\tDuplicate of {newFile.FullName}", Options.LogLevel.verbose);
-            if (!options.DryRun && options.Mode == Options.OperationMode.move)
+            EnsureDestinationDirectory(operation.DestinationPath);
+            PerformOperation(operation.File, operation.DestinationPath);
+
+            foreach (var related in operation.RelatedFiles)
             {
-                file.File.Delete();
+                EnsureDestinationDirectory(related.DestinationPath);
+                PerformOperation(related.File, related.DestinationPath);
             }
-            return false;
         }
 
-        var number = 0;
-        var originalNewPath = newFile.Name;
+        if (plan.SkippedFiles.Count > 0)
+        {
+            foreach (var failure in plan.SkippedFiles)
+            {
+                _logger.LogInformation(
+                    "Skipped {File} due to validator {Validator}: {Reason}",
+                    failure.File.File.Name,
+                    failure.ValidatorName,
+                    failure.Reason ?? "No reason provided");
+            }
+        }
+    }
+
+    private void PerformOperation(IFile file, string destinationPath)
+    {
+        if (_config.Mode == OperationMode.Move)
+        {
+            if (_config.DryRun)
+            {
+                _logger.LogInformation("DryRun: Move {Source} to {Destination}", file.File.FullName, destinationPath);
+            }
+            else
+            {
+                _fileSystem.MoveFile(file.File.FullName, destinationPath);
+                _logger.LogInformation("Moved {Source} to {Destination}", file.File.FullName, destinationPath);
+            }
+        }
+        else
+        {
+            if (_config.DryRun)
+            {
+                _logger.LogInformation("DryRun: Copy {Source} to {Destination}", file.File.FullName, destinationPath);
+            }
+            else
+            {
+                _fileSystem.CopyFile(file.File.FullName, destinationPath, true);
+                _logger.LogInformation("Copied {Source} to {Destination}", file.File.FullName, destinationPath);
+            }
+        }
+    }
+
+    private void EnsureDestinationDirectory(string destinationPath)
+    {
+        var directory = Path.GetDirectoryName(destinationPath);
+        if (string.IsNullOrWhiteSpace(directory) || _fileSystem.DirectoryExists(directory))
+        {
+            return;
+        }
+
+        if (_config.DryRun)
+        {
+            _logger.LogInformation("DryRun: Create directory {Directory}", directory);
+        }
+        else
+        {
+            _fileSystem.CreateDirectory(directory);
+        }
+    }
+
+    private static void RegisterDirectory(string path, ISet<string> directories)
+    {
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrWhiteSpace(directory))
+        {
+            directories.Add(directory);
+        }
+    }
+
+    private static long SafeFileLength(IFile file)
+    {
         try
         {
-            var directoryPath = newFile.DirectoryName ?? string.Empty;
-            do
-            {
-                number++;
-                newFile = new FileInfo(Path.Combine(directoryPath,
-                    $"{Path.GetFileNameWithoutExtension(originalNewPath)}" +
-                    $"{options.DuplicatesFormat.Replace("{number}", number.ToString())}" +
-                    $"{Path.GetExtension(originalNewPath)}"));
-            } while (newFile.Exists);
+            return file.File.Length;
         }
-        catch (SecurityException e)
+        catch (IOException)
         {
-            _logger.Log(e.Message, Options.LogLevel.errorsOnly);
+            return 0;
         }
-        catch (PathTooLongException e)
+        catch (UnauthorizedAccessException)
         {
-            _logger.Log(e.Message, Options.LogLevel.errorsOnly);
+            return 0;
         }
-        catch (Exception e)
-        {
-            _logger.Log(e.Message, Options.LogLevel.errorsOnly);
-        }
-
-        return true;
     }
 
-    [EditorBrowsable(EditorBrowsableState.Never)]
-    internal string GeneratePath(Options options, IFile source)
+    private void LogDryRunSummary(CopyPlan plan)
     {
-        // Get the directory part relative to source, or empty if in root
-        var relativePath = Path.GetRelativePath(options.Source, source.File.DirectoryName ?? string.Empty);
-        relativePath = relativePath == "." ? string.Empty : relativePath;
+        var primaryCount = plan.Operations.Count;
+        var relatedCount = plan.Operations.Sum(o => o.RelatedFiles.Count);
+        var directories = plan.DirectoriesToCreate.Count;
+        var totalFiles = primaryCount + relatedCount;
 
-        var builder = new StringBuilder(options.Destination)
-            .Replace(Options.DestinationVariables.Year, source.FileDateTime.DateTime.Year.ToString())
-            .Replace(Options.DestinationVariables.Month, source.FileDateTime.DateTime.Month.ToString())
-            .Replace(Options.DestinationVariables.Day, source.FileDateTime.DateTime.Day.ToString())
-            .Replace(Options.DestinationVariables.DayOfYear, source.FileDateTime.DateTime.DayOfYear.ToString())
-            .Replace(Options.DestinationVariables.Directory, relativePath)
-            .Replace(Options.DestinationVariables.Name, source.File.Name)
-            .Replace(Options.DestinationVariables.NameNoExtension, Path.GetFileNameWithoutExtension(source.File.Name))
-            .Replace(Options.DestinationVariables.Extension, source.File.Extension.TrimStart('.'));
+        _logger.LogInformation("DryRun Summary: {Primary} primary files, {Related} related files", primaryCount, relatedCount);
+        _logger.LogInformation("DryRun Summary: {Directories} directories to create", directories);
+        _logger.LogInformation("DryRun Summary: Total bytes {Bytes} ({Readable})", plan.TotalBytes, FormatBytes(plan.TotalBytes));
 
-        return builder.ToString();
+        if (plan.SkippedFiles.Count > 0)
+        {
+            _logger.LogInformation("DryRun Summary: {Skipped} files skipped by validators", plan.SkippedFiles.Count);
+        }
+        else
+        {
+            _logger.LogInformation("DryRun Summary: No files skipped by validators");
+        }
     }
 
-    /// <summary>
-    /// Checks if the checksums for two files are identical.
-    /// </summary>
-    private bool EqualChecksum(IFile fileA, IFile fileB)
+    private static string FormatBytes(long bytes)
     {
-        return fileA.File.Length == fileB.File.Length && fileA.Checksum == fileB.Checksum;
+        if (bytes <= 0)
+        {
+            return "0 B";
+        }
+
+        string[] units = { "B", "KB", "MB", "GB", "TB" };
+        var unitIndex = (int)Math.Floor(Math.Log(bytes, 1024));
+        unitIndex = Math.Clamp(unitIndex, 0, units.Length - 1);
+        var adjusted = bytes / Math.Pow(1024, unitIndex);
+        return $"{adjusted:0.##} {units[unitIndex]}";
+    }
+
+    public string? ResolveDuplicate(string destinationPath)
+    {
+        if (!_fileSystem.FileExists(destinationPath))
+        {
+            return destinationPath;
+        }
+
+        if (_config.SkipExisting)
+        {
+            _logger.LogInformation("Skipping existing file: {DestinationPath}", destinationPath);
+            return null;
+        }
+
+        if (_config.Overwrite)
+        {
+            _logger.LogInformation("Overwriting existing file: {DestinationPath}", destinationPath);
+            return destinationPath;
+        }
+
+        string? directory = Path.GetDirectoryName(destinationPath);
+        string filenameWithoutExt = Path.GetFileNameWithoutExtension(destinationPath);
+        string extension = Path.GetExtension(destinationPath);
+        
+        int counter = 1;
+        string newPath;
+        
+        do
+        {
+            string suffixFormat = _config.DuplicatesFormat.Replace("{number}", counter.ToString());
+            string newFilename = $"{filenameWithoutExt}{suffixFormat}{extension}";
+            newPath = Path.Combine(directory ?? string.Empty, newFilename);
+            counter++;
+        } while (_fileSystem.FileExists(newPath));
+        
+        _logger.LogInformation("Using new path for duplicate: {NewPath}", newPath);
+        return newPath;
+    }
+
+    public string GeneratePath(IFile file)
+    {
+        var destPath = _config.Destination ?? string.Empty;
+
+        destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Year, file.FileDateTime.DateTime.Year.ToString());
+        destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Month, file.FileDateTime.DateTime.Month.ToString("00"));
+        destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Day, file.FileDateTime.DateTime.Day.ToString("00"));
+
+        if (file.Location != null)
+        {
+            destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.City, file.Location.City ?? "Unknown");
+            destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.State, file.Location.State ?? "Unknown");
+            destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Country, file.Location.Country ?? "Unknown");
+        }
+        else
+        {
+            destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.City, "Unknown");
+            destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.State, "Unknown");
+            destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Country, "Unknown");
+        }
+
+        string directory;
+        try 
+        {
+            directory = !string.IsNullOrEmpty(_config.Source) 
+                ? Path.GetRelativePath(_config.Source, Path.GetDirectoryName(file.File.FullName) ?? string.Empty) 
+                : string.Empty;
+        }
+        catch (ArgumentException)
+        {
+            directory = Path.GetDirectoryName(file.File.Name) ?? string.Empty;
+        }
+        
+        destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Directory, directory);
+
+        var name = Path.GetFileNameWithoutExtension(file.File.Name);
+        var ext = Path.GetExtension(file.File.Name);
+
+        destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Name, name);
+        destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.NameNoExtension, name);
+        destPath = destPath.Replace(PhotoCopy.Options.DestinationVariables.Extension, ext);
+        destPath = destPath.Replace("{filename}", file.File.Name);
+
+        return destPath;
     }
 }

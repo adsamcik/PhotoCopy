@@ -2,92 +2,106 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PhotoCopy.Abstractions;
+using PhotoCopy.Configuration;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
-using MetadataExtractor.Formats.QuickTime;
 
 namespace PhotoCopy.Files;
 
-internal static class FileMetadataExtractor
+public class FileMetadataExtractor : IFileMetadataExtractor
 {
-    private static readonly (
-        System.Func<IReadOnlyList<MetadataExtractor.Directory>,
-            MetadataExtractor.Directory>, int[]
-        )[]
-        DirectoryArray =
-        [
-            (list => list.OfType<ExifDirectoryBase>().FirstOrDefault(),
-                [
-                    ExifDirectoryBase.TagDateTime,
-                    ExifDirectoryBase.TagDateTimeOriginal,
-                    ExifDirectoryBase.TagDateTimeDigitized,
-                ]),
-            (list => list.OfType<ExifSubIfdDirectory>().FirstOrDefault(), [
-                    ExifDirectoryBase.TagDateTime,
-                    ExifDirectoryBase.TagDateTimeOriginal,
-                    ExifDirectoryBase.TagDateTimeDigitized,
-            ]),
-            (list => list.OfType<QuickTimeTrackHeaderDirectory>().FirstOrDefault(),
-                [QuickTimeTrackHeaderDirectory.TagCreated]),
-            (list => list.OfType<QuickTimeMovieHeaderDirectory>().FirstOrDefault(),
-                [QuickTimeMovieHeaderDirectory.TagCreated]),
-        ];
+    private readonly ILogger<FileMetadataExtractor> _logger;
+    private readonly PhotoCopyConfig _config;
 
-    public static FileDateTime GetDateTime(FileSystemInfo file)
+    public FileMetadataExtractor(ILogger<FileMetadataExtractor> logger, IOptions<PhotoCopyConfig> config)
     {
+        _logger = logger;
+        _config = config.Value;
+    }
+    
+    public FileDateTime GetDateTime(FileInfo file)
+    {
+        DateTime created = file.CreationTime;
+        DateTime modified = file.LastWriteTime;
+        DateTime taken = default;
+        
+        try
+        {
+            taken = GetDateTakenFromExif(file);
+        }
+        catch (Exception ex)
+        {
+            if (_config.LogLevel == OutputLevel.Verbose)
+            {
+                _logger.LogWarning("Error extracting metadata from {FileName}: {Message}", file.Name, ex.Message);
+            }
+        }
+        
+        return new FileDateTime(created, modified, taken);
+    }
+    
+    public (double Latitude, double Longitude)? GetCoordinates(FileInfo file)
+    {
+        if (!IsImage(file.Extension))
+        {
+            return null;
+        }
+
         try
         {
             var directories = ImageMetadataReader.ReadMetadata(file.FullName);
-            foreach (var tagRequest in DirectoryArray)
+            var gpsDirectory = directories.OfType<GpsDirectory>().FirstOrDefault();
+            
+            if (gpsDirectory != null && gpsDirectory.TryGetGeoLocation(out var location) && !location.IsZero)
             {
-                var directory = tagRequest.Item1(directories);
-
-                if (directory == default)
-                {
-                    continue;
-                }
-
-                foreach (var tag in tagRequest.Item2)
-                {
-                    if (directory.TryGetDateTime(tag, out var exifTime))
-                    {
-                        return new FileDateTime
-                        {
-                            DateTime = exifTime,
-                            DateTimeSource = DateTimeSource.Exif
-                        };
-                    }
-                }
+                return (location.Latitude, location.Longitude);
             }
         }
-        catch (ImageProcessingException e)
+        catch (Exception ex)
         {
-            if (e.Message != "File format could not be determined")
+            if (_config.LogLevel == OutputLevel.Verbose)
             {
-                Log.Print($"{file.FullName} --- {e.Message}", Options.LogLevel.errorsOnly);
+                _logger.LogWarning("Error extracting coordinates from {FileName}: {Message}", file.Name, ex.Message);
             }
-
-            // do nothing
-        }
-        catch (Exception e)
-        {
-            Log.Print($"{file.FullName} --- Fatal error encountered while reading metadata. {e.Message}", Options.LogLevel.errorsOnly);
         }
 
-        // Assume creation was overwritten
-        if (file.CreationTime > file.LastWriteTime)
+        return null;
+    }
+
+    private DateTime GetDateTakenFromExif(FileInfo file)
+    {
+        if (!IsImage(file.Extension))
         {
-            return new FileDateTime
+            return default;
+        }
+        
+        try
+        {
+            var directories = ImageMetadataReader.ReadMetadata(file.FullName);
+            var subIfdDirectory = directories.OfType<ExifSubIfdDirectory>().FirstOrDefault();
+            
+            if (subIfdDirectory != null && subIfdDirectory.TryGetDateTime(ExifDirectoryBase.TagDateTimeOriginal, out var dateTaken))
             {
-                DateTime = file.LastWriteTime,
-                DateTimeSource = DateTimeSource.FileModification
-            };
+                return dateTaken;
+            }
+            
+            return default;
         }
-
-        return new FileDateTime
+        catch (Exception ex)
         {
-            DateTime = file.CreationTime,
-            DateTimeSource = DateTimeSource.FileCreation
-        };
+            if (_config.LogLevel == OutputLevel.Verbose)
+            {
+                _logger.LogWarning("Error extracting date from {FileName}: {Message}", file.Name, ex.Message);
+            }
+            return default;
+        }
+    }
+    
+    private bool IsImage(string extension)
+    {
+        return _config.AllowedExtensions.Contains(extension);
     }
 }

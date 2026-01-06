@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Xunit;
 
 namespace PhotoCopy.Tests.Validators;
 
@@ -16,23 +17,17 @@ public class MinDateValidatorTests
     {
         // Arrange
         var minDate = new DateTime(2023, 1, 1);
-        var options = new Options
-        {
-            Source = "dummy",
-            Destination = "dummy",
-            MinDate = minDate
-        };
-
-        var validator = new MinDateValidator(options);
+        var validator = new MinDateValidator(minDate);
 
         var file = Substitute.For<IFile>();
-        file.FileDateTime.Returns(new FileDateTime(new DateTime(2023, 1, 2), DateTimeSource.Exif));
+        var testDate = new DateTime(2023, 1, 2);
+        file.FileDateTime.Returns(new FileDateTime(testDate, testDate, testDate));
 
         // Act
-        bool result = validator.Validate(file);
+        var result = validator.Validate(file);
 
         // Assert
-        Assert.True(result);
+        Assert.True(result.IsValid);
     }
 
     [Fact]
@@ -40,23 +35,17 @@ public class MinDateValidatorTests
     {
         // Arrange
         var minDate = new DateTime(2023, 1, 1);
-        var options = new Options
-        {
-            Source = "dummy",
-            Destination = "dummy",
-            MinDate = minDate
-        };
-
-        var validator = new MinDateValidator(options);
+        var validator = new MinDateValidator(minDate);
 
         var file = Substitute.For<IFile>();
-        file.FileDateTime.Returns(new FileDateTime(new DateTime(2023, 1, 1), DateTimeSource.Exif));
+        var testDate = new DateTime(2023, 1, 1);
+        file.FileDateTime.Returns(new FileDateTime(testDate, testDate, testDate));
 
         // Act
-        bool result = validator.Validate(file);
+        var result = validator.Validate(file);
 
         // Assert
-        Assert.True(result);
+        Assert.True(result.IsValid);
     }
 
     [Fact]
@@ -64,22 +53,18 @@ public class MinDateValidatorTests
     {
         // Arrange
         var minDate = new DateTime(2023, 1, 1);
-        var options = new Options
-        {
-            Source = "dummy",
-            Destination = "dummy",
-            MinDate = minDate
-        };
-
-        var validator = new MinDateValidator(options);
+        var validator = new MinDateValidator(minDate);
 
         var file = Substitute.For<IFile>();
-        file.FileDateTime.Returns(new FileDateTime(new DateTime(2022, 12, 31), DateTimeSource.Exif));
+        var testDate = new DateTime(2022, 12, 31);
+        file.FileDateTime.Returns(new FileDateTime(testDate, testDate, testDate));
 
         // Act
-        bool result = validator.Validate(file);
+        var result = validator.Validate(file);
 
         // Assert
-        Assert.False(result);
+        Assert.False(result.IsValid);
+        Assert.Equal(nameof(MinDateValidator), result.ValidatorName);
+        Assert.Contains("earlier", result.Reason, StringComparison.OrdinalIgnoreCase);
     }
 }

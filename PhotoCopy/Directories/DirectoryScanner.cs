@@ -1,125 +1,64 @@
-﻿using PhotoCopy;
-using PhotoCopy.Files;
-using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using PhotoCopy.Files;
+using PhotoCopy.Abstractions;
+using PhotoCopy.Configuration;
 
-internal static class DirectoryScanner
+namespace PhotoCopy.Directories;
+
+public class DirectoryScanner : IDirectoryScanner
 {
-    public static IEnumerable<IFile> EnumerateFiles(string rootDir, Options options)
+    private readonly ILogger<DirectoryScanner> _logger;
+    private readonly PhotoCopyConfig _config;
+    private readonly IFileFactory _fileFactory;
+
+    public DirectoryScanner(
+        ILogger<DirectoryScanner> logger,
+        IOptions<PhotoCopyConfig> config,
+        IFileFactory fileFactory)
     {
-        Stack<string> dirStack = new Stack<string>();
-        if (Directory.Exists(rootDir))
-        {
-            dirStack.Push(rootDir);
-        }
-
-        while (dirStack.Count > 0)
-        {
-            string directory = dirStack.Pop();
-            Log.Print($"Processing directory {directory}", Options.LogLevel.verbose);
-
-            foreach (IFile file in ProcessDirectory(directory, options))
-            {
-                yield return file;
-            }
-
-            // Push subdirectories onto the stack for depth-first traversal
-            foreach (string subdirectory in Directory.GetDirectories(directory))
-            {
-                dirStack.Push(subdirectory);
-            }
-        }
+        _logger = logger;
+        _config = config.Value;
+        _fileFactory = fileFactory;
     }
 
-    private static IEnumerable<IFile> ProcessDirectory(string directory, Options options)
+    public IEnumerable<IFile> EnumerateFiles(string path)
     {
-        IEnumerable<FileInfo> files;
-        try
+        if (!Directory.Exists(path))
         {
-            files = System.IO.Directory.EnumerateFiles(directory).Select(path => new FileInfo(path));
-        }
-        catch (DirectoryNotFoundException e)
-        {
-            Log.Print($"Source {e.Message} does not exist", Options.LogLevel.errorsOnly);
-            yield break; // Exit if directory is not found
+            _logger.LogError("Directory {Path} does not exist", path);
+            return new List<IFile>();
         }
 
-        // Load generic files once per directory, if needed
-        List<GenericFile> genericFiles = options.RelatedFileMode != Options.RelatedFileLookup.none
-            ? LoadGenericFiles(directory)
-            : null;
-
-        foreach (FileInfo file in files)
+        var files = new List<IFile>();
+        foreach (var file in Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories))
         {
-            IFile processedFile = ProcessFile(file, genericFiles, options);
-            if (processedFile != null)
+            var fileInfo = new FileInfo(file);
+            var fileObj = _fileFactory.Create(fileInfo);
+            files.Add(fileObj);
+        }
+
+        // Group files by their directory
+        var filesByDirectory = files.GroupBy(f => Path.GetDirectoryName(f.File.FullName));
+
+        // For each directory
+        foreach (var directoryGroup in filesByDirectory)
+        {
+            var allFilesInDir = directoryGroup.ToList();
+
+            // Add related files to each photo
+            foreach (var file in allFilesInDir)
             {
-                yield return processedFile;
+                if (file is FileWithMetadata metadata)
+                {
+                    metadata.AddRelatedFiles(allFilesInDir, _config.RelatedFileMode);
+                }
             }
         }
 
-        Log.Print("Finished processing directory", Options.LogLevel.verbose);
-    }
-
-    private static IFile ProcessFile(FileInfo file, List<GenericFile> genericFiles, Options options)
-    {
-        try
-        {
-            FileDateTime dateTime = FileMetadataExtractor.GetDateTime(file);
-
-            if (dateTime.DateTimeSource == DateTimeSource.Exif)
-            {
-                return ProcessPhotoFile(file, dateTime, genericFiles, options);
-            }
-            else
-            {
-                return ProcessGenericFile(file, dateTime, genericFiles, options);
-            }
-        }
-        catch (Exception e)
-        {
-            Log.Print($"Error processing file {file.FullName}: {e.Message}", Options.LogLevel.errorsOnly);
-            return null; // Skip the file if there's an error
-        }
-    }
-
-
-    private static FileWithMetadata ProcessPhotoFile(FileInfo file, FileDateTime dateTime, List<GenericFile> genericFiles, Options options)
-    {
-        FileWithMetadata photoFile = new FileWithMetadata(file, dateTime);
-
-        if (options.RelatedFileMode != Options.RelatedFileLookup.none && genericFiles != null)
-        {
-            photoFile.AddRelatedFiles(genericFiles, options.RelatedFileMode);
-        }
-
-        return photoFile;
-    }
-
-    private static GenericFile ProcessGenericFile(FileInfo file, FileDateTime dateTime, List<GenericFile> genericFiles, Options options)
-    {
-        if (options.RequireExif)
-        {
-            Log.Print($"File {file.FullName} has no date in EXIF, skipping.", Options.LogLevel.important);
-            return null;
-        }
-
-        GenericFile genericFile = new(file, dateTime);
-        Log.Print($"File {file.FullName} has no date in EXIF, defaulting to file {dateTime.DateTimeSource} time.", Options.LogLevel.important);
-
-        genericFiles?.Add(genericFile);
-
-        return genericFile;
-    }
-
-    private static List<GenericFile> LoadGenericFiles(string directory)
-    {
-        IEnumerable<FileInfo> files = System.IO.Directory.EnumerateFiles(directory)
-            .Select(f => new FileInfo(f))
-            .Where(f => FileMetadataExtractor.GetDateTime(f).DateTimeSource != DateTimeSource.Exif);
-
-        return files.Select(f => new GenericFile(f, FileMetadataExtractor.GetDateTime(f))).ToList();
+        return files;
     }
 }

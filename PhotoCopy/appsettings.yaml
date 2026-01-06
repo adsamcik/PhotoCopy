@@ -1,0 +1,8 @@
+photoCopy:
+  source: ""
+  destination: ""
+  dryRun: false
+  logLevel: Information
+  relatedFileMode: None
+  minDate: null
+  maxDate: null

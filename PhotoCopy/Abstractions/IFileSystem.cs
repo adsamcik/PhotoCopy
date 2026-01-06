@@ -1,15 +1,17 @@
-﻿using PhotoCopy.Files;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.IO;
+using PhotoCopy.Files;
 
 namespace PhotoCopy.Abstractions;
 
-internal interface IFileSystem
+public interface IFileSystem
 {
-    IEnumerable<IFile> EnumerateFiles(string source, Options options);
-    void CreateDirectory(string directoryPath);
-    bool DirectoryExists(string directoryPath);
+    bool DirectoryExists(string path);
+    bool FileExists(string path);
+    void CreateDirectory(string path);
+    void CopyFile(string source, string destination, bool overwrite = false);
+    void MoveFile(string source, string destination);
+    FileInfo GetFileInfo(string path);
+    DirectoryInfo GetDirectoryInfo(string path);
+    IEnumerable<IFile> EnumerateFiles(string directory);
 }

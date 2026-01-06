@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="PhotoCopy\PhotoCopy.csproj" />
+  <Project Path="PhotoCopy.Tests\PhotoCopy.Tests.csproj" />
+</Solution>

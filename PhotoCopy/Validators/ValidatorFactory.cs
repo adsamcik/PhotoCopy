@@ -1,23 +1,34 @@
 ﻿using System.Collections.Generic;
+using Microsoft.Extensions.Logging;
+using PhotoCopy.Configuration;
 
 namespace PhotoCopy.Validators;
 
-internal class ValidatorFactory : IValidatorFactory
+public class ValidatorFactory : IValidatorFactory
 {
+    private readonly ILogger _logger;
 
-    public IReadOnlyCollection<IValidator> Create(Options options)
+    public ValidatorFactory(ILogger<ValidatorFactory> logger)
     {
-        var filters = new List<IValidator>();
-        if (options.MaxDate.HasValue)
+        _logger = logger;
+    }
+
+    public IReadOnlyCollection<IValidator> Create(PhotoCopyConfig config)
+    {
+        var validators = new List<IValidator>();
+
+        if (config.MaxDate.HasValue)
         {
-            filters.Add(new MaxDateValidator(options));
+            _logger.LogDebug("Creating MaxDateValidator with date {MaxDate}", config.MaxDate.Value);
+            validators.Add(new MaxDateValidator(config.MaxDate.Value));
         }
 
-        if (options.MinDate.HasValue)
+        if (config.MinDate.HasValue)
         {
-            filters.Add(new MinDateValidator(options));
+            _logger.LogDebug("Creating MinDateValidator with date {MinDate}", config.MinDate.Value);
+            validators.Add(new MinDateValidator(config.MinDate.Value));
         }
 
-        return filters;
+        return validators;
     }
 }

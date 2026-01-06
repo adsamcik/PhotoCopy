@@ -1,20 +1,46 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Xunit;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NSubstitute;
+using PhotoCopy.Files;
+using PhotoCopy.Abstractions;
+using PhotoCopy.Directories;
+using PhotoCopy.Configuration;
+using Xunit;
 
 namespace PhotoCopy.Tests.Directories;
 
-public class DirectoryScannerTests : IClassFixture<ApplicationStateFixture>
+public class DirectoryScannerTests
 {
-    private readonly ApplicationStateFixture _fixture;
+    private readonly IDirectoryScanner _scanner;
+    private readonly IOptions<PhotoCopyConfig> _options;
+    private readonly ILogger<DirectoryScanner> _logger;
+    private readonly IFileFactory _fileFactory;
 
-    public DirectoryScannerTests(ApplicationStateFixture fixture)
+    public DirectoryScannerTests()
     {
-        _fixture = fixture;
-        ApplicationState.Options = new Options();
+        _logger = Substitute.For<ILogger<DirectoryScanner>>();
+        _options = Substitute.For<IOptions<PhotoCopyConfig>>();
+        _options.Value.Returns(new PhotoCopyConfig
+        {
+            Source = "test-source",
+            Destination = "test-destination",
+            RelatedFileMode = RelatedFileLookup.None
+        });
+        
+        _fileFactory = Substitute.For<IFileFactory>();
+        _fileFactory.Create(Arg.Any<FileInfo>()).Returns(callInfo => 
+        {
+            var fi = callInfo.Arg<FileInfo>();
+            var dt = new FileDateTime(fi.CreationTime, DateTimeSource.FileCreation);
+            return new GenericFile(fi, dt);
+        });
+
+        // Create scanner directly
+        _scanner = new DirectoryScanner(_logger, _options, _fileFactory);
     }
 
     [Fact]
@@ -24,8 +50,13 @@ public class DirectoryScannerTests : IClassFixture<ApplicationStateFixture>
         var tempDirectory = Path.Combine(Path.GetTempPath(), "DirectoryScannerTests", "Input");
         var subDirectory = Path.Combine(tempDirectory, "SubDir");
 
-        System.IO.Directory.CreateDirectory(tempDirectory);
-        System.IO.Directory.CreateDirectory(subDirectory);
+        if (Directory.Exists(tempDirectory))
+        {
+            Directory.Delete(tempDirectory, true);
+        }
+
+        Directory.CreateDirectory(tempDirectory);
+        Directory.CreateDirectory(subDirectory);
 
         var filePath1 = Path.Combine(tempDirectory, "file1.jpg");
         var filePath2 = Path.Combine(subDirectory, "file2.jpg");
@@ -33,15 +64,10 @@ public class DirectoryScannerTests : IClassFixture<ApplicationStateFixture>
         File.WriteAllText(filePath1, "File1 content");
         File.WriteAllText(filePath2, "File2 content");
 
-        var options = new Options
-        {
-            RelatedFileMode = Options.RelatedFileLookup.none
-        };
-
         try
         {
             // Act
-            var files = DirectoryScanner.EnumerateFiles(tempDirectory, options);
+            var files = _scanner.EnumerateFiles(tempDirectory);
 
             // Assert
             var fileList = files.ToList();
@@ -52,7 +78,10 @@ public class DirectoryScannerTests : IClassFixture<ApplicationStateFixture>
         finally
         {
             // Cleanup
-            System.IO.Directory.Delete(tempDirectory, recursive: true);
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
         }
     }
 
@@ -61,13 +90,9 @@ public class DirectoryScannerTests : IClassFixture<ApplicationStateFixture>
     {
         // Arrange
         var nonExistentDirectory = Path.Combine(Path.GetTempPath(), "DirectoryScannerTests", "NonExistentDirectory");
-        var options = new Options
-        {
-            RelatedFileMode = Options.RelatedFileLookup.none
-        };
 
         // Act
-        var files = DirectoryScanner.EnumerateFiles(nonExistentDirectory, options);
+        var files = _scanner.EnumerateFiles(nonExistentDirectory);
 
         // Assert
         files.Should().BeEmpty();

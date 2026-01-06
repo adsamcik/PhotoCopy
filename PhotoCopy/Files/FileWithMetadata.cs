@@ -1,80 +1,148 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using Microsoft.Extensions.Logging;
+using PhotoCopy.Configuration;
 
 namespace PhotoCopy.Files;
 
-internal record class FileWithMetadata(FileInfo File, FileDateTime DateTime) : GenericFile(File, DateTime)
+public class FileWithMetadata : IFile
 {
-    public IReadOnlyList<RelatedFile> RelatedFileList => _relatedFileList;
+    private readonly ILogger _logger;
+    private readonly List<IFile> _relatedFiles = new List<IFile>();
 
-    private readonly List<RelatedFile> _relatedFileList = [];
+    public FileInfo File { get; }
+    public FileDateTime FileDateTime { get; }
+    public LocationData? Location { get; set; }
+    public string Checksum { get; private set; } = string.Empty;
+    
+    public IReadOnlyCollection<IFile> RelatedFiles => _relatedFiles;
 
-    public void AddRelatedFiles<TFile>(List<TFile> fileList, Options.RelatedFileLookup mode)
-        where TFile : IFile
+    public FileWithMetadata(FileInfo file, FileDateTime fileDateTime, ILogger logger)
     {
-        if (mode == Options.RelatedFileLookup.none)
+        File = file;
+        FileDateTime = fileDateTime;
+        _logger = logger;
+    }
+
+    public void AddRelatedFiles(IEnumerable<IFile> files, RelatedFileLookup relatedFileLookup)
+    {
+        if (relatedFileLookup == RelatedFileLookup.None)
         {
             return;
         }
 
-        for (var i = 0; i < fileList.Count; i++)
-        {
-            var file = fileList[i].File;
-            var found = false;
+        var mainFileWithoutExt = Path.GetFileNameWithoutExtension(File.Name);
 
-            switch (mode)
+        foreach (var related in files)
+        {
+            // Skip files that are null or have null properties
+            if (related?.File?.Name == null)
             {
-                case Options.RelatedFileLookup.strict:
-                    found = file.FullName.StartsWith(File.FullName);
-                    break;
-                case Options.RelatedFileLookup.loose:
-                    // In loose mode, check if the file name (without path) starts with our file name
-                    var otherFileName = Path.GetFileName(file.FullName);
-                    found = otherFileName.StartsWith(Path.GetFileNameWithoutExtension(File.Name));
-                    break;
+                continue;
             }
 
-            if (found)
+            var relatedFile = related.File.Name;
+            var relatedBaseName = Path.GetFileNameWithoutExtension(relatedFile);
+
+            // Skip if it's the same file
+            if (relatedFile.Equals(File.Name, StringComparison.OrdinalIgnoreCase))
             {
-                Log.Print($"Found related file {file.FullName} to file {File.FullName}", Options.LogLevel.verbose);
-                var extension = mode == Options.RelatedFileLookup.strict 
-                    ? file.FullName.Remove(0, File.FullName.Length)
-                    : Path.GetExtension(file.FullName);
-                _relatedFileList.Add(new RelatedFile(file, FileDateTime, extension));
-                fileList.RemoveAt(i);
-                i--;
+                continue;
+            }
+
+            bool isRelated;
+            if (relatedFileLookup == RelatedFileLookup.Strict)
+            {
+                // In strict mode, check if the related file name starts with the main file name
+                // and adds either a dot or underscore - common patterns for related files
+                isRelated = relatedFile.StartsWith(mainFileWithoutExt + ".", StringComparison.OrdinalIgnoreCase) ||
+                            relatedFile.StartsWith(mainFileWithoutExt + "_", StringComparison.OrdinalIgnoreCase) || 
+                            relatedBaseName.Equals(mainFileWithoutExt, StringComparison.OrdinalIgnoreCase);
+            }
+            else if (relatedFileLookup == RelatedFileLookup.Loose)
+            {
+                // In loose mode, check if the related file name simply starts with the main file name
+                isRelated = relatedBaseName.StartsWith(mainFileWithoutExt, StringComparison.OrdinalIgnoreCase);
+            }
+            else
+            {
+                isRelated = false;
+            }
+
+            if (isRelated)
+            {
+                _logger.LogInformation("Found related file: {RelatedFile} for {MainFile}", relatedFile, File.Name);
+                _relatedFiles.Add(related);
             }
         }
     }
 
-    public override void CopyTo(string newPath, bool isDryRun)
+    public string GetRelatedPath(string mainDestinationPath, IFile relatedFile)
     {
-        base.CopyTo(newPath, isDryRun);
-        foreach (var relatedFile in _relatedFileList)
+        // Get the destination directory
+        var directory = Path.GetDirectoryName(mainDestinationPath) ?? string.Empty;
+        
+        // For simple case "photo.jpg.xmp" - just use the original name with the new destination directory
+        if (relatedFile.File.Name == Path.GetFileNameWithoutExtension(File.Name) + File.Extension + Path.GetExtension(relatedFile.File.Name))
         {
-            relatedFile.CopyTo(newPath, isDryRun);
+            // For file patterns like "photo.jpg.xmp"
+            return Path.Combine(directory, Path.GetFileName(mainDestinationPath) + Path.GetExtension(relatedFile.File.Name));
+        }
+        
+        // For other patterns, just replace the base name with the new destination base name
+        var mainFileNameWithoutExt = Path.GetFileNameWithoutExtension(mainDestinationPath);
+        var relatedFileNameWithoutExt = Path.GetFileNameWithoutExtension(relatedFile.File.Name);
+        
+        if (relatedFileNameWithoutExt.StartsWith(Path.GetFileNameWithoutExtension(File.Name)))
+        {
+            // Get the suffix after the base name (if any)
+            var suffix = relatedFileNameWithoutExt.Substring(Path.GetFileNameWithoutExtension(File.Name).Length);
+            var relatedExtension = Path.GetExtension(relatedFile.File.Name);
+            
+            return Path.Combine(directory, mainFileNameWithoutExt + suffix + relatedExtension);
+        }
+        
+        // Default case - just use the same extension
+        return Path.Combine(directory, mainFileNameWithoutExt + Path.GetExtension(relatedFile.File.Name));
+    }
+
+    public void CopyTo(string destinationPath, bool isDryRun = false)
+    {
+        _logger.LogInformation("Copying {FileName} -> {DestinationPath}", File.Name, destinationPath);
+        if (!isDryRun)
+        {
+            // Ensure destination directory exists
+            string? directory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            File.CopyTo(destinationPath, true); // Overwrite if exists
         }
     }
 
-    public override void MoveTo(string newPath, bool isDryRun)
+    public void MoveTo(string destinationPath, bool isDryRun = false)
     {
-        base.MoveTo(newPath, isDryRun);
-        foreach (var relatedFile in _relatedFileList)
+        _logger.LogInformation("Moving {FileName} -> {DestinationPath}", File.Name, destinationPath);
+        if (!isDryRun)
         {
-            relatedFile.MoveTo(newPath, isDryRun);
+            // Ensure destination directory exists
+            string? directory = Path.GetDirectoryName(destinationPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+            File.MoveTo(destinationPath, true); // Overwrite if exists
         }
     }
 
-    public record class RelatedFile(FileInfo File, FileDateTime DateTime, string Extension) : GenericFile(File, DateTime)
+    public void SetChecksum(string checksum)
     {
-        public override void CopyTo(string newPath, bool isDryRun)
+        if (!string.IsNullOrWhiteSpace(checksum))
         {
-            base.CopyTo(newPath + Extension, isDryRun);
-        }
-
-        public override void MoveTo(string newPath, bool isDryRun)
-        {
-            base.MoveTo(newPath + Extension, isDryRun);
+            Checksum = checksum;
         }
     }
 }

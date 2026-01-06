@@ -1,5 +1,6 @@
-﻿using CommandLine;
-using System;
+﻿using System;
+using CommandLine;
+using PhotoCopy.Configuration;
 
 namespace PhotoCopy;
 
@@ -8,82 +9,73 @@ namespace PhotoCopy;
 /// </summary>
 public class Options
 {
-    public enum OperationMode
-    {
-        move,
-        copy,
-    }
+    [Option('s', "source", Required = false, HelpText = "Source folder to scan for files")]
+    public string? Source { get; set; }
 
+    [Option('d', "destination", Required = false, HelpText = "Destination path pattern")]
+    public string? Destination { get; set; }
 
-    public enum LogLevel
-    {
-        verbose,
-        important,
-        errorsOnly
-    }
+    [Option('n', "dry-run", Required = false, HelpText = "Don't actually copy/move files")]
+    public bool? DryRun { get; set; }
 
-    public enum RelatedFileLookup
-    {
-        none,
-        strict,
-        loose
-    }
+    [Option('e', "skip-existing", Required = false, HelpText = "Skip files that already exist")]
+    public bool? SkipExisting { get; set; }
+
+    [Option('o', "overwrite", Required = false, HelpText = "Overwrite existing files")]
+    public bool? Overwrite { get; set; }
+
+    [Option('k', "no-duplicate-skip", Required = false, HelpText = "Don't skip duplicate files")]
+    public bool? NoDuplicateSkip { get; set; }
+
+    [Option('m', "mode", Required = false, HelpText = "Operation mode (copy/move)")]
+    public OperationMode? Mode { get; set; }
+
+    [Option('l', "log-level", Required = false, HelpText = "Log level (verbose/important/errorsOnly)")]
+    public OutputLevel? LogLevel { get; set; }
+
+    [Option('r', "related-file-mode", Required = false, HelpText = "Related file lookup mode (none/strict/loose)")]
+    public RelatedFileLookup? RelatedFileMode { get; set; }
+
+    [Option('f', "duplicates-format", Required = false, HelpText = "Format for duplicate files")]
+    public string? DuplicatesFormat { get; set; }
+    
+    [Option("min-date", Required = false, HelpText = "Minimum date for files to process")]
+    public DateTime? MinDate { get; set; }
+    
+    [Option("max-date", Required = false, HelpText = "Maximum date for files to process")]
+    public DateTime? MaxDate { get; set; }
+
+    [Option("geonames-path", Required = false, HelpText = "Path to the GeoNames cities500.txt or cities1000.txt file")]
+    public string? GeonamesPath { get; set; }
+
+    [Option("config", Required = false, HelpText = "Path to configuration file (yaml/json)")]
+    public string? ConfigPath { get; set; }
+
+    [Option("calculate-checksums", Required = false, HelpText = "Enable or disable checksum calculation during metadata enrichment")]
+    public bool? CalculateChecksums { get; set; }
+
+    [Option('p', "parallelism", Required = false, HelpText = "Maximum degree of parallelism for file operations (default: number of processors)")]
+    public int? Parallelism { get; set; }
+
+    [Option("show-progress", Required = false, HelpText = "Show progress reporting during operations")]
+    public bool? ShowProgress { get; set; }
+
+    [Option("async", Required = false, HelpText = "Use asynchronous parallel processing")]
+    public bool? UseAsync { get; set; }
 
     public static class DestinationVariables
     {
         public const string Year = "{year}";
         public const string Month = "{month}";
         public const string Day = "{day}";
-        public const string DayOfYear = "{dayOfYear}";
         public const string Name = "{name}";
-        public const string NameNoExtension = "{nameNoExtension}";
+        public const string NameNoExtension = "{namenoext}";
+        public const string Extension = "{ext}";
         public const string Directory = "{directory}";
-        public const string Extension = "{extension}";
+        public const string Number = "{number}";
+        public const string City = "{city}";
+        public const string State = "{state}";
+        public const string Country = "{country}";
     }
-
-    [Option('i', "input", Required = true, HelpText = "Path to a source directory, which will be scanned for files.")]
-    public string Source { get; set; }
-
-    [Option('o', "output", Required = true,
-        HelpText =
-            "Destination path for the operation. Determines the final path files have. Supported variables (case-sensitive): " + DestinationVariables.Year + ", " +
-            DestinationVariables.Month + ", " + DestinationVariables.Day +
-            ", " + DestinationVariables.DayOfYear + ", " + DestinationVariables.Directory + ", " +
-            DestinationVariables.Name + ", " + DestinationVariables.NameNoExtension + ", " + DestinationVariables.Extension)]
-    public string Destination { get; set; }
-
-    [Option('d', "dry", Required = false,
-        HelpText = "Only prints what will happen without actually doing it. It is recommended to combine it with log level verbose.")]
-    public bool DryRun { get; set; }
-
-    [Option('m', "mode", Required = false, Default = OperationMode.copy,
-        HelpText = "Operation mode. Available modes: copy, move")]
-    public OperationMode Mode { get; set; }
-
-    [Option('l', "logLevel", Required = false, Default = LogLevel.important,
-        HelpText = "Determines how much information is printed on the screen. Options: verbose, important, errorsOnly")]
-    public LogLevel Log { get; set; }
-
-    [Option("no-skip-duplicate", Required = false,
-        HelpText = "Disables duplicate skipping.")]
-    public bool NoDuplicateSkip { get; set; }
-
-    [Option("duplicate-format", Required = false, Default = "_{number}",
-        HelpText = "Format used for differentiating files with the same name. Use {number} for number placeholder.")]
-    public string DuplicatesFormat { get; set; }
-
-    [Option("skip-existing", Required = false, HelpText = "Skips file if it already exists in the output.")]
-    public bool SkipExisting { get; set; }
-
-    [Option("require-exif", Required = false, HelpText = "Will ignore images where exif date was not found.")]
-    public bool RequireExif { get; set; }
-
-    [Option("related-file-mode", Required = false, HelpText = "Mode used for related file lookups. Options: none, strict, loose.")]
-    public RelatedFileLookup RelatedFileMode { get; set; }
-
-    [Option("max-date", Required = false, HelpText = "Ignores all files newer than this.")]
-    public DateTime? MaxDate { get; set; }
-
-    [Option("min-date", Required = false, HelpText = "Ignores all files older than this.")]
-    public DateTime? MinDate { get; set; }
 }
+

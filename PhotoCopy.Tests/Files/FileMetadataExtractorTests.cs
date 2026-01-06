@@ -1,9 +1,14 @@
 using System.IO;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using NSubstitute;
 using PhotoCopy.Files;
+using PhotoCopy.Configuration;
+using Xunit;
 
 namespace PhotoCopy.Tests.Files;
 
-public class FileMetadataExtractorTests : IClassFixture<ApplicationStateFixture>
+public class FileMetadataExtractorTests : TestBase
 {
     [Fact]
     public void GetDateTime_WithNoExifData_ReturnsFileCreationTime()
@@ -12,15 +17,19 @@ public class FileMetadataExtractorTests : IClassFixture<ApplicationStateFixture>
         var tempFile = Path.GetTempFileName();
         File.WriteAllText(tempFile, "Test content");
         var fileInfo = new FileInfo(tempFile);
+        var options = Substitute.For<IOptions<PhotoCopyConfig>>();
+        options.Value.Returns(DefaultConfig);
+        var logger = Substitute.For<ILogger<FileMetadataExtractor>>();
+        var extractor = new FileMetadataExtractor(logger, options);
 
         try
         {
             // Act
-            var result = FileMetadataExtractor.GetDateTime(fileInfo);
+            var result = extractor.GetDateTime(fileInfo);
 
             // Assert
-            Assert.Equal(DateTimeSource.FileCreation, result.DateTimeSource);
-            Assert.Equal(fileInfo.CreationTime, result.DateTime);
+            Assert.Equal(fileInfo.CreationTime, result.Created);
+            Assert.Equal(fileInfo.CreationTime, result.DateTime); // Main DateTime should be creation time
         }
         finally
         {
@@ -36,6 +45,10 @@ public class FileMetadataExtractorTests : IClassFixture<ApplicationStateFixture>
         var tempFile = Path.GetTempFileName();
         File.WriteAllText(tempFile, "Test content");
         var fileInfo = new FileInfo(tempFile);
+        var options = Substitute.For<IOptions<PhotoCopyConfig>>();
+        options.Value.Returns(DefaultConfig);
+        var logger = Substitute.For<ILogger<FileMetadataExtractor>>();
+        var extractor = new FileMetadataExtractor(logger, options);
         
         try
         {
@@ -44,11 +57,11 @@ public class FileMetadataExtractorTests : IClassFixture<ApplicationStateFixture>
             fileInfo.CreationTime = modifiedTime.AddDays(1);
 
             // Act
-            var result = FileMetadataExtractor.GetDateTime(fileInfo);
+            var result = extractor.GetDateTime(fileInfo);
 
             // Assert
-            Assert.Equal(DateTimeSource.FileModification, result.DateTimeSource);
-            Assert.Equal(modifiedTime, result.DateTime);
+            Assert.Equal(fileInfo.CreationTime, result.Created);
+            Assert.Equal(fileInfo.LastWriteTime, result.Modified);
         }
         finally
         {
