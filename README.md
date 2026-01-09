@@ -43,4 +43,7 @@ __--duplicate-format     (Default: _{number}) Format used for differentiating fi
 
 __--skip-existing__        Skips file if it already exists in the output.
 
+__--max-depth__            Maximum directory recursion depth when scanning for files. 0 or omit for unlimited
+                         (default), 1 = root directory only, 2 = root + one level of subdirectories, etc.
+
 

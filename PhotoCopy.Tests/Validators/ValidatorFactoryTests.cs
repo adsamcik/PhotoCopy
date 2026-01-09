@@ -31,8 +31,8 @@ public class ValidatorFactoryTests
 
         // Assert
         await Assert.That(validators.Count).IsEqualTo(2);
-        await Assert.That(validators.Any(v => v.GetType() == typeof(MaxDateValidator))).IsTrue();
-        await Assert.That(validators.Any(v => v.GetType() == typeof(MinDateValidator))).IsTrue();
+        await Assert.That(validators.Any(v => v is MaxDateValidator)).IsTrue();
+        await Assert.That(validators.Any(v => v is MinDateValidator)).IsTrue();
     }
 
     [Test]
@@ -54,7 +54,7 @@ public class ValidatorFactoryTests
 
         // Assert
         await Assert.That(validators.Count).IsEqualTo(1);
-        await Assert.That(validators.Any(v => v.GetType() == typeof(MaxDateValidator))).IsTrue();
+        await Assert.That(validators.Any(v => v is MaxDateValidator)).IsTrue();
     }
 
     [Test]
@@ -76,7 +76,7 @@ public class ValidatorFactoryTests
 
         // Assert
         await Assert.That(validators.Count).IsEqualTo(1);
-        await Assert.That(validators.Any(v => v.GetType() == typeof(MinDateValidator))).IsTrue();
+        await Assert.That(validators.Any(v => v is MinDateValidator)).IsTrue();
     }
 
     [Test]

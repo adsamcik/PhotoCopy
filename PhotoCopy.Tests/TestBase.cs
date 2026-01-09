@@ -10,6 +10,7 @@ using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Files;
 using PhotoCopy.Files.Metadata;
+using PhotoCopy.Rollback;
 using PhotoCopy.Tests.TestingImplementation;
 using PhotoCopy.Validators;
 
@@ -67,11 +68,11 @@ public class TestBase : IDisposable
         services.AddTransient<PhotoCopy.Files.FileSystem>();
         services.AddTransient<IFileSystem>(sp => sp.GetRequiredService<PhotoCopy.Files.FileSystem>());
         
+        services.AddSingleton<ITransactionLogger, TransactionLogger>();
         services.AddTransient<IDirectoryCopier, DirectoryCopier>();
         services.AddTransient<IValidatorFactory, ValidatorFactory>();
-        
-        // Mock IApplicationState
-        services.AddSingleton(Substitute.For<IApplicationState>());
+        services.AddTransient<IFileValidationService, FileValidationService>();
+
 
         ServiceProvider = services.BuildServiceProvider();
     }
