@@ -1,5 +1,6 @@
 using System;
 using Microsoft.Extensions.Logging;
+using PhotoCopy.Extensions;
 
 namespace PhotoCopy.Progress;
 
@@ -78,19 +79,7 @@ public class ConsoleProgressReporter : IProgressReporter
         return $"{timeSpan.Seconds}s";
     }
 
-    private static string FormatBytes(long bytes)
-    {
-        if (bytes <= 0)
-        {
-            return "0 B";
-        }
-
-        string[] units = { "B", "KB", "MB", "GB", "TB" };
-        var unitIndex = (int)Math.Floor(Math.Log(bytes, 1024));
-        unitIndex = Math.Clamp(unitIndex, 0, units.Length - 1);
-        var adjusted = bytes / Math.Pow(1024, unitIndex);
-        return $"{adjusted:0.##} {units[unitIndex]}";
-    }
+    private static string FormatBytes(long bytes) => ByteFormatter.FormatBytes(bytes);
 
     private static string TruncateFileName(string fileName, int maxLength)
     {

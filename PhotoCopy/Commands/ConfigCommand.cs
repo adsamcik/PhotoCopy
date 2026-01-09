@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PhotoCopy;
 using PhotoCopy.Configuration;
 
 namespace PhotoCopy.Commands;
@@ -46,12 +47,12 @@ public class ConfigCommand : ICommand
                 report.PrintToConsole();
             }
 
-            return Task.FromResult(0);
+            return Task.FromResult((int)ExitCode.Success);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to generate configuration diagnostics");
-            return Task.FromResult(1);
+            return Task.FromResult((int)ExitCode.Error);
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PhotoCopy;
 using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Progress;
@@ -53,24 +54,25 @@ public class CopyCommand : ICommand
                     validators, _progressReporter, cancellationToken);
 
                 LogResult(result);
-                return result.FilesFailed > 0 ? 1 : 0;
+                return result.FilesFailed > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
             }
             else
             {
                 // Use synchronous copier (wrap in task for consistency)
-                await Task.Run(() => _directoryCopier.Copy(validators), cancellationToken);
-                return 0;
+                var result = await Task.Run(() => _directoryCopier.Copy(validators), cancellationToken);
+                LogResult(result);
+                return result.FilesFailed > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
             }
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Operation was cancelled");
-            return 2;
+            return (int)ExitCode.Cancelled;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Copy operation failed");
-            return 1;
+            return (int)ExitCode.Error;
         }
     }
 

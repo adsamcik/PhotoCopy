@@ -52,6 +52,11 @@ public interface ITransactionLogger
     Task SaveAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Saves the transaction log to disk synchronously.
+    /// </summary>
+    void Save();
+
+    /// <summary>
     /// Gets the current transaction log.
     /// </summary>
     TransactionLog? CurrentTransaction { get; }
@@ -60,4 +65,10 @@ public interface ITransactionLogger
     /// Gets the path where the transaction log is saved.
     /// </summary>
     string? TransactionLogPath { get; }
+
+    /// <summary>
+    /// Gets or sets the number of operations after which the log is automatically saved.
+    /// Set to 0 to disable incremental saves. Default is 100.
+    /// </summary>
+    int IncrementalSaveThreshold { get; set; }
 }

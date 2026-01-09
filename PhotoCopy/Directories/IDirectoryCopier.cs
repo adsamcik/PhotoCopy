@@ -7,6 +7,6 @@ namespace PhotoCopy.Directories;
 
 public interface IDirectoryCopier
 {
-    void Copy(IReadOnlyCollection<IValidator> validators);
+    CopyResult Copy(IReadOnlyCollection<IValidator> validators);
     string GeneratePath(IFile file);
 }

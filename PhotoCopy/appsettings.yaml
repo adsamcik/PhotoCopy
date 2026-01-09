@@ -6,3 +6,11 @@ photoCopy:
   relatedFileMode: None
   minDate: null
   maxDate: null
+  maxDepth: null  # null or 0 = unlimited, 1 = root only, 2 = root + 1 level, etc.
+  
+  # Location/Geocoding settings
+  geonamesPath: null  # Path to GeoNames data file (e.g., cities15000.txt)
+  minimumPopulation: null  # Minimum population for locations (null = no filter)
+  locationGranularity: City  # City, County, State, or Country
+  useFullCountryNames: false  # Use "United States" instead of "US"
+  unknownLocationFallback: "Unknown"  # Fallback text when location unavailable

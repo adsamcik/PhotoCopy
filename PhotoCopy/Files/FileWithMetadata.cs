@@ -119,7 +119,10 @@ public class FileWithMetadata : IFile
             {
                 Directory.CreateDirectory(directory);
             }
-            File.CopyTo(destinationPath, true); // Overwrite if exists
+            RetryHelper.ExecuteWithRetry(
+                () => File.CopyTo(destinationPath, true),
+                _logger,
+                $"Copy {File.Name}");
         }
     }
 
@@ -134,7 +137,10 @@ public class FileWithMetadata : IFile
             {
                 Directory.CreateDirectory(directory);
             }
-            File.MoveTo(destinationPath, true); // Overwrite if exists
+            RetryHelper.ExecuteWithRetry(
+                () => File.MoveTo(destinationPath, true),
+                _logger,
+                $"Move {File.Name}");
         }
     }
 

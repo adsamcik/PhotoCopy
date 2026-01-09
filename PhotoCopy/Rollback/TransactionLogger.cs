@@ -17,8 +17,16 @@ public class TransactionLogger : ITransactionLogger
     private readonly ILogger<TransactionLogger> _logger;
     private readonly PhotoCopyConfig _config;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly object _lock = new();
     private TransactionLog? _currentTransaction;
     private string? _transactionLogPath;
+    private int _operationsSinceLastSave;
+    
+    /// <summary>
+    /// Number of operations after which the log is automatically saved.
+    /// Set to 0 to disable incremental saves.
+    /// </summary>
+    public int IncrementalSaveThreshold { get; set; } = 100;
 
     public TransactionLogger(ILogger<TransactionLogger> logger, IOptions<PhotoCopyConfig> config)
     {
@@ -36,87 +44,192 @@ public class TransactionLogger : ITransactionLogger
 
     public string BeginTransaction(string sourceDirectory, string destinationPattern, bool isDryRun)
     {
-        var transactionId = $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..8]}";
-        
-        _currentTransaction = new TransactionLog
+        lock (_lock)
         {
-            TransactionId = transactionId,
-            StartTime = DateTime.UtcNow,
-            SourceDirectory = sourceDirectory,
-            DestinationPattern = destinationPattern,
-            IsDryRun = isDryRun,
-            Status = TransactionStatus.InProgress
-        };
+            var transactionId = $"{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid().ToString("N")[..8]}";
+            
+            _currentTransaction = new TransactionLog
+            {
+                TransactionId = transactionId,
+                StartTime = DateTime.UtcNow,
+                SourceDirectory = sourceDirectory,
+                DestinationPattern = destinationPattern,
+                IsDryRun = isDryRun,
+                Status = TransactionStatus.InProgress
+            };
 
-        // Determine log file path - use destination directory if available, otherwise source
-        var logDirectory = GetLogDirectory();
-        Directory.CreateDirectory(logDirectory);
-        _transactionLogPath = Path.Combine(logDirectory, $"photocopy-{transactionId}.json");
+            // Reset operation counter
+            _operationsSinceLastSave = 0;
 
-        _logger.LogDebug("Started transaction {TransactionId}, log at {LogPath}", 
-            transactionId, _transactionLogPath);
+            // Determine log file path - use destination directory if available, otherwise source
+            var logDirectory = GetLogDirectory();
+            Directory.CreateDirectory(logDirectory);
+            _transactionLogPath = Path.Combine(logDirectory, $"photocopy-{transactionId}.json");
 
-        return transactionId;
+            _logger.LogDebug("Started transaction {TransactionId}, log at {LogPath}", 
+                transactionId, _transactionLogPath);
+
+            // Save initial transaction state immediately (crash recovery)
+            SaveInternal();
+
+            return transactionId;
+        }
     }
 
     public void LogOperation(string sourcePath, string destinationPath, OperationType operation, long fileSize, string? checksum = null)
     {
-        if (_currentTransaction is null)
+        lock (_lock)
         {
-            throw new InvalidOperationException("No transaction in progress. Call BeginTransaction first.");
-        }
+            if (_currentTransaction is null)
+            {
+                throw new InvalidOperationException("No transaction in progress. Call BeginTransaction first.");
+            }
 
-        _currentTransaction.Operations.Add(new FileOperationEntry
-        {
-            SourcePath = sourcePath,
-            DestinationPath = destinationPath,
-            Operation = operation,
-            Timestamp = DateTime.UtcNow,
-            FileSize = fileSize,
-            Checksum = checksum
-        });
+            _currentTransaction.Operations.Add(new FileOperationEntry
+            {
+                SourcePath = sourcePath,
+                DestinationPath = destinationPath,
+                Operation = operation,
+                Timestamp = DateTime.UtcNow,
+                FileSize = fileSize,
+                Checksum = checksum
+            });
+
+            _operationsSinceLastSave++;
+
+            // Incremental save for crash recovery
+            if (IncrementalSaveThreshold > 0 && _operationsSinceLastSave >= IncrementalSaveThreshold)
+            {
+                SaveInternal();
+                _operationsSinceLastSave = 0;
+            }
+        }
     }
 
     public void LogDirectoryCreated(string directoryPath)
     {
-        if (_currentTransaction is null)
+        lock (_lock)
         {
-            throw new InvalidOperationException("No transaction in progress. Call BeginTransaction first.");
-        }
+            if (_currentTransaction is null)
+            {
+                throw new InvalidOperationException("No transaction in progress. Call BeginTransaction first.");
+            }
 
-        _currentTransaction.CreatedDirectories.Add(directoryPath);
+            _currentTransaction.CreatedDirectories.Add(directoryPath);
+        }
     }
 
     public void CompleteTransaction()
     {
-        if (_currentTransaction is null)
+        lock (_lock)
         {
-            throw new InvalidOperationException("No transaction in progress.");
+            if (_currentTransaction is null)
+            {
+                throw new InvalidOperationException("No transaction in progress.");
+            }
+
+            _currentTransaction.EndTime = DateTime.UtcNow;
+            _currentTransaction.Status = TransactionStatus.Completed;
+
+            _logger.LogInformation("Transaction {TransactionId} completed: {Count} operations",
+                _currentTransaction.TransactionId, _currentTransaction.Operations.Count);
         }
-
-        _currentTransaction.EndTime = DateTime.UtcNow;
-        _currentTransaction.Status = TransactionStatus.Completed;
-
-        _logger.LogInformation("Transaction {TransactionId} completed: {Count} operations",
-            _currentTransaction.TransactionId, _currentTransaction.Operations.Count);
     }
 
     public void FailTransaction(string errorMessage)
     {
-        if (_currentTransaction is null)
+        lock (_lock)
         {
-            throw new InvalidOperationException("No transaction in progress.");
+            if (_currentTransaction is null)
+            {
+                throw new InvalidOperationException("No transaction in progress.");
+            }
+
+            _currentTransaction.EndTime = DateTime.UtcNow;
+            _currentTransaction.Status = TransactionStatus.Failed;
+            _currentTransaction.ErrorMessage = errorMessage;
+
+            _logger.LogWarning("Transaction {TransactionId} failed: {Error}",
+                _currentTransaction.TransactionId, errorMessage);
         }
-
-        _currentTransaction.EndTime = DateTime.UtcNow;
-        _currentTransaction.Status = TransactionStatus.Failed;
-        _currentTransaction.ErrorMessage = errorMessage;
-
-        _logger.LogWarning("Transaction {TransactionId} failed: {Error}",
-            _currentTransaction.TransactionId, errorMessage);
     }
 
     public async Task SaveAsync(CancellationToken cancellationToken = default)
+    {
+        string? json;
+        string? logPath;
+        
+        lock (_lock)
+        {
+            if (_currentTransaction is null || _transactionLogPath is null)
+            {
+                return;
+            }
+
+            json = JsonSerializer.Serialize(_currentTransaction, _jsonOptions);
+            logPath = _transactionLogPath;
+            _operationsSinceLastSave = 0;
+        }
+        
+        // Use atomic write pattern: write to temp file, then move
+        var tempPath = logPath + ".tmp";
+        try
+        {
+            await File.WriteAllTextAsync(tempPath, json, cancellationToken);
+            File.Move(tempPath, logPath, overwrite: true);
+        }
+        finally
+        {
+            // Clean up temp file if it exists
+            if (File.Exists(tempPath))
+            {
+                try { File.Delete(tempPath); } catch { /* Ignore cleanup errors */ }
+            }
+        }
+
+        _logger.LogDebug("Transaction log saved to {LogPath}", logPath);
+    }
+
+    public void Save()
+    {
+        string? json;
+        string? logPath;
+        
+        lock (_lock)
+        {
+            if (_currentTransaction is null || _transactionLogPath is null)
+            {
+                return;
+            }
+
+            json = JsonSerializer.Serialize(_currentTransaction, _jsonOptions);
+            logPath = _transactionLogPath;
+            _operationsSinceLastSave = 0;
+        }
+        
+        // Use atomic write pattern: write to temp file, then move
+        var tempPath = logPath + ".tmp";
+        try
+        {
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, logPath, overwrite: true);
+        }
+        finally
+        {
+            // Clean up temp file if it exists
+            if (File.Exists(tempPath))
+            {
+                try { File.Delete(tempPath); } catch { /* Ignore cleanup errors */ }
+            }
+        }
+
+        _logger.LogDebug("Transaction log saved to {LogPath}", logPath);
+    }
+
+    /// <summary>
+    /// Internal save method for incremental saves. Does not acquire lock (caller must hold lock).
+    /// </summary>
+    private void SaveInternal()
     {
         if (_currentTransaction is null || _transactionLogPath is null)
         {
@@ -124,9 +237,31 @@ public class TransactionLogger : ITransactionLogger
         }
 
         var json = JsonSerializer.Serialize(_currentTransaction, _jsonOptions);
-        await File.WriteAllTextAsync(_transactionLogPath, json, cancellationToken);
+        var logPath = _transactionLogPath;
+        
+        // Use atomic write pattern: write to temp file, then move
+        var tempPath = logPath + ".tmp";
+        try
+        {
+            File.WriteAllText(tempPath, json);
+            File.Move(tempPath, logPath, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            // Log but don't throw - incremental save failures shouldn't stop the operation
+            _logger.LogWarning(ex, "Failed to save incremental transaction log to {LogPath}", logPath);
+            return;
+        }
+        finally
+        {
+            // Clean up temp file if it exists
+            if (File.Exists(tempPath))
+            {
+                try { File.Delete(tempPath); } catch { /* Ignore cleanup errors */ }
+            }
+        }
 
-        _logger.LogDebug("Transaction log saved to {LogPath}", _transactionLogPath);
+        _logger.LogDebug("Transaction log incrementally saved to {LogPath}", logPath);
     }
 
     private string GetLogDirectory()

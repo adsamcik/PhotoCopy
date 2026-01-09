@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PhotoCopy;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files;
@@ -19,17 +20,20 @@ public class ValidateCommand : ICommand
     private readonly ILogger<ValidateCommand> _logger;
     private readonly PhotoCopyConfig _config;
     private readonly IValidatorFactory _validatorFactory;
+    private readonly IFileValidationService _fileValidationService;
     private readonly IFileSystem _fileSystem;
 
     public ValidateCommand(
         ILogger<ValidateCommand> logger,
         IOptions<PhotoCopyConfig> options,
         IValidatorFactory validatorFactory,
+        IFileValidationService fileValidationService,
         IFileSystem fileSystem)
     {
         _logger = logger;
         _config = options.Value;
         _validatorFactory = validatorFactory;
+        _fileValidationService = fileValidationService;
         _fileSystem = fileSystem;
     }
 
@@ -50,22 +54,9 @@ public class ValidateCommand : ICommand
                 cancellationToken.ThrowIfCancellationRequested();
 
                 stats.TotalFiles++;
-                var fileValid = true;
+                var validationResult = _fileValidationService.ValidateAll(file, validators);
 
-                foreach (var validator in validators)
-                {
-                    var result = validator.Validate(file);
-                    if (!result.IsValid)
-                    {
-                        fileValid = false;
-                        failures.Add(new ValidationFailureInfo(
-                            file.File.FullName,
-                            validator.GetType().Name,
-                            result.Reason ?? "Validation failed"));
-                    }
-                }
-
-                if (fileValid)
+                if (validationResult.IsValid)
                 {
                     stats.ValidFiles++;
                     _logger.LogDebug("✓ {File}", file.File.Name);
@@ -74,6 +65,13 @@ public class ValidateCommand : ICommand
                 {
                     stats.InvalidFiles++;
                     _logger.LogWarning("✗ {File}", file.File.Name);
+                    foreach (var failure in validationResult.Failures)
+                    {
+                        failures.Add(new ValidationFailureInfo(
+                            file.File.FullName,
+                            failure.ValidatorName ?? "Unknown",
+                            failure.Reason ?? "Validation failed"));
+                    }
                 }
             }
 
@@ -100,17 +98,17 @@ public class ValidateCommand : ICommand
                 }
             }
 
-            return stats.InvalidFiles > 0 ? 1 : 0;
+            return stats.InvalidFiles > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Validation was cancelled");
-            return 2;
+            return (int)ExitCode.Cancelled;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Validation operation failed");
-            return 1;
+            return (int)ExitCode.Error;
         }
     }
 

@@ -4,8 +4,10 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using PhotoCopy;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
+using PhotoCopy.Extensions;
 using PhotoCopy.Files;
 using PhotoCopy.Validators;
 
@@ -20,6 +22,7 @@ public class ScanCommand : ICommand
     private readonly PhotoCopyConfig _config;
     private readonly IDirectoryScanner _directoryScanner;
     private readonly IValidatorFactory _validatorFactory;
+    private readonly IFileValidationService _fileValidationService;
     private readonly IFileFactory _fileFactory;
     private readonly IFileSystem _fileSystem;
     private readonly bool _outputJson;
@@ -29,6 +32,7 @@ public class ScanCommand : ICommand
         IOptions<PhotoCopyConfig> options,
         IDirectoryScanner directoryScanner,
         IValidatorFactory validatorFactory,
+        IFileValidationService fileValidationService,
         IFileFactory fileFactory,
         IFileSystem fileSystem,
         bool outputJson = false)
@@ -37,6 +41,7 @@ public class ScanCommand : ICommand
         _config = options.Value;
         _directoryScanner = directoryScanner;
         _validatorFactory = validatorFactory;
+        _fileValidationService = fileValidationService;
         _fileFactory = fileFactory;
         _fileSystem = fileSystem;
         _outputJson = outputJson;
@@ -58,19 +63,9 @@ public class ScanCommand : ICommand
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var isValid = true;
-                string? rejectionReason = null;
-
-                foreach (var validator in validators)
-                {
-                    var result = validator.Validate(file);
-                    if (!result.IsValid)
-                    {
-                        isValid = false;
-                        rejectionReason = result.Reason;
-                        break;
-                    }
-                }
+                var validationResult = _fileValidationService.ValidateFirstFailure(file, validators);
+                var isValid = validationResult.IsValid;
+                var rejectionReason = validationResult.FirstRejectionReason;
 
                 stats.TotalFiles++;
                 stats.TotalBytes += SafeFileLength(file);
@@ -119,42 +114,23 @@ public class ScanCommand : ICommand
                     stats.TotalFiles, stats.ValidFiles, stats.SkippedFiles, FormatBytes(stats.TotalBytes));
             }
 
-            return 0;
+            return (int)ExitCode.Success;
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Scan was cancelled");
-            return 2;
+            return (int)ExitCode.Cancelled;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Scan operation failed");
-            return 1;
+            return (int)ExitCode.Error;
         }
     }
 
-    private static long SafeFileLength(IFile file)
-    {
-        try
-        {
-            return file.File.Length;
-        }
-        catch
-        {
-            return 0;
-        }
-    }
+    private static long SafeFileLength(IFile file) => ByteFormatter.SafeFileLength(file);
 
-    private static string FormatBytes(long bytes)
-    {
-        if (bytes <= 0) return "0 B";
-
-        string[] units = { "B", "KB", "MB", "GB", "TB" };
-        var unitIndex = (int)Math.Floor(Math.Log(bytes, 1024));
-        unitIndex = Math.Clamp(unitIndex, 0, units.Length - 1);
-        var adjusted = bytes / Math.Pow(1024, unitIndex);
-        return $"{adjusted:0.##} {units[unitIndex]}";
-    }
+    private static string FormatBytes(long bytes) => ByteFormatter.FormatBytes(bytes);
 
     private sealed record ScanStatistics
     {

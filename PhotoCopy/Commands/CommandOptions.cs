@@ -69,6 +69,9 @@ public class CopyOptions : CommonOptions
 
     [Option("enable-rollback", Required = false, HelpText = "Enable transaction logging for rollback support")]
     public bool? EnableRollback { get; set; }
+
+    [Option("max-depth", Required = false, HelpText = "Maximum directory recursion depth (0 or omit for unlimited, 1 = root only)")]
+    public int? MaxDepth { get; set; }
 }
 
 /// <summary>
@@ -103,6 +106,9 @@ public class ScanOptions : CommonOptions
     [Option("calculate-checksums", Required = false, HelpText = "Enable or disable checksum calculation during metadata enrichment")]
     public bool? CalculateChecksums { get; set; }
 
+    [Option("max-depth", Required = false, HelpText = "Maximum directory recursion depth (0 or omit for unlimited, 1 = root only)")]
+    public int? MaxDepth { get; set; }
+
     [Option("json", Required = false, HelpText = "Output results as JSON")]
     public bool OutputJson { get; set; }
 }
@@ -124,6 +130,9 @@ public class ValidateOptions : CommonOptions
 
     [Option("geonames-path", Required = false, HelpText = "Path to the GeoNames cities500.txt or cities1000.txt file")]
     public string? GeonamesPath { get; set; }
+
+    [Option("max-depth", Required = false, HelpText = "Maximum directory recursion depth (0 or omit for unlimited, 1 = root only)")]
+    public int? MaxDepth { get; set; }
 }
 
 /// <summary>
@@ -159,4 +168,7 @@ public class RollbackOptions : CommonOptions
 
     [Option('d', "directory", Required = false, HelpText = "Directory to search for transaction logs")]
     public string? LogDirectory { get; set; }
+
+    [Option('y', "yes", Required = false, HelpText = "Skip confirmation prompt")]
+    public bool SkipConfirmation { get; set; }
 }

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 using Microsoft.Extensions.Logging;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Directories;
@@ -17,9 +18,9 @@ public class FileSystem : IFileSystem
         _directoryScanner = directoryScanner;
     }
 
-    public IEnumerable<IFile> EnumerateFiles(string path)
+    public IEnumerable<IFile> EnumerateFiles(string path, CancellationToken cancellationToken = default)
     {
-        return _directoryScanner.EnumerateFiles(path);
+        return _directoryScanner.EnumerateFiles(path, cancellationToken);
     }
 
     public void CreateDirectory(string path)
@@ -55,5 +56,10 @@ public class FileSystem : IFileSystem
     public DirectoryInfo GetDirectoryInfo(string path)
     {
         return new DirectoryInfo(path);
+    }
+
+    public string GetCurrentDirectory()
+    {
+        return Directory.GetCurrentDirectory();
     }
 }

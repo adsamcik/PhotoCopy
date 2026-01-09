@@ -11,6 +11,7 @@ public static class DestinationVariables
     public const string Directory = "{directory}";
     public const string Number = "{number}";
     public const string City = "{city}";
+    public const string County = "{county}";
     public const string State = "{state}";
     public const string Country = "{country}";
 }

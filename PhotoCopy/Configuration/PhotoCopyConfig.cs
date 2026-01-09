@@ -43,9 +43,39 @@ public class PhotoCopyConfig
     public DuplicateHandling DuplicateHandling { get; set; } = DuplicateHandling.None;
     
     /// <summary>
+    /// Maximum directory recursion depth for scanning.
+    /// Null or 0 = unlimited (default), 1 = root only, 2 = root + 1 level, etc.
+    /// Negative values are treated as unlimited.
+    /// </summary>
+    public int? MaxDepth { get; set; }
+    
+    /// <summary>
     /// Whether to enable transaction logging for rollback support.
     /// </summary>
     public bool EnableRollback { get; set; } = false;
+    
+    /// <summary>
+    /// Minimum population threshold for locations in reverse geocoding.
+    /// Locations with population below this value will be filtered out.
+    /// Null or 0 means no filtering (default).
+    /// </summary>
+    public int? MinimumPopulation { get; set; }
+    
+    /// <summary>
+    /// The granularity level for location-based path generation.
+    /// Controls which location variables are populated vs set to "Unknown".
+    /// </summary>
+    public LocationGranularity LocationGranularity { get; set; } = LocationGranularity.City;
+    
+    /// <summary>
+    /// Whether to use full country names instead of 2-letter ISO codes.
+    /// </summary>
+    public bool UseFullCountryNames { get; set; } = false;
+    
+    /// <summary>
+    /// Fallback text used when location data is unavailable.
+    /// </summary>
+    public string UnknownLocationFallback { get; set; } = "Unknown";
     
     public HashSet<string> AllowedExtensions { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
