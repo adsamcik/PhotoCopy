@@ -1,6 +1,26 @@
-.vs/*
-.idea/*
-**/obj/**
-**/bin/**
-Properties/**
-PhotoCopy.csproj.user
+# IDE
+.vs/
+.idea/
+*.user
+
+# Build outputs
+**/obj/
+**/bin/
+Properties/
+
+# Coverage reports
+coverage.cobertura.xml
+CoverageReport/
+TestResults/
+
+# Temporary/debug files
+*.log
+*_output.txt
+output.txt
+*.csx
+
+# GeoNames source data (large, downloaded on demand)
+PhotoCopy/data/allCountries.txt
+PhotoCopy/data/allCountries.zip
+PhotoCopy/data/cities*.txt
+PhotoCopy/data/cities*.zip
