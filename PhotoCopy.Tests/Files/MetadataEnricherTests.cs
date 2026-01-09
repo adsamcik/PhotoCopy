@@ -120,7 +120,7 @@ public class MetadataEnricherTests
     public void Enrich_EarlierStepModifiesContext_LaterStepsSeesModification()
     {
         // Arrange
-        var testLocation = new LocationData("TestCity", "TestState", "TestCountry");
+        var testLocation = new LocationData("TestCity", null, "TestState", "TestCountry");
         
         var step1 = Substitute.For<IMetadataEnrichmentStep>();
         step1.When(x => x.Enrich(Arg.Any<FileMetadataContext>())).Do(ci =>
@@ -192,7 +192,7 @@ public class MetadataEnricherTests
     public void DateTimeStep_PreservesExistingMetadataProperties()
     {
         // Arrange
-        var testLocation = new LocationData("City", "State", "Country");
+        var testLocation = new LocationData("City", null, "State", "Country");
         var expectedDateTime = new FileDateTime(new DateTime(2023, 6, 15), DateTimeSource.ExifDateTimeOriginal);
         
         var extractor = Substitute.For<IFileMetadataExtractor>();
@@ -229,7 +229,7 @@ public class MetadataEnricherTests
     {
         // Arrange
         var coords = (Latitude: 40.7128, Longitude: -74.0060);
-        var expectedLocation = new LocationData("New York", "NY", "USA");
+        var expectedLocation = new LocationData("New York", null, "NY", "USA");
         
         var extractor = Substitute.For<IFileMetadataExtractor>();
         extractor.GetCoordinates(Arg.Any<FileInfo>()).Returns(coords);
@@ -408,7 +408,7 @@ public class MetadataEnricherTests
     {
         // Arrange
         var expectedDateTime = new FileDateTime(new DateTime(2023, 6, 15), DateTimeSource.ExifDateTimeOriginal);
-        var expectedLocation = new LocationData("Paris", "Île-de-France", "France");
+        var expectedLocation = new LocationData("Paris", null, "Île-de-France", "France");
         var expectedChecksum = "sha256hash";
         var coords = (Latitude: 48.8566, Longitude: 2.3522);
         
@@ -501,7 +501,8 @@ public class MetadataEnricherTests
 
     private static string CreateTempFile(string fileName)
     {
-        var tempPath = Path.Combine(Path.GetTempPath(), "MetadataEnricherTests", fileName);
+        var uniqueFileName = $"{Guid.NewGuid()}_{fileName}";
+        var tempPath = Path.Combine(Path.GetTempPath(), "MetadataEnricherTests", uniqueFileName);
         var directory = Path.GetDirectoryName(tempPath)!;
         
         if (!Directory.Exists(directory))

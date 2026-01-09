@@ -9,6 +9,7 @@ using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Files;
+using PhotoCopy.Rollback;
 using PhotoCopy.Validators;
 
 namespace PhotoCopy.Tests.Directories;
@@ -19,11 +20,15 @@ public class CopyPlanTests
     private readonly IFileSystem _fileSystem;
     private readonly PhotoCopyConfig _config;
     private readonly IOptions<PhotoCopyConfig> _options;
+    private readonly ITransactionLogger _transactionLogger;
+    private readonly IFileValidationService _fileValidationService;
 
     public CopyPlanTests()
     {
         _logger = Substitute.For<ILogger<DirectoryCopier>>();
         _fileSystem = Substitute.For<IFileSystem>();
+        _transactionLogger = Substitute.For<ITransactionLogger>();
+        _fileValidationService = new FileValidationService();
         
         _config = new PhotoCopyConfig
         {
@@ -186,7 +191,7 @@ public class CopyPlanTests
     public void BuildCopyPlan_WithValidFiles_CreatesOperationsForEachFile()
     {
         // Arrange
-        var copier = new DirectoryCopier(_logger, _fileSystem, _options);
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file1 = CreateMockFile("photo1.jpg", new DateTime(2023, 6, 15));
         var file2 = CreateMockFile("photo2.jpg", new DateTime(2023, 7, 20));
         
@@ -211,7 +216,7 @@ public class CopyPlanTests
     public void BuildCopyPlan_WithFailingValidator_SkipsFile()
     {
         // Arrange
-        var copier = new DirectoryCopier(_logger, _fileSystem, _options);
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("old.jpg", new DateTime(2019, 1, 1));
         
         _fileSystem.EnumerateFiles(_config.Source).Returns(new[] { file });
@@ -235,7 +240,7 @@ public class CopyPlanTests
     public void BuildCopyPlan_WithMultipleValidators_AppliesAllValidators()
     {
         // Arrange
-        var copier = new DirectoryCopier(_logger, _fileSystem, _options);
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
         
         _fileSystem.EnumerateFiles(_config.Source).Returns(new[] { file });
@@ -259,7 +264,7 @@ public class CopyPlanTests
     public void BuildCopyPlan_WithFirstValidatorFailing_DoesNotCallSubsequentValidators()
     {
         // Arrange
-        var copier = new DirectoryCopier(_logger, _fileSystem, _options);
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
         
         _fileSystem.EnumerateFiles(_config.Source).Returns(new[] { file });
