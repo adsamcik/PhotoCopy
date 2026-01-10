@@ -14,6 +14,7 @@ using PhotoCopy.Directories;
 using PhotoCopy.Files;
 using PhotoCopy.Progress;
 using PhotoCopy.Rollback;
+using PhotoCopy.Tests.TestingImplementation;
 using PhotoCopy.Validators;
 
 namespace PhotoCopy.Tests.Directories;
@@ -38,8 +39,8 @@ public class DirectoryCopierAsyncTests
 
         _config = new PhotoCopyConfig
         {
-            Source = @"C:\Source",
-            Destination = @"C:\Dest\{year}\{month}\{day}\{name}{ext}",
+            Source = TestPaths.Source,
+            Destination = Path.Combine(TestPaths.Dest, "{year}", "{month}", "{day}", "{name}{ext}"),
             DryRun = false,
             DuplicatesFormat = "-{number}",
             Mode = OperationMode.Copy,
@@ -98,7 +99,7 @@ public class DirectoryCopierAsyncTests
         // Assert
         _fileSystem.Received(1).CopyFile(
             file.File.FullName,
-            @"C:\Dest\2023\06\15\photo.jpg",
+            TestPaths.InDest("2023", "06", "15", "photo.jpg"),
             true);
     }
 
@@ -292,7 +293,7 @@ public class DirectoryCopierAsyncTests
             CancellationToken.None);
 
         // Assert
-        _fileSystem.Received().CreateDirectory(@"C:\Dest\2023\06\15");
+        _fileSystem.Received().CreateDirectory(TestPaths.InDest("2023", "06", "15"));
     }
 
     [Test]
@@ -302,7 +303,7 @@ public class DirectoryCopierAsyncTests
         var file = CreateMockFile("photo.jpg", new DateTime(2023, 6, 15), 1024);
         _fileSystem.EnumerateFiles(_config.Source).Returns(new[] { file });
         _fileSystem.FileExists(Arg.Any<string>()).Returns(false);
-        _fileSystem.DirectoryExists(@"C:\Dest\2023\06\15").Returns(true);
+        _fileSystem.DirectoryExists(TestPaths.InDest("2023", "06", "15")).Returns(true);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
 
@@ -313,7 +314,7 @@ public class DirectoryCopierAsyncTests
             CancellationToken.None);
 
         // Assert
-        _fileSystem.DidNotReceive().CreateDirectory(@"C:\Dest\2023\06\15");
+        _fileSystem.DidNotReceive().CreateDirectory(TestPaths.InDest("2023", "06", "15"));
     }
 
     #endregion
@@ -381,8 +382,8 @@ public class DirectoryCopierAsyncTests
         var plan = await copier.BuildPlanAsync(Array.Empty<IValidator>(), CancellationToken.None);
 
         // Assert
-        plan.DirectoriesToCreate.Should().Contain(@"C:\Dest\2023\06\15");
-        plan.DirectoriesToCreate.Should().Contain(@"C:\Dest\2023\07\20");
+        plan.DirectoriesToCreate.Should().Contain(TestPaths.InDest("2023", "06", "15"));
+        plan.DirectoriesToCreate.Should().Contain(TestPaths.InDest("2023", "07", "20"));
     }
 
     [Test]
@@ -431,7 +432,7 @@ public class DirectoryCopierAsyncTests
     public void GenerateDestinationPath_ReplacesVariables()
     {
         // Arrange
-        _config.Destination = @"C:\Photos\{year}\{month}\{day}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{day}", "{name}{ext}");
         var file = CreateMockFile("vacation.jpg", new DateTime(2023, 8, 25), 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -440,14 +441,14 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Photos\2023\08\25\vacation.jpg");
+        result.Should().Be(TestPaths.InDest("2023", "08", "25", "vacation.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithYearVariable_ReplacesCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\photo.jpg";
+        _config.Destination = TestPaths.DestPattern("{year}", "photo.jpg");
         var file = CreateMockFile("test.jpg", new DateTime(2024, 1, 1), 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -456,14 +457,14 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\2024\photo.jpg");
+        result.Should().Be(TestPaths.InDest("2024", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithMonthVariable_PadsWithZero()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{month}\photo.jpg";
+        _config.Destination = TestPaths.DestPattern("{month}", "photo.jpg");
         var file = CreateMockFile("test.jpg", new DateTime(2023, 3, 15), 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -472,14 +473,14 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\03\photo.jpg");
+        result.Should().Be(TestPaths.InDest("03", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithDayVariable_PadsWithZero()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{day}\photo.jpg";
+        _config.Destination = TestPaths.DestPattern("{day}", "photo.jpg");
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 5), 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -488,14 +489,14 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\05\photo.jpg");
+        result.Should().Be(TestPaths.InDest("05", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithLocationVariables_ReplacesCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         var location = new LocationData("New York", null, "NY", "USA");
         var file = CreateMockFileWithLocation("photo.jpg", new DateTime(2023, 6, 15), location, 1024);
 
@@ -505,14 +506,14 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\USA\NY\New York\photo.jpg");
+        result.Should().Be(TestPaths.InDest("USA", "NY", "New York", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNullLocation_ReplacesWithUnknown()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         var file = CreateMockFile("photo.jpg", new DateTime(2023, 6, 15), 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -521,14 +522,14 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Unknown\Unknown\photo.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "Unknown", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNameNoExtVariable_ReplacesCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{namenoext}_backup{ext}";
+        _config.Destination = Path.Combine(TestPaths.Dest, "{namenoext}_backup{ext}");
         var file = CreateMockFile("vacation.jpg", new DateTime(2023, 6, 15), 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -537,16 +538,16 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\vacation_backup.jpg");
+        result.Should().Be(TestPaths.InDest("vacation_backup.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithDirectoryVariable_PreservesRelativePath()
     {
         // Arrange
-        _config.Source = @"C:\Source";
-        _config.Destination = @"C:\Dest\{directory}\{name}{ext}";
-        var file = CreateMockFileWithPath(@"C:\Source\Vacation\2023\photo.jpg", new DateTime(2023, 6, 15), 1024);
+        _config.Source = TestPaths.Source;
+        _config.Destination = Path.Combine(TestPaths.Dest, "{directory}", "{name}{ext}");
+        var file = CreateMockFileWithPath(TestPaths.InSource("Vacation", "2023", "photo.jpg"), new DateTime(2023, 6, 15), 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
 
@@ -554,7 +555,7 @@ public class DirectoryCopierAsyncTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Vacation\2023\photo.jpg");
+        result.Should().Be(TestPaths.InDest("Vacation", "2023", "photo.jpg"));
     }
 
     #endregion
@@ -565,9 +566,9 @@ public class DirectoryCopierAsyncTests
     public void HandleDuplicates_AppendsDuplicateNumber()
     {
         // Arrange
-        var destinationPath = @"C:\Dest\photo.jpg";
+        var destinationPath = TestPaths.InDest("photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo-1.jpg").Returns(false);
+        _fileSystem.FileExists(TestPaths.InDest("photo-1.jpg")).Returns(false);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
 
@@ -575,18 +576,18 @@ public class DirectoryCopierAsyncTests
         var result = copier.ResolveDuplicate(destinationPath);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo-1.jpg");
+        result.Should().Be(TestPaths.InDest("photo-1.jpg"));
     }
 
     [Test]
     public void HandleDuplicates_WithMultipleDuplicates_IncrementsCounter()
     {
         // Arrange
-        var destinationPath = @"C:\Dest\photo.jpg";
+        var destinationPath = TestPaths.InDest("photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo-1.jpg").Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo-2.jpg").Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo-3.jpg").Returns(false);
+        _fileSystem.FileExists(TestPaths.InDest("photo-1.jpg")).Returns(true);
+        _fileSystem.FileExists(TestPaths.InDest("photo-2.jpg")).Returns(true);
+        _fileSystem.FileExists(TestPaths.InDest("photo-3.jpg")).Returns(false);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
 
@@ -594,7 +595,7 @@ public class DirectoryCopierAsyncTests
         var result = copier.ResolveDuplicate(destinationPath);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo-3.jpg");
+        result.Should().Be(TestPaths.InDest("photo-3.jpg"));
     }
 
     [Test]
@@ -602,9 +603,9 @@ public class DirectoryCopierAsyncTests
     {
         // Arrange
         _config.DuplicatesFormat = " ({number})";
-        var destinationPath = @"C:\Dest\photo.jpg";
+        var destinationPath = TestPaths.InDest("photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo (1).jpg").Returns(false);
+        _fileSystem.FileExists(TestPaths.InDest("photo (1).jpg")).Returns(false);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
 
@@ -612,7 +613,7 @@ public class DirectoryCopierAsyncTests
         var result = copier.ResolveDuplicate(destinationPath);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo (1).jpg");
+        result.Should().Be(TestPaths.InDest("photo (1).jpg"));
     }
 
     [Test]
@@ -620,7 +621,7 @@ public class DirectoryCopierAsyncTests
     {
         // Arrange
         _config.SkipExisting = true;
-        var destinationPath = @"C:\Dest\photo.jpg";
+        var destinationPath = TestPaths.InDest("photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(true);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -637,7 +638,7 @@ public class DirectoryCopierAsyncTests
     {
         // Arrange
         _config.Overwrite = true;
-        var destinationPath = @"C:\Dest\photo.jpg";
+        var destinationPath = TestPaths.InDest("photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(true);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -653,7 +654,7 @@ public class DirectoryCopierAsyncTests
     public void HandleDuplicates_WhenFileDoesNotExist_ReturnsSamePath()
     {
         // Arrange
-        var destinationPath = @"C:\Dest\photo.jpg";
+        var destinationPath = TestPaths.InDest("photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(false);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -670,9 +671,9 @@ public class DirectoryCopierAsyncTests
     {
         // Arrange
         _config.DuplicatesFormat = "_{number}";
-        var destinationPath = @"C:\Dest\photo.jpg";
+        var destinationPath = TestPaths.InDest("photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo_1.jpg").Returns(false);
+        _fileSystem.FileExists(TestPaths.InDest("photo_1.jpg")).Returns(false);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
 
@@ -680,7 +681,7 @@ public class DirectoryCopierAsyncTests
         var result = copier.ResolveDuplicate(destinationPath);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo_1.jpg");
+        result.Should().Be(TestPaths.InDest("photo_1.jpg"));
     }
 
     #endregion
@@ -928,7 +929,7 @@ public class DirectoryCopierAsyncTests
     public async Task CopyAsync_WithRelatedFiles_CopiesRelatedFilesToDestination()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{month}\{day}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{day}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -950,17 +951,17 @@ public class DirectoryCopierAsyncTests
         // Assert - main file was copied
         _fileSystem.Received(1).CopyFile(
             mainFile.File.FullName,
-            @"C:\Dest\2023\06\15\photo.jpg",
+            TestPaths.InDest("2023", "06", "15", "photo.jpg"),
             true);
         
         // Assert - related files were copied
         _fileSystem.Received(1).CopyFile(
             relatedXmp.File.FullName,
-            @"C:\Dest\2023\06\15\photo.xmp",
+            TestPaths.InDest("2023", "06", "15", "photo.xmp"),
             true);
         _fileSystem.Received(1).CopyFile(
             relatedJson.File.FullName,
-            @"C:\Dest\2023\06\15\photo.json",
+            TestPaths.InDest("2023", "06", "15", "photo.json"),
             true);
     }
 
@@ -968,7 +969,7 @@ public class DirectoryCopierAsyncTests
     public async Task CopyAsync_WithRelatedFiles_PreservesRelativeStructure()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("vacation.jpg", new DateTime(2023, 8, 20), logger);
@@ -989,13 +990,13 @@ public class DirectoryCopierAsyncTests
         // Assert - main file was copied
         _fileSystem.Received(1).CopyFile(
             mainFile.File.FullName,
-            @"C:\Dest\2023\vacation.jpg",
+            TestPaths.InDest("2023", "vacation.jpg"),
             true);
         
         // Assert - related file preserves the suffix
         _fileSystem.Received(1).CopyFile(
             relatedEdit.File.FullName,
-            @"C:\Dest\2023\vacation_edit.jpg",
+            TestPaths.InDest("2023", "vacation_edit.jpg"),
             true);
     }
 
@@ -1004,7 +1005,7 @@ public class DirectoryCopierAsyncTests
     {
         // Arrange
         _config.DryRun = true;
-        _config.Destination = @"C:\Dest\{year}\{month}\{day}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{day}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1034,7 +1035,7 @@ public class DirectoryCopierAsyncTests
     {
         // Arrange
         _config.Mode = OperationMode.Move;
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1052,17 +1053,17 @@ public class DirectoryCopierAsyncTests
         await copier.CopyAsync(Array.Empty<IValidator>(), _progressReporter, CancellationToken.None);
 
         // Assert - main file was moved
-        _fileSystem.Received(1).MoveFile(mainFile.File.FullName, @"C:\Dest\2023\photo.jpg");
+        _fileSystem.Received(1).MoveFile(mainFile.File.FullName, TestPaths.InDest("2023", "photo.jpg"));
         
         // Assert - related file was also moved
-        _fileSystem.Received(1).MoveFile(relatedXmp.File.FullName, @"C:\Dest\2023\photo.xmp");
+        _fileSystem.Received(1).MoveFile(relatedXmp.File.FullName, TestPaths.InDest("2023", "photo.xmp"));
     }
 
     [Test]
     public async Task CopyAsync_WithRelatedFiles_ReportsProgressForEachFile()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1089,7 +1090,7 @@ public class DirectoryCopierAsyncTests
     public async Task CopyAsync_WithMultipleRelatedFiles_CopiesAllRelatedFiles()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("IMG_1234.jpg", new DateTime(2023, 6, 15), logger);
@@ -1110,10 +1111,10 @@ public class DirectoryCopierAsyncTests
 
         // Assert - 4 total copies (1 main + 3 related)
         _fileSystem.Received(4).CopyFile(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>());
-        _fileSystem.Received(1).CopyFile(mainFile.File.FullName, @"C:\Dest\IMG_1234.jpg", true);
-        _fileSystem.Received(1).CopyFile(relatedXmp.File.FullName, @"C:\Dest\IMG_1234.xmp", true);
-        _fileSystem.Received(1).CopyFile(relatedJson.File.FullName, @"C:\Dest\IMG_1234.json", true);
-        _fileSystem.Received(1).CopyFile(relatedRaw.File.FullName, @"C:\Dest\IMG_1234.CR2", true);
+        _fileSystem.Received(1).CopyFile(mainFile.File.FullName, TestPaths.InDest("IMG_1234.jpg"), true);
+        _fileSystem.Received(1).CopyFile(relatedXmp.File.FullName, TestPaths.InDest("IMG_1234.xmp"), true);
+        _fileSystem.Received(1).CopyFile(relatedJson.File.FullName, TestPaths.InDest("IMG_1234.json"), true);
+        _fileSystem.Received(1).CopyFile(relatedRaw.File.FullName, TestPaths.InDest("IMG_1234.CR2"), true);
         
         result.FilesProcessed.Should().Be(4);
     }
@@ -1122,7 +1123,7 @@ public class DirectoryCopierAsyncTests
     public async Task BuildPlanAsync_WithRelatedFiles_IncludesRelatedFilesInPlan()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1141,14 +1142,14 @@ public class DirectoryCopierAsyncTests
         // Assert
         plan.Operations.Should().HaveCount(1);
         plan.Operations[0].RelatedFiles.Should().HaveCount(1);
-        plan.Operations[0].RelatedFiles.First().DestinationPath.Should().Be(@"C:\Dest\2023\photo.xmp");
+        plan.Operations[0].RelatedFiles.First().DestinationPath.Should().Be(TestPaths.InDest("2023", "photo.xmp"));
     }
 
     [Test]
     public async Task CopyAsync_WithNoRelatedFiles_CopiesOnlyMainFile()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1167,7 +1168,7 @@ public class DirectoryCopierAsyncTests
         _fileSystem.Received(1).CopyFile(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>());
         _fileSystem.Received(1).CopyFile(
             mainFile.File.FullName,
-            @"C:\Dest\2023\photo.jpg",
+            TestPaths.InDest("2023", "photo.jpg"),
             true);
         result.FilesProcessed.Should().Be(1);
     }

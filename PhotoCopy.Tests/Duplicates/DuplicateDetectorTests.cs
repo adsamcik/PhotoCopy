@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using PhotoCopy.Duplicates;
 using PhotoCopy.Files;
+using PhotoCopy.Tests.TestingImplementation;
 
 namespace PhotoCopy.Tests.Duplicates;
 
@@ -42,8 +43,8 @@ public class DuplicateDetectorTests
     public void IsDuplicate_WithExactDuplicate_ReturnsTrue()
     {
         // Arrange
-        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", @"C:\Photos\original.jpg");
-        var duplicateFile = CreateMockFileWithChecksum("original.jpg", "checksum123", @"C:\Backup\original.jpg");
+        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", TestPaths.InPhotos("original.jpg"));
+        var duplicateFile = CreateMockFileWithChecksum("original.jpg", "checksum123", TestPaths.InBackup("original.jpg"));
         
         _detector.RegisterFile(originalFile);
 
@@ -52,15 +53,15 @@ public class DuplicateDetectorTests
 
         // Assert
         result.Should().NotBeNull();
-        result!.File.FullName.Should().Be(@"C:\Photos\original.jpg");
+        result!.File.FullName.Should().Be(TestPaths.InPhotos("original.jpg"));
     }
 
     [Test]
     public void IsDuplicate_WithSameChecksumDifferentName_ReturnsTrue()
     {
         // Arrange
-        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", @"C:\Photos\original.jpg");
-        var duplicateFile = CreateMockFileWithChecksum("renamed.jpg", "checksum123", @"C:\Backup\renamed.jpg");
+        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", TestPaths.InPhotos("original.jpg"));
+        var duplicateFile = CreateMockFileWithChecksum("renamed.jpg", "checksum123", TestPaths.InBackup("renamed.jpg"));
         
         _detector.RegisterFile(originalFile);
 
@@ -69,15 +70,15 @@ public class DuplicateDetectorTests
 
         // Assert
         result.Should().NotBeNull();
-        result!.File.FullName.Should().Be(@"C:\Photos\original.jpg");
+        result!.File.FullName.Should().Be(TestPaths.InPhotos("original.jpg"));
     }
 
     [Test]
     public void IsDuplicate_WithDifferentChecksum_ReturnsFalse()
     {
         // Arrange
-        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", @"C:\Photos\original.jpg");
-        var differentFile = CreateMockFileWithChecksum("different.jpg", "checksum456", @"C:\Photos\different.jpg");
+        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", TestPaths.InPhotos("original.jpg"));
+        var differentFile = CreateMockFileWithChecksum("different.jpg", "checksum456", TestPaths.InPhotos("different.jpg"));
         
         _detector.RegisterFile(originalFile);
 
@@ -92,7 +93,7 @@ public class DuplicateDetectorTests
     public void IsDuplicate_WithSameFilePath_ReturnsFalse()
     {
         // Arrange - same file should not be considered a duplicate of itself
-        var file = CreateMockFileWithChecksum("photo.jpg", "checksum123", @"C:\Photos\photo.jpg");
+        var file = CreateMockFileWithChecksum("photo.jpg", "checksum123", TestPaths.InPhotos("photo.jpg"));
         
         _detector.RegisterFile(file);
 
@@ -107,8 +108,8 @@ public class DuplicateDetectorTests
     public void IsDuplicate_WithNullChecksum_ReturnsFalse()
     {
         // Arrange
-        var fileWithChecksum = CreateMockFileWithChecksum("photo.jpg", "checksum123", @"C:\Photos\photo.jpg");
-        var fileWithoutChecksum = CreateMockFileWithChecksum("nocheck.jpg", null!, @"C:\Photos\nocheck.jpg");
+        var fileWithChecksum = CreateMockFileWithChecksum("photo.jpg", "checksum123", TestPaths.InPhotos("photo.jpg"));
+        var fileWithoutChecksum = CreateMockFileWithChecksum("nocheck.jpg", null!, TestPaths.InPhotos("nocheck.jpg"));
         
         _detector.RegisterFile(fileWithChecksum);
 
@@ -123,8 +124,8 @@ public class DuplicateDetectorTests
     public void IsDuplicate_WithEmptyChecksum_ReturnsFalse()
     {
         // Arrange
-        var fileWithChecksum = CreateMockFileWithChecksum("photo.jpg", "checksum123", @"C:\Photos\photo.jpg");
-        var fileWithEmptyChecksum = CreateMockFileWithChecksum("empty.jpg", string.Empty, @"C:\Photos\empty.jpg");
+        var fileWithChecksum = CreateMockFileWithChecksum("photo.jpg", "checksum123", TestPaths.InPhotos("photo.jpg"));
+        var fileWithEmptyChecksum = CreateMockFileWithChecksum("empty.jpg", string.Empty, TestPaths.InPhotos("empty.jpg"));
         
         _detector.RegisterFile(fileWithChecksum);
 
@@ -143,8 +144,8 @@ public class DuplicateDetectorTests
     public void AddToIndex_AddsFileToIndex()
     {
         // Arrange
-        var file = CreateMockFileWithChecksum("photo.jpg", "checksum123", @"C:\Photos\photo.jpg");
-        var duplicateFile = CreateMockFileWithChecksum("duplicate.jpg", "checksum123", @"C:\Other\duplicate.jpg");
+        var file = CreateMockFileWithChecksum("photo.jpg", "checksum123", TestPaths.InPhotos("photo.jpg"));
+        var duplicateFile = CreateMockFileWithChecksum("duplicate.jpg", "checksum123", TestPaths.InOther("duplicate.jpg"));
 
         // Act
         _detector.RegisterFile(file);
@@ -152,16 +153,16 @@ public class DuplicateDetectorTests
 
         // Assert
         result.Should().NotBeNull();
-        result!.File.FullName.Should().Be(@"C:\Photos\photo.jpg");
+        result!.File.FullName.Should().Be(TestPaths.InPhotos("photo.jpg"));
     }
 
     [Test]
     public void AddToIndex_WithExistingFile_DoesNotUpdateIndex()
     {
         // Arrange - TryAdd semantics means first one wins
-        var firstFile = CreateMockFileWithChecksum("first.jpg", "checksum123", @"C:\Photos\first.jpg");
-        var secondFile = CreateMockFileWithChecksum("second.jpg", "checksum123", @"C:\Photos\second.jpg");
-        var testFile = CreateMockFileWithChecksum("test.jpg", "checksum123", @"C:\Other\test.jpg");
+        var firstFile = CreateMockFileWithChecksum("first.jpg", "checksum123", TestPaths.InPhotos("first.jpg"));
+        var secondFile = CreateMockFileWithChecksum("second.jpg", "checksum123", TestPaths.InPhotos("second.jpg"));
+        var testFile = CreateMockFileWithChecksum("test.jpg", "checksum123", TestPaths.InOther("test.jpg"));
 
         // Act
         _detector.RegisterFile(firstFile);
@@ -171,15 +172,15 @@ public class DuplicateDetectorTests
 
         // Assert
         result.Should().NotBeNull();
-        result!.File.FullName.Should().Be(@"C:\Photos\first.jpg");
+        result!.File.FullName.Should().Be(TestPaths.InPhotos("first.jpg"));
     }
 
     [Test]
     public void AddToIndex_WithNullChecksum_DoesNotAddToIndex()
     {
         // Arrange
-        var fileWithNullChecksum = CreateMockFileWithChecksum("photo.jpg", null!, @"C:\Photos\photo.jpg");
-        var testFile = CreateMockFileWithChecksum("test.jpg", "somechecksum", @"C:\Other\test.jpg");
+        var fileWithNullChecksum = CreateMockFileWithChecksum("photo.jpg", null!, TestPaths.InPhotos("photo.jpg"));
+        var testFile = CreateMockFileWithChecksum("test.jpg", "somechecksum", TestPaths.InOther("test.jpg"));
 
         // Act
         _detector.RegisterFile(fileWithNullChecksum);
@@ -193,8 +194,8 @@ public class DuplicateDetectorTests
     public void AddToIndex_WithEmptyChecksum_DoesNotAddToIndex()
     {
         // Arrange
-        var fileWithEmptyChecksum = CreateMockFileWithChecksum("photo.jpg", string.Empty, @"C:\Photos\photo.jpg");
-        var testFile = CreateMockFileWithChecksum("test.jpg", string.Empty, @"C:\Other\test.jpg");
+        var fileWithEmptyChecksum = CreateMockFileWithChecksum("photo.jpg", string.Empty, TestPaths.InPhotos("photo.jpg"));
+        var testFile = CreateMockFileWithChecksum("test.jpg", string.Empty, TestPaths.InOther("test.jpg"));
 
         // Act
         _detector.RegisterFile(fileWithEmptyChecksum);
@@ -212,9 +213,9 @@ public class DuplicateDetectorTests
     public void ClearIndex_RemovesAllEntries()
     {
         // Arrange
-        var file1 = CreateMockFileWithChecksum("photo1.jpg", "checksum1", @"C:\Photos\photo1.jpg");
-        var file2 = CreateMockFileWithChecksum("photo2.jpg", "checksum2", @"C:\Photos\photo2.jpg");
-        var file3 = CreateMockFileWithChecksum("photo3.jpg", "checksum3", @"C:\Photos\photo3.jpg");
+        var file1 = CreateMockFileWithChecksum("photo1.jpg", "checksum1", TestPaths.InPhotos("photo1.jpg"));
+        var file2 = CreateMockFileWithChecksum("photo2.jpg", "checksum2", TestPaths.InPhotos("photo2.jpg"));
+        var file3 = CreateMockFileWithChecksum("photo3.jpg", "checksum3", TestPaths.InPhotos("photo3.jpg"));
         
         _detector.RegisterFile(file1);
         _detector.RegisterFile(file2);
@@ -224,9 +225,9 @@ public class DuplicateDetectorTests
         _detector.Clear();
 
         // Assert - all files should now not find duplicates
-        var testFile1 = CreateMockFileWithChecksum("test1.jpg", "checksum1", @"C:\Other\test1.jpg");
-        var testFile2 = CreateMockFileWithChecksum("test2.jpg", "checksum2", @"C:\Other\test2.jpg");
-        var testFile3 = CreateMockFileWithChecksum("test3.jpg", "checksum3", @"C:\Other\test3.jpg");
+        var testFile1 = CreateMockFileWithChecksum("test1.jpg", "checksum1", TestPaths.InOther("test1.jpg"));
+        var testFile2 = CreateMockFileWithChecksum("test2.jpg", "checksum2", TestPaths.InOther("test2.jpg"));
+        var testFile3 = CreateMockFileWithChecksum("test3.jpg", "checksum3", TestPaths.InOther("test3.jpg"));
         
         _detector.FindDuplicateOf(testFile1).Should().BeNull();
         _detector.FindDuplicateOf(testFile2).Should().BeNull();
@@ -237,8 +238,8 @@ public class DuplicateDetectorTests
     public void ClearIndex_AllowsReregistration()
     {
         // Arrange
-        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", @"C:\Photos\original.jpg");
-        var newFile = CreateMockFileWithChecksum("new.jpg", "checksum123", @"C:\New\new.jpg");
+        var originalFile = CreateMockFileWithChecksum("original.jpg", "checksum123", TestPaths.InPhotos("original.jpg"));
+        var newFile = CreateMockFileWithChecksum("new.jpg", "checksum123", TestPaths.InNew("new.jpg"));
         
         _detector.RegisterFile(originalFile);
         _detector.Clear();
@@ -246,12 +247,12 @@ public class DuplicateDetectorTests
         // Act
         _detector.RegisterFile(newFile);
         
-        var testFile = CreateMockFileWithChecksum("test.jpg", "checksum123", @"C:\Other\test.jpg");
+        var testFile = CreateMockFileWithChecksum("test.jpg", "checksum123", TestPaths.InOther("test.jpg"));
         var result = _detector.FindDuplicateOf(testFile);
 
         // Assert
         result.Should().NotBeNull();
-        result!.File.FullName.Should().Be(@"C:\New\new.jpg");
+        result!.File.FullName.Should().Be(TestPaths.InNew("new.jpg"));
     }
 
     #endregion
@@ -408,19 +409,19 @@ public class DuplicateDetectorTests
         // Arrange
         var files = new List<IFile>
         {
-            CreateMockFileWithChecksum("photo1.jpg", "checksum1", @"C:\Photos\photo1.jpg"),
-            CreateMockFileWithChecksum("photo2.jpg", "checksum2", @"C:\Photos\photo2.jpg")
+            CreateMockFileWithChecksum("photo1.jpg", "checksum1", TestPaths.InPhotos("photo1.jpg")),
+            CreateMockFileWithChecksum("photo2.jpg", "checksum2", TestPaths.InPhotos("photo2.jpg"))
         };
 
         // Act
         await _detector.ScanForDuplicatesAsync(files);
 
         // Assert - files should be registered and detectable
-        var testFile = CreateMockFileWithChecksum("test.jpg", "checksum1", @"C:\Other\test.jpg");
+        var testFile = CreateMockFileWithChecksum("test.jpg", "checksum1", TestPaths.InOther("test.jpg"));
         var duplicate = _detector.FindDuplicateOf(testFile);
         
         duplicate.Should().NotBeNull();
-        duplicate!.File.FullName.Should().Be(@"C:\Photos\photo1.jpg");
+        duplicate!.File.FullName.Should().Be(TestPaths.InPhotos("photo1.jpg"));
     }
 
     [Test]

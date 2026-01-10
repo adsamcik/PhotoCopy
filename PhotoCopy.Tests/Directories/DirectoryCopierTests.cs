@@ -11,6 +11,7 @@ using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Files;
 using PhotoCopy.Rollback;
+using PhotoCopy.Tests.TestingImplementation;
 using PhotoCopy.Validators;
 
 namespace PhotoCopy.Tests.Directories;
@@ -33,8 +34,8 @@ public class DirectoryCopierTests
         
         _config = new PhotoCopyConfig
         {
-            Source = @"C:\Source",
-            Destination = @"C:\Dest\{year}\{month}\{day}\{name}{ext}",
+            Source = TestPaths.Source,
+            Destination = Path.Combine(TestPaths.Dest, "{year}", "{month}", "{day}", "{name}{ext}"),
             DryRun = true,
             DuplicatesFormat = "-{number}"
         };
@@ -48,7 +49,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithYearTemplate_ReplacesYearCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\photo.jpg";
+        _config.Destination = Path.Combine(TestPaths.Dest, "{year}", "photo.jpg");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
 
@@ -56,14 +57,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\2023\photo.jpg");
+        result.Should().Be(TestPaths.InDest("2023", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithMonthTemplate_ReplacesMonthWithPadding()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{month}\photo.jpg";
+        _config.Destination = TestPaths.DestPattern("{month}", "photo.jpg");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
 
@@ -71,14 +72,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\06\photo.jpg");
+        result.Should().Be(TestPaths.InDest("06", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithDayTemplate_ReplacesDayWithPadding()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{day}\photo.jpg";
+        _config.Destination = TestPaths.DestPattern("{day}", "photo.jpg");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 5));
 
@@ -86,14 +87,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\05\photo.jpg");
+        result.Should().Be(TestPaths.InDest("05", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNameTemplate_ReplacesWithFileNameWithoutExtension()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{name}.jpg";
+        _config.Destination = Path.Combine(TestPaths.Dest, "{name}.jpg");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("vacation_photo.jpg", new DateTime(2023, 6, 15));
 
@@ -101,14 +102,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\vacation_photo.jpg");
+        result.Should().Be(TestPaths.InDest("vacation_photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithExtensionTemplate_ReplacesWithFileExtension()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\photo{ext}";
+        _config.Destination = Path.Combine(TestPaths.Dest, "photo{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.png", new DateTime(2023, 6, 15));
 
@@ -116,30 +117,30 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo.png");
+        result.Should().Be(TestPaths.InDest("photo.png"));
     }
 
     [Test]
     public void GeneratePath_WithDirectoryTemplate_ReplacesWithRelativeDirectory()
     {
         // Arrange
-        _config.Source = @"C:\Source";
-        _config.Destination = @"C:\Dest\{directory}\{name}{ext}";
+        _config.Source = TestPaths.Source;
+        _config.Destination = TestPaths.DestPattern("{directory}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var file = CreateMockFileWithPath(@"C:\Source\Vacation\2023\test.jpg", new DateTime(2023, 6, 15));
+        var file = CreateMockFileWithPath(TestPaths.InSource("Vacation", "2023", "test.jpg"), new DateTime(2023, 6, 15));
 
         // Act
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Vacation\2023\test.jpg");
+        result.Should().Be(TestPaths.InDest("Vacation", "2023", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithAllDateTemplates_ReplacesAllCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{month}\{day}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{day}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("photo.jpg", new DateTime(2023, 12, 25));
 
@@ -147,14 +148,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\2023\12\25\photo.jpg");
+        result.Should().Be(TestPaths.InDest("2023", "12", "25", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNameNoExtTemplate_ReplacesWithFileNameWithoutExtension()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{namenoext}_backup{ext}";
+        _config.Destination = Path.Combine(TestPaths.Dest, "{namenoext}_backup{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("photo.jpg", new DateTime(2023, 6, 15));
 
@@ -162,14 +163,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo_backup.jpg");
+        result.Should().Be(TestPaths.InDest("photo_backup.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithFilenameTemplate_ReplacesWithFullFilename()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{filename}";
+        _config.Destination = Path.Combine(TestPaths.Dest, "{filename}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("photo.jpg", new DateTime(2023, 6, 15));
 
@@ -177,7 +178,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo.jpg");
+        result.Should().Be(TestPaths.InDest("photo.jpg"));
     }
 
     #endregion
@@ -188,7 +189,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithCityTemplate_ReplacesCityFromLocation()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
             new LocationData("New York", null, "NY", "USA"));
@@ -197,14 +198,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\New York\test.jpg");
+        result.Should().Be(TestPaths.InDest("New York", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithStateTemplate_ReplacesStateFromLocation()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{state}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{state}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
             new LocationData("Los Angeles", null, "California", "USA"));
@@ -213,14 +214,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\California\test.jpg");
+        result.Should().Be(TestPaths.InDest("California", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithCountryTemplate_ReplacesCountryFromLocation()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
             new LocationData("Paris", null, "Île-de-France", "France"));
@@ -229,14 +230,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\France\test.jpg");
+        result.Should().Be(TestPaths.InDest("France", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithAllLocationTemplates_ReplacesAllCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("vacation.jpg", new DateTime(2023, 6, 15), 
             new LocationData("Miami", null, "Florida", "USA"));
@@ -245,14 +246,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\USA\Florida\Miami\vacation.jpg");
+        result.Should().Be(TestPaths.InDest("USA", "Florida", "Miami", "vacation.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithLocationData_IncludesLocationInfo()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("beach.jpg", new DateTime(2023, 7, 4), 
             new LocationData("San Diego", null, "California", "USA"));
@@ -261,14 +262,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\2023\San Diego\beach.jpg");
+        result.Should().Be(TestPaths.InDest("2023", "San Diego", "beach.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNullState_UsesUnknownForState()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{state}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{state}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
             new LocationData("Singapore", null, null, "Singapore"));
@@ -277,7 +278,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "test.jpg"));
     }
 
     #endregion
@@ -288,7 +289,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithNullLocation_UsesCityAsUnknown()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
 
@@ -296,14 +297,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNullLocation_UsesStateAsUnknown()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{state}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{state}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
 
@@ -311,14 +312,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNullLocation_UsesCountryAsUnknown()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
 
@@ -326,14 +327,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNullLocation_UsesUnknownForAllLocationFields()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
 
@@ -341,7 +342,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Unknown\Unknown\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "Unknown", "Unknown", "test.jpg"));
     }
 
     #endregion
@@ -352,7 +353,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithCountyTemplate_ReplacesCountyFromLocation()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{county}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
             new LocationData("Manhattan", "New York County", "NY", "USA"));
@@ -361,14 +362,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\New York County\test.jpg");
+        result.Should().Be(TestPaths.InDest("New York County", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithNullCounty_UsesUnknown()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{county}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
             new LocationData("London", null, "ENG", "GB"));
@@ -377,14 +378,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithAllLocationIncludingCounty_ReplacesAllCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{county}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{county}", "{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("vacation.jpg", new DateTime(2023, 6, 15), 
             new LocationData("Manhattan", "New York County", "NY", "USA"));
@@ -393,7 +394,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\USA\NY\New York County\Manhattan\vacation.jpg");
+        result.Should().Be(TestPaths.InDest("USA", "NY", "New York County", "Manhattan", "vacation.jpg"));
     }
 
     #endregion
@@ -404,7 +405,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithCountryGranularity_OnlyShowsCountry()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         _config.LocationGranularity = LocationGranularity.Country;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -414,14 +415,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\USA\Unknown\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("USA", "Unknown", "Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithStateGranularity_ShowsStateAndCountry()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         _config.LocationGranularity = LocationGranularity.State;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -431,14 +432,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\USA\NY\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("USA", "NY", "Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithCountyGranularity_ShowsCountyStateAndCountry()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{county}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{county}", "{city}", "{name}{ext}");
         _config.LocationGranularity = LocationGranularity.County;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -448,14 +449,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\USA\NY\New York County\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("USA", "NY", "New York County", "Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithCityGranularity_ShowsAllFields()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{county}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{county}", "{city}", "{name}{ext}");
         _config.LocationGranularity = LocationGranularity.City;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -465,7 +466,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\USA\NY\New York County\Manhattan\test.jpg");
+        result.Should().Be(TestPaths.InDest("USA", "NY", "New York County", "Manhattan", "test.jpg"));
     }
 
     #endregion
@@ -476,7 +477,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithFullCountryNames_UsesFullName()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -486,14 +487,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\United States\New York\test.jpg");
+        result.Should().Be(TestPaths.InDest("United States", "New York", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithoutFullCountryNames_UsesCode()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = false;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -503,14 +504,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\FR\Paris\test.jpg");
+        result.Should().Be(TestPaths.InDest("FR", "Paris", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithFullCountryNames_HandlesUnknownCode()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -520,7 +521,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\XX\test.jpg"); // Returns code as-is when not found
+        result.Should().Be(TestPaths.InDest("XX", "test.jpg")); // Returns code as-is when not found
     }
 
     #endregion
@@ -531,7 +532,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithCustomFallback_UsesCustomText()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UnknownLocationFallback = "NoLocation";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
@@ -540,14 +541,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\NoLocation\NoLocation\test.jpg");
+        result.Should().Be(TestPaths.InDest("NoLocation", "NoLocation", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithCustomFallbackAndGranularity_UsesFallbackForMaskedFields()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         _config.UnknownLocationFallback = "NA"; // Avoid slashes which get sanitized
         _config.LocationGranularity = LocationGranularity.Country;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -558,14 +559,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - State and City should be masked with custom fallback
-        result.Should().Be(@"C:\Dest\FR\NA\NA\test.jpg");
+        result.Should().Be(TestPaths.InDest("FR", "NA", "NA", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithEmptyFallback_UsesEmptyString()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UnknownLocationFallback = "";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
@@ -574,7 +575,10 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - Fallback is empty, resulting in consecutive path separators
-        result.Should().Be(@"C:\Dest\\\test.jpg");
+        // Two empty fallbacks ({country} and {city}) create two extra separators
+        var sep = Path.DirectorySeparatorChar;
+        var expectedPath = TestPaths.Dest + sep + sep + sep + "test.jpg";
+        result.Should().Be(expectedPath);
     }
 
     #endregion
@@ -585,7 +589,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithFullCountryNamesAndCountryGranularity_OnlyShowsFullCountryName()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         _config.LocationGranularity = LocationGranularity.Country;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -596,14 +600,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - Country becomes full name, others masked
-        result.Should().Be(@"C:\Dest\Germany\Unknown\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Germany", "Unknown", "Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithFullCountryNamesAndStateGranularity_ShowsFullCountryAndState()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         _config.LocationGranularity = LocationGranularity.State;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -614,14 +618,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - Country full name, State shown, City masked
-        result.Should().Be(@"C:\Dest\Germany\BY\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Germany", "BY", "Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithAllFeaturesCombined_AppliesAllCorrectly()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{county}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{county}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         _config.LocationGranularity = LocationGranularity.County;
         _config.UnknownLocationFallback = "NoCity";
@@ -633,14 +637,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - Full country name, State shown, County shown, City masked with custom fallback
-        result.Should().Be(@"C:\Dest\United States\CA\San Francisco County\NoCity\vacation.jpg");
+        result.Should().Be(TestPaths.InDest("United States", "CA", "San Francisco County", "NoCity", "vacation.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithFullCountryNamesAndCustomFallback_NoLocation()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         _config.UnknownLocationFallback = "NoGPS";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
@@ -650,14 +654,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - Both use custom fallback since no location data
-        result.Should().Be(@"C:\Dest\NoGPS\NoGPS\photo.jpg");
+        result.Should().Be(TestPaths.InDest("NoGPS", "NoGPS", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithJapanCountryCode_ReturnsCorrectFullName()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("sakura.jpg", new DateTime(2023, 4, 1), 
@@ -667,14 +671,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Japan\Tokyo\sakura.jpg");
+        result.Should().Be(TestPaths.InDest("Japan", "Tokyo", "sakura.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithUnitedKingdom_ReturnsCorrectFullName()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("bigben.jpg", new DateTime(2023, 7, 15), 
@@ -684,14 +688,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\United Kingdom\London\bigben.jpg");
+        result.Should().Be(TestPaths.InDest("United Kingdom", "London", "bigben.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithAustralia_ReturnsCorrectFullName()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{state}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("opera.jpg", new DateTime(2023, 1, 26), 
@@ -701,14 +705,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Australia\NSW\Sydney\opera.jpg");
+        result.Should().Be(TestPaths.InDest("Australia", "NSW", "Sydney", "opera.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithCountyOnlyInPath_WorksWithCityGranularity()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{county}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         _config.LocationGranularity = LocationGranularity.City; // Most detailed
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -718,14 +722,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Alameda County\test.jpg");
+        result.Should().Be(TestPaths.InDest("Alameda County", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithCountyOnlyInPath_MaskedWithCountryGranularity()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{county}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         _config.LocationGranularity = LocationGranularity.Country; // Only country visible
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -735,14 +739,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - County should be masked
-        result.Should().Be(@"C:\Dest\Unknown\test.jpg");
+        result.Should().Be(TestPaths.InDest("Unknown", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithMissingCountyData_UsesDefaultFallback()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{country}\{county}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{county}", "{city}", "{name}{ext}");
         _config.LocationGranularity = LocationGranularity.City;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -752,14 +756,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert - County should be Unknown since it's null in data
-        result.Should().Be(@"C:\Dest\IT\Unknown\Rome\test.jpg");
+        result.Should().Be(TestPaths.InDest("IT", "Unknown", "Rome", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithPopulationData_StillProcessesLocation()
     {
         // Arrange - Test that population data doesn't break anything
-        _config.Destination = @"C:\Dest\{country}\{city}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
@@ -769,14 +773,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\United States\New York\test.jpg");
+        result.Should().Be(TestPaths.InDest("United States", "New York", "test.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithSpecialCharactersInCounty_PreservesCharacters()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{county}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
             new LocationData("Chicago", "Cook County", "IL", "US"));
@@ -785,7 +789,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\Cook County\test.jpg");
+        result.Should().Be(TestPaths.InDest("Cook County", "test.jpg"));
     }
 
     #endregion
@@ -797,7 +801,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var destinationPath = @"C:\Dest\2023\06\photo.jpg";
+        var destinationPath = TestPaths.InDest("2023", "06", "photo.jpg");
         _fileSystem.FileExists(destinationPath).Returns(false);
 
         // Act
@@ -812,7 +816,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var destinationPath = @"C:\Dest\unique_photo.jpg";
+        var destinationPath = TestPaths.InDest("unique_photo.jpg");
         _fileSystem.FileExists(Arg.Any<string>()).Returns(false);
 
         // Act
@@ -833,8 +837,8 @@ public class DirectoryCopierTests
         // Arrange
         _config.DuplicatesFormat = "-{number}";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.jpg";
-        var expectedPath = @"C:\Dest\photo-1.jpg";
+        var originalPath = TestPaths.InDest("photo.jpg");
+        var expectedPath = TestPaths.InDest("photo-1.jpg");
         
         _fileSystem.FileExists(originalPath).Returns(true);
         _fileSystem.FileExists(expectedPath).Returns(false);
@@ -852,8 +856,8 @@ public class DirectoryCopierTests
         // Arrange
         _config.DuplicatesFormat = "_{number}";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.jpg";
-        var expectedPath = @"C:\Dest\photo_1.jpg";
+        var originalPath = TestPaths.InDest("photo.jpg");
+        var expectedPath = TestPaths.InDest("photo_1.jpg");
         
         _fileSystem.FileExists(originalPath).Returns(true);
         _fileSystem.FileExists(expectedPath).Returns(false);
@@ -871,8 +875,8 @@ public class DirectoryCopierTests
         // Arrange
         _config.DuplicatesFormat = "-{number}";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.png";
-        var expectedPath = @"C:\Dest\photo-1.png";
+        var originalPath = TestPaths.InDest("photo.png");
+        var expectedPath = TestPaths.InDest("photo-1.png");
         
         _fileSystem.FileExists(originalPath).Returns(true);
         _fileSystem.FileExists(expectedPath).Returns(false);
@@ -894,18 +898,18 @@ public class DirectoryCopierTests
         // Arrange
         _config.DuplicatesFormat = "-{number}";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.jpg";
+        var originalPath = TestPaths.InDest("photo.jpg");
         
         _fileSystem.FileExists(originalPath).Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo-1.jpg").Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo-2.jpg").Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo-3.jpg").Returns(false);
+        _fileSystem.FileExists(TestPaths.InDest("photo-1.jpg")).Returns(true);
+        _fileSystem.FileExists(TestPaths.InDest("photo-2.jpg")).Returns(true);
+        _fileSystem.FileExists(TestPaths.InDest("photo-3.jpg")).Returns(false);
 
         // Act
         var result = copier.ResolveDuplicate(originalPath);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo-3.jpg");
+        result.Should().Be(TestPaths.InDest("photo-3.jpg"));
     }
 
     [Test]
@@ -914,7 +918,7 @@ public class DirectoryCopierTests
         // Arrange
         _config.DuplicatesFormat = "-{number}";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.jpg";
+        var originalPath = TestPaths.InDest("photo.jpg");
         
         _fileSystem.FileExists(Arg.Any<string>()).Returns(callInfo =>
         {
@@ -923,7 +927,7 @@ public class DirectoryCopierTests
             if (path == originalPath) return true;
             for (int i = 1; i <= 9; i++)
             {
-                if (path == $@"C:\Dest\photo-{i}.jpg") return true;
+                if (path == TestPaths.InDest($"photo-{i}.jpg")) return true;
             }
             return false;
         });
@@ -932,7 +936,7 @@ public class DirectoryCopierTests
         var result = copier.ResolveDuplicate(originalPath);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo-10.jpg");
+        result.Should().Be(TestPaths.InDest("photo-10.jpg"));
     }
 
     [Test]
@@ -941,7 +945,7 @@ public class DirectoryCopierTests
         // Arrange
         _config.SkipExisting = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.jpg";
+        var originalPath = TestPaths.InDest("photo.jpg");
         
         _fileSystem.FileExists(originalPath).Returns(true);
 
@@ -958,7 +962,7 @@ public class DirectoryCopierTests
         // Arrange
         _config.Overwrite = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.jpg";
+        var originalPath = TestPaths.InDest("photo.jpg");
         
         _fileSystem.FileExists(originalPath).Returns(true);
 
@@ -977,7 +981,7 @@ public class DirectoryCopierTests
     public void Copy_WithValidFiles_CreatesCorrectPlan()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{month}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file1 = CreateMockFile("photo1.jpg", new DateTime(2023, 6, 15));
         var file2 = CreateMockFile("photo2.jpg", new DateTime(2023, 7, 20));
@@ -1003,7 +1007,7 @@ public class DirectoryCopierTests
     public void Copy_WithValidFiles_GeneratesCorrectDestinationPaths()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("summer.jpg", new DateTime(2023, 8, 1));
         
@@ -1014,7 +1018,7 @@ public class DirectoryCopierTests
         var generatedPath = copier.GeneratePath(file);
 
         // Assert - The path should be correctly generated based on the template
-        generatedPath.Should().Be(@"C:\Dest\2023\summer.jpg");
+        generatedPath.Should().Be(TestPaths.InDest("2023", "summer.jpg"));
     }
 
     #endregion
@@ -1247,7 +1251,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         _config.DryRun = false;
-        _config.Destination = @"C:\Dest\{year}\{month}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
         
@@ -1323,7 +1327,7 @@ public class DirectoryCopierTests
     public void GeneratePath_WithNoTemplates_ReturnsDestinationAsIs()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\fixed_path.jpg";
+        _config.Destination = TestPaths.InDest("fixed_path.jpg");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
 
@@ -1331,14 +1335,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\fixed_path.jpg");
+        result.Should().Be(TestPaths.InDest("fixed_path.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithSingleDigitMonth_PadsWithZero()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{month}\photo.jpg";
+        _config.Destination = TestPaths.DestPattern("{month}", "photo.jpg");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 1, 15));
 
@@ -1346,14 +1350,14 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\01\photo.jpg");
+        result.Should().Be(TestPaths.InDest("01", "photo.jpg"));
     }
 
     [Test]
     public void GeneratePath_WithSingleDigitDay_PadsWithZero()
     {
         // Arrange
-        _config.Destination = @"C:\Dest\{day}\photo.jpg";
+        _config.Destination = TestPaths.DestPattern("{day}", "photo.jpg");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 1));
 
@@ -1361,7 +1365,7 @@ public class DirectoryCopierTests
         var result = copier.GeneratePath(file);
 
         // Assert
-        result.Should().Be(@"C:\Dest\01\photo.jpg");
+        result.Should().Be(TestPaths.InDest("01", "photo.jpg"));
     }
 
     [Test]
@@ -1370,16 +1374,16 @@ public class DirectoryCopierTests
         // Arrange
         _config.DuplicatesFormat = " ({number})";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
-        var originalPath = @"C:\Dest\photo.jpg";
+        var originalPath = TestPaths.InDest("photo.jpg");
         
         _fileSystem.FileExists(originalPath).Returns(true);
-        _fileSystem.FileExists(@"C:\Dest\photo (1).jpg").Returns(false);
+        _fileSystem.FileExists(TestPaths.InDest("photo (1).jpg")).Returns(false);
 
         // Act
         var result = copier.ResolveDuplicate(originalPath);
 
         // Assert
-        result.Should().Be(@"C:\Dest\photo (1).jpg");
+        result.Should().Be(TestPaths.InDest("photo (1).jpg"));
     }
 
     [Test]
@@ -1479,7 +1483,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         _config.DryRun = false;
-        _config.Destination = @"C:\Dest\{year}\{month}\{day}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{day}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1501,17 +1505,17 @@ public class DirectoryCopierTests
         // Assert - main file was copied
         _fileSystem.Received(1).CopyFile(
             mainFile.File.FullName,
-            @"C:\Dest\2023\06\15\photo.jpg",
+            TestPaths.InDest("2023", "06", "15", "photo.jpg"),
             true);
         
         // Assert - related files were copied
         _fileSystem.Received(1).CopyFile(
             relatedXmp.File.FullName,
-            @"C:\Dest\2023\06\15\photo.xmp",
+            TestPaths.InDest("2023", "06", "15", "photo.xmp"),
             true);
         _fileSystem.Received(1).CopyFile(
             relatedJson.File.FullName,
-            @"C:\Dest\2023\06\15\photo.json",
+            TestPaths.InDest("2023", "06", "15", "photo.json"),
             true);
     }
 
@@ -1520,7 +1524,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         _config.DryRun = false;
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("vacation.jpg", new DateTime(2023, 8, 20), logger);
@@ -1541,13 +1545,13 @@ public class DirectoryCopierTests
         // Assert - main file was copied
         _fileSystem.Received(1).CopyFile(
             mainFile.File.FullName,
-            @"C:\Dest\2023\vacation.jpg",
+            TestPaths.InDest("2023", "vacation.jpg"),
             true);
         
         // Assert - related file preserves the suffix
         _fileSystem.Received(1).CopyFile(
             relatedEdit.File.FullName,
-            @"C:\Dest\2023\vacation_edit.jpg",
+            TestPaths.InDest("2023", "vacation_edit.jpg"),
             true);
     }
 
@@ -1556,7 +1560,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         _config.DryRun = true;
-        _config.Destination = @"C:\Dest\{year}\{month}\{day}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{day}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1583,7 +1587,7 @@ public class DirectoryCopierTests
         // Arrange
         _config.DryRun = false;
         _config.Mode = OperationMode.Move;
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1601,10 +1605,10 @@ public class DirectoryCopierTests
         copier.Copy(Array.Empty<IValidator>());
 
         // Assert - main file was moved
-        _fileSystem.Received(1).MoveFile(mainFile.File.FullName, @"C:\Dest\2023\photo.jpg");
+        _fileSystem.Received(1).MoveFile(mainFile.File.FullName, TestPaths.InDest("2023", "photo.jpg"));
         
         // Assert - related file was also moved
-        _fileSystem.Received(1).MoveFile(relatedXmp.File.FullName, @"C:\Dest\2023\photo.xmp");
+        _fileSystem.Received(1).MoveFile(relatedXmp.File.FullName, TestPaths.InDest("2023", "photo.xmp"));
     }
 
     [Test]
@@ -1612,7 +1616,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         _config.DryRun = false;
-        _config.Destination = @"C:\Dest\{year}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1631,7 +1635,7 @@ public class DirectoryCopierTests
         _fileSystem.Received(1).CopyFile(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>());
         _fileSystem.Received(1).CopyFile(
             mainFile.File.FullName,
-            @"C:\Dest\2023\photo.jpg",
+            TestPaths.InDest("2023", "photo.jpg"),
             true);
     }
 
@@ -1640,7 +1644,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         _config.DryRun = false;
-        _config.Destination = @"C:\Dest\{year}\{month}\{name}{ext}";
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("photo.jpg", new DateTime(2023, 6, 15), logger);
@@ -1658,7 +1662,7 @@ public class DirectoryCopierTests
         copier.Copy(Array.Empty<IValidator>());
 
         // Assert - directory was created (may be called multiple times for main and related)
-        _fileSystem.Received().CreateDirectory(@"C:\Dest\2023\06");
+        _fileSystem.Received().CreateDirectory(TestPaths.InDest("2023", "06"));
     }
 
     [Test]
@@ -1666,7 +1670,7 @@ public class DirectoryCopierTests
     {
         // Arrange
         _config.DryRun = false;
-        _config.Destination = @"C:\Dest\{name}{ext}";
+        _config.Destination = Path.Combine(TestPaths.Dest, "{name}{ext}");
         
         var logger = Substitute.For<ILogger>();
         var mainFile = CreateFileWithMetadata("IMG_1234.jpg", new DateTime(2023, 6, 15), logger);
@@ -1687,10 +1691,10 @@ public class DirectoryCopierTests
 
         // Assert - 4 total copies (1 main + 3 related)
         _fileSystem.Received(4).CopyFile(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<bool>());
-        _fileSystem.Received(1).CopyFile(mainFile.File.FullName, @"C:\Dest\IMG_1234.jpg", true);
-        _fileSystem.Received(1).CopyFile(relatedXmp.File.FullName, @"C:\Dest\IMG_1234.xmp", true);
-        _fileSystem.Received(1).CopyFile(relatedJson.File.FullName, @"C:\Dest\IMG_1234.json", true);
-        _fileSystem.Received(1).CopyFile(relatedRaw.File.FullName, @"C:\Dest\IMG_1234.CR2", true);
+        _fileSystem.Received(1).CopyFile(mainFile.File.FullName, TestPaths.InDest("IMG_1234.jpg"), true);
+        _fileSystem.Received(1).CopyFile(relatedXmp.File.FullName, TestPaths.InDest("IMG_1234.xmp"), true);
+        _fileSystem.Received(1).CopyFile(relatedJson.File.FullName, TestPaths.InDest("IMG_1234.json"), true);
+        _fileSystem.Received(1).CopyFile(relatedRaw.File.FullName, TestPaths.InDest("IMG_1234.CR2"), true);
     }
 
     #endregion

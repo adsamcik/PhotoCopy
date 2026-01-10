@@ -282,7 +282,7 @@ public class InMemoryFileSystem : IFileSystem
     /// <summary>
     /// Gets or sets the current directory for testing purposes.
     /// </summary>
-    public string CurrentDirectory { get; set; } = @"C:\TestWorkingDir";
+    public string CurrentDirectory { get; set; } = TestPaths.Combine(TestPaths.Root, "TestWorkingDir");
 
     /// <inheritdoc />
     public string GetCurrentDirectory()

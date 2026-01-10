@@ -38,7 +38,7 @@ public class InMemoryInfrastructureValidationTests
     {
         // Arrange
         var scenario = new InMemoryScenarioBuilder()
-            .WithSourceDirectory(@"C:\Source")
+            .WithSourceDirectory(TestPaths.Source)
             .WithPhoto("test.jpg", new DateTime(2024, 5, 15))
             .BuildWithDetails();
 
@@ -56,8 +56,8 @@ public class InMemoryInfrastructureValidationTests
     {
         // Arrange
         var scenario = new InMemoryScenarioBuilder()
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo1.jpg", new DateTime(2024, 6, 20))
             .WithPhoto("photo2.jpg", new DateTime(2024, 7, 25))
             .BuildWithDetails();
@@ -65,7 +65,7 @@ public class InMemoryInfrastructureValidationTests
         var config = new PhotoCopyConfig
         {
             Source = scenario.SourceDirectory,
-            Destination = @"C:\Dest\{year}\{month}\{name}{ext}",
+            Destination = TestPaths.DestPattern("{year}", "{month}", "{name}{ext}"),
             DryRun = false
         };
 
@@ -79,8 +79,8 @@ public class InMemoryInfrastructureValidationTests
         await Assert.That(plan.Operations.Count).IsEqualTo(2);
         
         var paths = plan.Operations.Select(o => o.DestinationPath).OrderBy(p => p).ToList();
-        await Assert.That(paths[0]).IsEqualTo(@"C:\Dest\2024\06\photo1.jpg");
-        await Assert.That(paths[1]).IsEqualTo(@"C:\Dest\2024\07\photo2.jpg");
+        await Assert.That(paths[0]).IsEqualTo(TestPaths.InDest("2024", "06", "photo1.jpg"));
+        await Assert.That(paths[1]).IsEqualTo(TestPaths.InDest("2024", "07", "photo2.jpg"));
     }
 
     [Test]
@@ -88,15 +88,15 @@ public class InMemoryInfrastructureValidationTests
     {
         // Arrange
         var scenario = new InMemoryScenarioBuilder()
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("vacation.jpg", new DateTime(2024, 8, 10))
             .BuildWithDetails();
 
         var config = new PhotoCopyConfig
         {
             Source = scenario.SourceDirectory,
-            Destination = @"C:\Dest\{year}\{month}\{name}{ext}",
+            Destination = TestPaths.DestPattern("{year}", "{month}", "{name}{ext}"),
             DryRun = false,
             UseAsync = true,
             Parallelism = 1
@@ -115,7 +115,7 @@ public class InMemoryInfrastructureValidationTests
         await Assert.That(result.FilesProcessed).IsEqualTo(1);
         await Assert.That(result.FilesFailed).IsEqualTo(0);
         
-        var destinationExists = scenario.FileSystem.FileExists(@"C:\Dest\2024\08\vacation.jpg");
+        var destinationExists = scenario.FileSystem.FileExists(TestPaths.InDest("2024", "08", "vacation.jpg"));
         await Assert.That(destinationExists).IsTrue();
     }
 
@@ -124,15 +124,15 @@ public class InMemoryInfrastructureValidationTests
     {
         // Arrange
         var scenario = new InMemoryScenarioBuilder()
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("tomove.jpg", new DateTime(2024, 9, 5))
             .BuildWithDetails();
 
         var config = new PhotoCopyConfig
         {
             Source = scenario.SourceDirectory,
-            Destination = @"C:\Dest\{year}\{month}\{name}{ext}",
+            Destination = TestPaths.DestPattern("{year}", "{month}", "{name}{ext}"),
             DryRun = false,
             Mode = OperationMode.Move,
             UseAsync = true,
@@ -152,10 +152,10 @@ public class InMemoryInfrastructureValidationTests
         await Assert.That(result.FilesProcessed).IsEqualTo(1);
         
         // Destination should exist
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\09\tomove.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "09", "tomove.jpg"))).IsTrue();
         
         // Source should be gone (moved)
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Source\tomove.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InSource("tomove.jpg"))).IsFalse();
     }
 
     [Test]
@@ -209,8 +209,8 @@ public class InMemoryInfrastructureValidationTests
     {
         // Arrange
         var scenario = new InMemoryScenarioBuilder()
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("old.jpg", new DateTime(2020, 1, 1))    // Before min date
             .WithPhoto("valid.jpg", new DateTime(2024, 6, 15)) // Within range
             .WithPhoto("new.jpg", new DateTime(2030, 1, 1))    // After max date
@@ -219,7 +219,7 @@ public class InMemoryInfrastructureValidationTests
         var config = new PhotoCopyConfig
         {
             Source = scenario.SourceDirectory,
-            Destination = @"C:\Dest\{year}\{name}{ext}",
+            Destination = TestPaths.DestPattern("{year}", "{name}{ext}"),
             MinDate = new DateTime(2023, 1, 1),
             MaxDate = new DateTime(2025, 12, 31),
             DryRun = false

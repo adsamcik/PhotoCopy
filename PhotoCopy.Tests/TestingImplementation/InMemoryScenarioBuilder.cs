@@ -12,8 +12,8 @@ namespace PhotoCopy.Tests.TestingImplementation;
 public class InMemoryScenarioBuilder
 {
     private readonly InMemoryFileSystem _fileSystem = new();
-    private string _sourceDirectory = @"C:\Source";
-    private string _destinationDirectory = @"C:\Dest";
+    private string _sourceDirectory = TestPaths.Source;
+    private string _destinationDirectory = TestPaths.Dest;
     private readonly List<FileEntry> _files = new();
 
     /// <summary>

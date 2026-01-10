@@ -102,8 +102,10 @@ public class ScanCommandE2ETests : E2ETestBase
         {
             var line = lines[i].Trim();
             
-            // Look for JSON start (either { or [)
-            if (!inJson && (line.StartsWith("{") || line.StartsWith("[")))
+            // Look for JSON object start (only {, not [ which could be log timestamp)
+            // Log lines look like: [2026-01-10 08:39:20.647] info: ...
+            // JSON output from scan command is always an object starting with {
+            if (!inJson && line.StartsWith("{"))
             {
                 jsonStart = i;
                 inJson = true;

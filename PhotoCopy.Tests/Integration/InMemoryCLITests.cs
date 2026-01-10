@@ -161,8 +161,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Photos")
-            .WithDestinationDirectory(@"C:\Organized")
+            .WithSourceDirectory(TestPaths.Photos)
+            .WithDestinationDirectory(TestPaths.Organized)
             .WithPhoto("vacation.jpg", new DateTime(2024, 7, 15))
             .BuildWithDetails();
 
@@ -177,7 +177,7 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Organized\2024\07\15\vacation.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InOrganized("2024", "07", "15", "vacation.jpg"))).IsTrue();
     }
 
     [Test]
@@ -185,8 +185,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("spring.jpg", new DateTime(2024, 3, 20))
             .WithPhoto("summer.jpg", new DateTime(2024, 6, 21))
             .WithPhoto("fall.jpg", new DateTime(2024, 9, 22))
@@ -204,10 +204,10 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\03\spring.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\06\summer.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\09\fall.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\12\winter.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "03", "spring.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "06", "summer.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "09", "fall.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "12", "winter.jpg"))).IsTrue();
     }
 
     [Test]
@@ -215,8 +215,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("tomove.jpg", new DateTime(2024, 5, 10))
             .BuildWithDetails();
 
@@ -232,8 +232,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\tomove.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Source\tomove.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "tomove.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InSource("tomove.jpg"))).IsFalse();
     }
 
     [Test]
@@ -241,8 +241,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Videos")
-            .WithDestinationDirectory(@"C:\Organized")
+            .WithSourceDirectory(TestPaths.Videos)
+            .WithDestinationDirectory(TestPaths.Organized)
             .WithVideo("vacation.mp4", new DateTime(2024, 8, 5))
             .WithVideo("birthday.mov", new DateTime(2024, 9, 15))
             .BuildWithDetails();
@@ -258,8 +258,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Organized\2024\08\vacation.mp4")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Organized\2024\09\birthday.mov")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InOrganized("2024", "08", "vacation.mp4"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InOrganized("2024", "09", "birthday.mov"))).IsTrue();
     }
 
     #endregion
@@ -271,8 +271,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 5, 1))
             .WithExistingDestinationPhoto(@"2024\05\photo.jpg", new DateTime(2024, 5, 1))
             .BuildWithDetails();
@@ -289,8 +289,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\photo.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\photo_1.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "photo.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "photo_1.jpg"))).IsTrue();
     }
 
     [Test]
@@ -298,8 +298,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 5, 1))
             .WithExistingDestinationPhoto(@"2024\05\photo.jpg", new DateTime(2024, 5, 1))
             .WithExistingDestinationPhoto(@"2024\05\photo-1.jpg", new DateTime(2024, 5, 1))
@@ -318,7 +318,7 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\photo-3.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "photo-3.jpg"))).IsTrue();
     }
 
     [Test]
@@ -326,8 +326,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 5, 1))
             .WithExistingDestinationPhoto(@"2024\05\photo.jpg", new DateTime(2024, 5, 1))
             .BuildWithDetails();
@@ -344,7 +344,7 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\photo_copy1.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "photo_copy1.jpg"))).IsTrue();
     }
 
     #endregion
@@ -356,8 +356,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("old.jpg", new DateTime(2020, 1, 1))
             .WithPhoto("new.jpg", new DateTime(2024, 6, 15))
             .BuildWithDetails();
@@ -374,8 +374,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\06\new.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2020\01\old.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "06", "new.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2020", "01", "old.jpg"))).IsFalse();
     }
 
     [Test]
@@ -383,8 +383,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("old.jpg", new DateTime(2022, 6, 15))
             .WithPhoto("new.jpg", new DateTime(2025, 12, 31))
             .BuildWithDetails();
@@ -401,8 +401,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2022\06\old.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2025\12\new.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2022", "06", "old.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2025", "12", "new.jpg"))).IsFalse();
     }
 
     [Test]
@@ -410,8 +410,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("too_old.jpg", new DateTime(2019, 12, 31))
             .WithPhoto("in_range_early.jpg", new DateTime(2020, 1, 1))
             .WithPhoto("in_range_middle.jpg", new DateTime(2022, 6, 15))
@@ -432,11 +432,11 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2019\12\too_old.jpg")).IsFalse();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2020\01\in_range_early.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2022\06\in_range_middle.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2023\12\in_range_late.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\01\too_new.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2019", "12", "too_old.jpg"))).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2020", "01", "in_range_early.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2022", "06", "in_range_middle.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2023", "12", "in_range_late.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "01", "too_new.jpg"))).IsFalse();
     }
 
     [Test]
@@ -447,8 +447,8 @@ public class InMemoryCLITests
         var maxDate = new DateTime(2023, 6, 30);
 
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("before.jpg", new DateTime(2023, 5, 31, 23, 59, 59))
             .WithPhoto("on_min.jpg", minDate)
             .WithPhoto("on_max.jpg", maxDate)
@@ -468,10 +468,10 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2023\05\31\before.jpg")).IsFalse();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2023\06\01\on_min.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2023\06\30\on_max.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2023\07\01\after.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2023", "05", "31", "before.jpg"))).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2023", "06", "01", "on_min.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2023", "06", "30", "on_max.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2023", "07", "01", "after.jpg"))).IsFalse();
     }
 
     #endregion
@@ -483,8 +483,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 8, 15))
             .BuildWithDetails();
 
@@ -498,7 +498,7 @@ public class InMemoryCLITests
         await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\photo.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "photo.jpg"))).IsTrue();
     }
 
     [Test]
@@ -506,8 +506,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("jan.jpg", new DateTime(2024, 1, 15))
             .WithPhoto("dec.jpg", new DateTime(2024, 12, 15))
             .BuildWithDetails();
@@ -522,8 +522,8 @@ public class InMemoryCLITests
         await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\01\jan.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\12\dec.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("01", "jan.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("12", "dec.jpg"))).IsTrue();
     }
 
     [Test]
@@ -531,8 +531,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("first.jpg", new DateTime(2024, 6, 1))
             .WithPhoto("last.jpg", new DateTime(2024, 6, 30))
             .BuildWithDetails();
@@ -547,8 +547,8 @@ public class InMemoryCLITests
         await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\01\first.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\30\last.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("01", "first.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("30", "last.jpg"))).IsTrue();
     }
 
     [Test]
@@ -557,8 +557,8 @@ public class InMemoryCLITests
         // Arrange
         var location = new LocationData("Paris", null, "Île-de-France", "France");
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhotoWithLocation("paris.jpg", new DateTime(2024, 7, 14), (48.8566, 2.3522), "Paris", "Île-de-France", "France")
             .BuildWithDetails();
 
@@ -572,7 +572,7 @@ public class InMemoryCLITests
         await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\France\Paris\paris.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("France", "Paris", "paris.jpg"))).IsTrue();
     }
 
     [Test]
@@ -580,8 +580,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("nolocation.jpg", new DateTime(2024, 7, 14))
             .BuildWithDetails();
 
@@ -595,7 +595,7 @@ public class InMemoryCLITests
         await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\Unknown\Unknown\nolocation.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("Unknown", "Unknown", "nolocation.jpg"))).IsTrue();
     }
 
     [Test]
@@ -603,8 +603,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("My Vacation Photo.jpg", new DateTime(2024, 8, 1))
             .BuildWithDetails();
 
@@ -618,7 +618,7 @@ public class InMemoryCLITests
         await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\My Vacation Photo.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("My Vacation Photo.jpg"))).IsTrue();
     }
 
     [Test]
@@ -626,8 +626,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhotoWithLocation("beach.jpg", new DateTime(2024, 7, 4), (25.7617, -80.1918), "Miami", "Florida", "USA")
             .BuildWithDetails();
 
@@ -641,7 +641,7 @@ public class InMemoryCLITests
         await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\USA\Florida\Miami\07-04\beach.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "USA", "Florida", "Miami", "07-04", "beach.jpg"))).IsTrue();
     }
 
     #endregion
@@ -653,8 +653,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 6, 1))
             .BuildWithDetails();
 
@@ -670,8 +670,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\06\photo.jpg")).IsFalse();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Source\photo.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "06", "photo.jpg"))).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InSource("photo.jpg"))).IsTrue();
     }
 
     [Test]
@@ -679,8 +679,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo1.jpg", new DateTime(2024, 3, 15))
             .WithPhoto("photo2.jpg", new DateTime(2024, 4, 20))
             .BuildWithDetails();
@@ -705,8 +705,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 6, 1))
             .BuildWithDetails();
 
@@ -723,8 +723,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Source\photo.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\06\photo.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InSource("photo.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "06", "photo.jpg"))).IsFalse();
     }
 
     #endregion
@@ -737,13 +737,13 @@ public class InMemoryCLITests
         // Arrange
         var originalContent = new byte[] { 0x01, 0x02, 0x03, 0x04 };
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 5, 1))
             .BuildWithDetails();
 
         // Add existing file with different content
-        scenario.FileSystem.AddFile(@"C:\Dest\2024\05\photo.jpg", originalContent);
+        scenario.FileSystem.AddFile(TestPaths.InDest("2024", "05", "photo.jpg"), originalContent);
 
         var config = CreateConfig(
             scenario.SourceDirectory,
@@ -757,7 +757,7 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        var destContent = scenario.FileSystem.GetFileContent(@"C:\Dest\2024\05\photo.jpg");
+        var destContent = scenario.FileSystem.GetFileContent(TestPaths.InDest("2024", "05", "photo.jpg"));
         await Assert.That(destContent).IsEquivalentTo(originalContent);
     }
 
@@ -766,8 +766,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 5, 1))
             .WithExistingDestinationPhoto(@"2024\05\photo.jpg", new DateTime(2024, 5, 1))
             .BuildWithDetails();
@@ -784,8 +784,8 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\photo.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\photo-1.jpg")).IsFalse();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "photo.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "photo-1.jpg"))).IsFalse();
     }
 
     [Test]
@@ -794,13 +794,13 @@ public class InMemoryCLITests
         // Arrange
         var originalContent = new byte[] { 0x01, 0x02, 0x03, 0x04 };
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 5, 1))
             .BuildWithDetails();
 
         // Add existing file with different content
-        scenario.FileSystem.AddFile(@"C:\Dest\2024\05\photo.jpg", originalContent);
+        scenario.FileSystem.AddFile(TestPaths.InDest("2024", "05", "photo.jpg"), originalContent);
 
         var config = CreateConfig(
             scenario.SourceDirectory,
@@ -814,7 +814,7 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        var destContent = scenario.FileSystem.GetFileContent(@"C:\Dest\2024\05\photo.jpg");
+        var destContent = scenario.FileSystem.GetFileContent(TestPaths.InDest("2024", "05", "photo.jpg"));
         // Content should be different from original (overwritten with source content)
         await Assert.That(destContent).IsNotEquivalentTo(originalContent);
     }
@@ -828,8 +828,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhotoSequence("trip", new DateTime(2024, 7, 1), count: 5)
             .BuildWithDetails();
 
@@ -847,7 +847,7 @@ public class InMemoryCLITests
         for (int i = 1; i <= 5; i++)
         {
             var fileName = $"trip_{i:D3}.jpg";
-            await Assert.That(scenario.FileSystem.FileExists(Path.Combine(@"C:\Dest\2024\07", fileName))).IsTrue();
+            await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "07", fileName))).IsTrue();
         }
     }
 
@@ -856,8 +856,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithMonthlyPhotos(2024)
             .BuildWithDetails();
 
@@ -874,7 +874,7 @@ public class InMemoryCLITests
         await Assert.That(result).IsEqualTo(0);
         for (int month = 1; month <= 12; month++)
         {
-            var destPath = Path.Combine(@"C:\Dest\2024", month.ToString("00"), $"monthly_photo_{month:D2}.jpg");
+            var destPath = TestPaths.InDest("2024", month.ToString("00"), $"monthly_photo_{month:D2}.jpg");
             await Assert.That(scenario.FileSystem.FileExists(destPath)).IsTrue();
         }
     }
@@ -889,8 +889,8 @@ public class InMemoryCLITests
         // Arrange - Note: InMemoryFileSystem.EnumerateFiles only enumerates direct children
         // So we test that files from source are correctly organized to destination
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo_001.jpg", new DateTime(2024, 8, 1))
             .WithPhoto("photo_002.jpg", new DateTime(2024, 8, 2))
             .WithPhoto("photo_003.jpg", new DateTime(2024, 8, 3))
@@ -907,9 +907,9 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\08\photo_001.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\08\photo_002.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\08\photo_003.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "08", "photo_001.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "08", "photo_002.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "08", "photo_003.jpg"))).IsTrue();
     }
 
     #endregion
@@ -921,8 +921,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhotoSequence("photo", new DateTime(2024, 1, 1), count: 100)
             .BuildWithDetails();
 
@@ -950,8 +950,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo1.jpg", new DateTime(2024, 1, 1))
             .WithPhoto("photo2.jpg", new DateTime(2024, 2, 1))
             .BuildWithDetails();
@@ -980,8 +980,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Empty")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Empty)
+            .WithDestinationDirectory(TestPaths.Dest)
             .BuildWithDetails();
 
         var config = CreateConfig(
@@ -1002,8 +1002,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPngPhoto("screenshot.png", new DateTime(2024, 9, 1))
             .BuildWithDetails();
 
@@ -1018,7 +1018,7 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\09\screenshot.png")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "09", "screenshot.png"))).IsTrue();
     }
 
     [Test]
@@ -1026,8 +1026,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 5, 1))
             .WithPngPhoto("screenshot.png", new DateTime(2024, 5, 2))
             .WithVideo("clip.mp4", new DateTime(2024, 5, 3))
@@ -1044,9 +1044,9 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\photo.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\screenshot.png")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\05\clip.mp4")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "photo.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "screenshot.png"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "05", "clip.mp4"))).IsTrue();
     }
 
     [Test]
@@ -1054,8 +1054,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("y2020.jpg", new DateTime(2020, 6, 15))
             .WithPhoto("y2021.jpg", new DateTime(2021, 6, 15))
             .WithPhoto("y2022.jpg", new DateTime(2022, 6, 15))
@@ -1074,11 +1074,11 @@ public class InMemoryCLITests
 
         // Assert
         await Assert.That(result).IsEqualTo(0);
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2020\y2020.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2021\y2021.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2022\y2022.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2023\y2023.jpg")).IsTrue();
-        await Assert.That(scenario.FileSystem.FileExists(@"C:\Dest\2024\y2024.jpg")).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2020", "y2020.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2021", "y2021.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2022", "y2022.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2023", "y2023.jpg"))).IsTrue();
+        await Assert.That(scenario.FileSystem.FileExists(TestPaths.InDest("2024", "y2024.jpg"))).IsTrue();
     }
 
     #endregion
@@ -1090,8 +1090,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("photo.jpg", new DateTime(2024, 8, 1))
             .BuildWithDetails();
 
@@ -1115,8 +1115,8 @@ public class InMemoryCLITests
     {
         // Arrange
         var scenario = _scenarioBuilder
-            .WithSourceDirectory(@"C:\Source")
-            .WithDestinationDirectory(@"C:\Dest")
+            .WithSourceDirectory(TestPaths.Source)
+            .WithDestinationDirectory(TestPaths.Dest)
             .WithPhoto("old.jpg", new DateTime(2019, 1, 1))
             .BuildWithDetails();
 
