@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 
 namespace PhotoCopy.Tests.TestingImplementation;
@@ -7,11 +9,34 @@ namespace PhotoCopy.Tests.TestingImplementation;
 // Shared log collection to ensure all loggers access the same log entries
 public static class SharedLogs
 {
-    public static readonly List<LogEntry> Entries = new();
+    private static readonly ConcurrentBag<LogEntry> _entries = new();
+    private static readonly object _lock = new();
+    
+    public static List<LogEntry> Entries
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _entries.Where(e => e != null).ToList();
+            }
+        }
+    }
+    
+    public static void Add(LogEntry entry)
+    {
+        if (entry != null)
+        {
+            _entries.Add(entry);
+        }
+    }
     
     public static void Clear()
     {
-        Entries.Clear();
+        lock (_lock)
+        {
+            _entries.Clear();
+        }
     }
 }
 
@@ -24,7 +49,7 @@ public class FakeLogger<T> : ILogger<T>
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
-        SharedLogs.Entries.Add(new LogEntry
+        SharedLogs.Add(new LogEntry
         {
             LogLevel = logLevel,
             EventId = eventId,
@@ -56,7 +81,7 @@ public class FakeLogger : ILogger
 
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
-        SharedLogs.Entries.Add(new LogEntry
+        SharedLogs.Add(new LogEntry
         {
             LogLevel = logLevel,
             EventId = eventId,
