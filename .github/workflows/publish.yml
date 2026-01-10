@@ -44,12 +44,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v2
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.x
+          dotnet-version: 10.0.x
 
       - name: Publish
         shell: bash
@@ -57,7 +57,7 @@ jobs:
           tag=$(git describe --tags --abbrev=0)
           release_name="PhotoCopy-$tag-${{ matrix.target }}"
           # Build everything
-          dotnet publish --framework net9.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
+          dotnet publish --framework net10.0 --runtime ${{ matrix.target }} -c Release -o $release_name /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
           # Pack files
           if [ "${{ matrix.target }}" == "win-x64" ]; then
             name="${release_name}.zip"
