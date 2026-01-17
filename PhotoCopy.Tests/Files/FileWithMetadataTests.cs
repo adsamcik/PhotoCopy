@@ -612,7 +612,7 @@ public class FileWithMetadataTests : TestBase
         // Arrange
         var fileName = "test_photo.jpg";
         var dateTime = new DateTime(2023, 6, 15, 14, 30, 0);
-        var location = new LocationData("New York", null, "NY", "USA");
+        var location = new LocationData("New York", "New York", null, "NY", "USA");
         
         var file = CreateFileWithMetadata(fileName, dateTime);
         file.Location = location;
@@ -668,7 +668,7 @@ public class FileWithMetadataTests : TestBase
     {
         // Arrange
         var file = CreateFileWithMetadata("photo.jpg");
-        var location = new LocationData("Paris", null, null, "France");
+        var location = new LocationData("Paris", "Paris", null, null, "France");
 
         // Act
         file.Location = location;

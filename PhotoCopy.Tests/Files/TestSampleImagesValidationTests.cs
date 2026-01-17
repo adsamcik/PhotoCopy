@@ -1069,4 +1069,176 @@ public class TestSampleImagesValidationTests
     }
 
     #endregion
+
+    #region New GPS Edge Case Tests
+
+    [Test]
+    public async Task JpegSouthPole_ShouldHaveCorrectNegativeLatitude()
+    {
+        // Arrange
+        var testDir = CreateUniqueTestDirectory();
+        var filePath = Path.Combine(testDir, "south_pole.jpg");
+
+        try
+        {
+            await File.WriteAllBytesAsync(filePath, TestSampleImages.JpegSouthPole);
+
+            // Act
+            var directories = ImageMetadataReader.ReadMetadata(filePath);
+            var gpsDirectory = directories.OfType<GpsDirectory>().FirstOrDefault();
+
+            // Assert
+            await Assert.That(gpsDirectory).IsNotNull();
+            var hasLocation = gpsDirectory!.TryGetGeoLocation(out var location);
+            await Assert.That(hasLocation).IsTrue();
+            await Assert.That(location.Latitude).IsEqualTo(TestSampleImages.JpegSouthPoleGps.Lat).Within(0.001);
+        }
+        finally
+        {
+            SafeDeleteDirectory(testDir);
+        }
+    }
+
+    [Test]
+    public async Task JpegDateLinePlus_ShouldHaveCorrectPositiveLongitude()
+    {
+        // Arrange
+        var testDir = CreateUniqueTestDirectory();
+        var filePath = Path.Combine(testDir, "dateline_plus.jpg");
+
+        try
+        {
+            await File.WriteAllBytesAsync(filePath, TestSampleImages.JpegDateLinePlus);
+
+            // Act
+            var directories = ImageMetadataReader.ReadMetadata(filePath);
+            var gpsDirectory = directories.OfType<GpsDirectory>().FirstOrDefault();
+
+            // Assert
+            await Assert.That(gpsDirectory).IsNotNull();
+            var hasLocation = gpsDirectory!.TryGetGeoLocation(out var location);
+            await Assert.That(hasLocation).IsTrue();
+            await Assert.That(location.Longitude).IsEqualTo(TestSampleImages.JpegDateLinePlusGps.Lon).Within(0.001);
+        }
+        finally
+        {
+            SafeDeleteDirectory(testDir);
+        }
+    }
+
+    [Test]
+    public async Task JpegDateLineMinus_ShouldHaveCorrectNegativeLongitude()
+    {
+        // Arrange
+        var testDir = CreateUniqueTestDirectory();
+        var filePath = Path.Combine(testDir, "dateline_minus.jpg");
+
+        try
+        {
+            await File.WriteAllBytesAsync(filePath, TestSampleImages.JpegDateLineMinus);
+
+            // Act
+            var directories = ImageMetadataReader.ReadMetadata(filePath);
+            var gpsDirectory = directories.OfType<GpsDirectory>().FirstOrDefault();
+
+            // Assert
+            await Assert.That(gpsDirectory).IsNotNull();
+            var hasLocation = gpsDirectory!.TryGetGeoLocation(out var location);
+            await Assert.That(hasLocation).IsTrue();
+            await Assert.That(location.Longitude).IsEqualTo(TestSampleImages.JpegDateLineMinusGps.Lon).Within(0.001);
+        }
+        finally
+        {
+            SafeDeleteDirectory(testDir);
+        }
+    }
+
+    [Test]
+    public async Task JpegNearZeroGps_ShouldNotBeTreatedAsZero()
+    {
+        // Arrange
+        var testDir = CreateUniqueTestDirectory();
+        var filePath = Path.Combine(testDir, "near_zero.jpg");
+
+        try
+        {
+            await File.WriteAllBytesAsync(filePath, TestSampleImages.JpegNearZeroGps);
+
+            // Act
+            var directories = ImageMetadataReader.ReadMetadata(filePath);
+            var gpsDirectory = directories.OfType<GpsDirectory>().FirstOrDefault();
+
+            // Assert
+            await Assert.That(gpsDirectory).IsNotNull();
+            var hasLocation = gpsDirectory!.TryGetGeoLocation(out var location);
+            await Assert.That(hasLocation).IsTrue();
+            // The location should NOT be treated as "zero" since it's near-zero but not exactly zero
+            await Assert.That(location.IsZero).IsFalse()
+                .Because("Near-zero coordinates (0.0001, 0.0001) should not be treated as IsZero");
+        }
+        finally
+        {
+            SafeDeleteDirectory(testDir);
+        }
+    }
+
+    #endregion
+
+    #region DateTimeDigitized Fallback Tests
+
+    [Test]
+    public async Task JpegWithDigitizedOnly_FileMetadataExtractor_ShouldFallbackToDigitizedDate()
+    {
+        // Arrange
+        var testDir = CreateUniqueTestDirectory();
+        var filePath = Path.Combine(testDir, "digitized_only.jpg");
+
+        try
+        {
+            await File.WriteAllBytesAsync(filePath, TestSampleImages.JpegWithDigitizedOnly);
+            var extractor = CreateExtractor();
+            var fileInfo = new FileInfo(filePath);
+
+            // Act
+            var result = extractor.GetDateTime(fileInfo);
+
+            // Assert - Should fallback to DateTimeDigitized when DateTimeOriginal is not present
+            await Assert.That(result.Taken).IsEqualTo(TestSampleImages.JpegWithDigitizedOnlyDate)
+                .Because("FileMetadataExtractor should fallback to DateTimeDigitized when DateTimeOriginal is missing");
+        }
+        finally
+        {
+            SafeDeleteDirectory(testDir);
+        }
+    }
+
+    [Test]
+    public async Task JpegWithBothDates_FileMetadataExtractor_ShouldPreferOriginalOverDigitized()
+    {
+        // Arrange
+        var testDir = CreateUniqueTestDirectory();
+        var filePath = Path.Combine(testDir, "both_dates.jpg");
+
+        try
+        {
+            await File.WriteAllBytesAsync(filePath, TestSampleImages.JpegWithBothDates);
+            var extractor = CreateExtractor();
+            var fileInfo = new FileInfo(filePath);
+
+            // Act
+            var result = extractor.GetDateTime(fileInfo);
+
+            // Assert - DateTimeOriginal should take precedence over DateTimeDigitized
+            await Assert.That(result.Taken).IsEqualTo(TestSampleImages.JpegWithBothDatesOriginal)
+                .Because("FileMetadataExtractor should prefer DateTimeOriginal over DateTimeDigitized");
+            await Assert.That(result.Taken).IsNotEqualTo(TestSampleImages.JpegWithBothDatesDigitized)
+                .Because("DateTimeDigitized should not be used when DateTimeOriginal is present");
+        }
+        finally
+        {
+            SafeDeleteDirectory(testDir);
+        }
+    }
+
+    #endregion
 }

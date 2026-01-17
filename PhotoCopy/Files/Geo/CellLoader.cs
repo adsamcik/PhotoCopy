@@ -20,6 +20,7 @@ public sealed class SpatialIndex : IDisposable
     private readonly GeoIndexHeader _header;
     private readonly CellIndexEntry[] _cellIndex;
     private readonly Dictionary<uint, int> _geohashToIndex;
+    private readonly string[] _countryNames;
     private bool _disposed;
 
     /// <summary>
@@ -47,12 +48,19 @@ public sealed class SpatialIndex : IDisposable
     /// </summary>
     public long DataFileSize => _header.DataFileSize;
 
+    /// <summary>
+    /// Country names table (indexed by CountryIndex from entries).
+    /// </summary>
+    public IReadOnlyList<string> CountryNames => _countryNames;
+
     private SpatialIndex(GeoIndexHeader header, CellIndexEntry[] cellIndex,
-        Dictionary<uint, int> geohashToIndex, MemoryMappedFile? mmap = null, MemoryMappedViewAccessor? view = null)
+        Dictionary<uint, int> geohashToIndex, string[] countryNames,
+        MemoryMappedFile? mmap = null, MemoryMappedViewAccessor? view = null)
     {
         _header = header;
         _cellIndex = cellIndex;
         _geohashToIndex = geohashToIndex;
+        _countryNames = countryNames;
         _indexMmap = mmap;
         _indexView = view;
     }
@@ -86,8 +94,13 @@ public sealed class SpatialIndex : IDisposable
                 throw new InvalidDataException($"Invalid index header: Magic={header.Magic:X8}, Version={header.Version}");
             }
 
-            // Validate file size for entries
-            long expectedSize = GeoIndexHeader.Size + (header.CellCount * CellIndexEntry.Size);
+            // Read country table
+            long offset = GeoIndexHeader.Size;
+            var (countryNames, countryPoolEnd) = ReadCountryTable(view, offset, header.CountryCount);
+            offset = countryPoolEnd;
+
+            // Validate file size for cell entries
+            long expectedSize = offset + (header.CellCount * CellIndexEntry.Size);
             if (fileInfo.Length < expectedSize)
                 throw new InvalidDataException($"Index file truncated: expected {expectedSize} bytes, got {fileInfo.Length}");
 
@@ -95,7 +108,6 @@ public sealed class SpatialIndex : IDisposable
             var cellIndex = new CellIndexEntry[header.CellCount];
             var geohashToIndex = new Dictionary<uint, int>((int)header.CellCount);
 
-            long offset = GeoIndexHeader.Size;
             for (int i = 0; i < header.CellCount; i++)
             {
                 cellIndex[i] = ReadCellIndexEntry(view, offset);
@@ -103,7 +115,7 @@ public sealed class SpatialIndex : IDisposable
                 offset += CellIndexEntry.Size;
             }
 
-            return new SpatialIndex(header, cellIndex, geohashToIndex, mmap, view);
+            return new SpatialIndex(header, cellIndex, geohashToIndex, countryNames, mmap, view);
         }
         catch
         {
@@ -188,14 +200,59 @@ public sealed class SpatialIndex : IDisposable
             Magic = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(0, 4)),
             Version = BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(4, 2)),
             Precision = bytes[6],
-            Flags = bytes[7],
+            CountryCount = bytes[7],
             CellCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(8, 4)),
             TotalLocationCount = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(12, 4)),
             BuildTimestamp = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(16, 8)),
             DataFileSize = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(24, 8)),
-            Reserved1 = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(32, 8)),
-            Reserved2 = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(40, 8)),
         };
+    }
+
+    private static (string[] Names, long PoolEnd) ReadCountryTable(MemoryMappedViewAccessor view, long offset, int countryCount)
+    {
+        if (countryCount == 0)
+            return (Array.Empty<string>(), offset);
+
+        // Read country entries (4 bytes each)
+        var entries = new CountryEntry[countryCount];
+        var entryBytes = new byte[CountryEntry.Size];
+        ushort maxNameOffset = 0;
+
+        for (int i = 0; i < countryCount; i++)
+        {
+            view.ReadArray(offset, entryBytes, 0, CountryEntry.Size);
+            entries[i] = new CountryEntry
+            {
+                CountryCode = BinaryPrimitives.ReadUInt16LittleEndian(entryBytes.AsSpan(0, 2)),
+                NameOffset = BinaryPrimitives.ReadUInt16LittleEndian(entryBytes.AsSpan(2, 2)),
+            };
+            if (entries[i].NameOffset > maxNameOffset)
+                maxNameOffset = entries[i].NameOffset;
+            offset += CountryEntry.Size;
+        }
+
+        // Read country name string pool
+        // We need to read enough to cover the last string - estimate max 64 chars per country name
+        long stringPoolStart = offset;
+        int estimatedPoolSize = maxNameOffset + 128;
+        var poolBytes = new byte[estimatedPoolSize];
+        view.ReadArray(stringPoolStart, poolBytes, 0, estimatedPoolSize);
+
+        // Parse country names
+        var names = new string[countryCount];
+        int poolEnd = 0;
+        for (int i = 0; i < countryCount; i++)
+        {
+            int nameStart = entries[i].NameOffset;
+            int nameEnd = nameStart;
+            while (nameEnd < poolBytes.Length && poolBytes[nameEnd] != 0)
+                nameEnd++;
+            names[i] = Encoding.UTF8.GetString(poolBytes, nameStart, nameEnd - nameStart);
+            if (nameEnd + 1 > poolEnd)
+                poolEnd = nameEnd + 1;
+        }
+
+        return (names, stringPoolStart + poolEnd);
     }
 
     private static CellIndexEntry ReadCellIndexEntry(MemoryMappedViewAccessor view, long offset)
@@ -208,7 +265,6 @@ public sealed class SpatialIndex : IDisposable
             GeohashCode = BinaryPrimitives.ReadUInt32LittleEndian(bytes.AsSpan(0, 4)),
             DataOffset = BinaryPrimitives.ReadInt64LittleEndian(bytes.AsSpan(4, 8)),
             CompressedSize = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(12, 4)),
-            UncompressedSize = BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(16, 4)),
         };
     }
 
@@ -230,20 +286,23 @@ public sealed class CellLoader : IDisposable
     private readonly MemoryMappedFile _dataMmap;
     private readonly MemoryMappedViewAccessor _dataView;
     private readonly long _fileSize;
+    private readonly string[] _countryNames;
     private bool _disposed;
 
-    private CellLoader(MemoryMappedFile mmap, MemoryMappedViewAccessor view, long fileSize)
+    private CellLoader(MemoryMappedFile mmap, MemoryMappedViewAccessor view, long fileSize, string[] countryNames)
     {
         _dataMmap = mmap;
         _dataView = view;
         _fileSize = fileSize;
+        _countryNames = countryNames;
     }
 
     /// <summary>
     /// Opens a data file for reading.
     /// </summary>
     /// <param name="dataPath">Path to the .geodata file.</param>
-    public static CellLoader Open(string dataPath)
+    /// <param name="countryNames">Country name lookup table from the index.</param>
+    public static CellLoader Open(string dataPath, IReadOnlyList<string> countryNames)
     {
         if (!File.Exists(dataPath))
             throw new FileNotFoundException("Geo-data file not found", dataPath);
@@ -252,7 +311,12 @@ public sealed class CellLoader : IDisposable
         var mmap = MemoryMappedFile.CreateFromFile(dataPath, FileMode.Open, null, 0, MemoryMappedFileAccess.Read);
         var view = mmap.CreateViewAccessor(0, fileInfo.Length, MemoryMappedFileAccess.Read);
 
-        return new CellLoader(mmap, view, fileInfo.Length);
+        // Copy country names to internal array for fast lookup
+        var names = new string[countryNames.Count];
+        for (int i = 0; i < countryNames.Count; i++)
+            names[i] = countryNames[i];
+
+        return new CellLoader(mmap, view, fileInfo.Length, names);
     }
 
     /// <summary>
@@ -271,26 +335,20 @@ public sealed class CellLoader : IDisposable
         _dataView.ReadArray(entry.DataOffset, compressedData, 0, entry.CompressedSize);
 
         // Decompress using Brotli
-        var decompressedData = new byte[entry.UncompressedSize];
         using var compressedStream = new MemoryStream(compressedData);
         using var brotli = new BrotliStream(compressedStream, CompressionMode.Decompress);
-        int totalRead = 0;
-        int bytesRead;
-        while ((bytesRead = brotli.Read(decompressedData, totalRead, entry.UncompressedSize - totalRead)) > 0)
-        {
-            totalRead += bytesRead;
-        }
-        if (totalRead != entry.UncompressedSize)
-            throw new InvalidDataException($"Brotli decompression failed: expected {entry.UncompressedSize}, got {totalRead}");
+        using var decompressedStream = new MemoryStream();
+        brotli.CopyTo(decompressedStream);
+        var decompressedData = decompressedStream.ToArray();
 
         // Parse cell block
-        return ParseCellBlock(decompressedData, geohash);
+        return ParseCellBlock(decompressedData, geohash, _countryNames);
     }
 
     /// <summary>
     /// Parses a decompressed cell block into a GeoCell.
     /// </summary>
-    internal static GeoCell ParseCellBlock(byte[] data, string geohash)
+    internal static GeoCell ParseCellBlock(byte[] data, string geohash, string[] countryNames)
     {
         if (data.Length < CellBlockHeader.Size)
             throw new InvalidDataException("Cell block too small for header");
@@ -299,35 +357,39 @@ public sealed class CellLoader : IDisposable
         var header = new CellBlockHeader
         {
             EntryCount = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(0, 2)),
-            StringPoolOffset = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(2, 2)),
-            StringPoolSize = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(4, 2)),
+            CityStartIndex = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(2, 2)),
+            StringPoolOffset = BinaryPrimitives.ReadUInt16LittleEndian(data.AsSpan(4, 2)),
         };
 
         // Validate sizes
         int entriesEnd = CellBlockHeader.Size + (header.EntryCount * LocationEntryDisk.Size);
         if (entriesEnd > data.Length)
             throw new InvalidDataException($"Entry data extends beyond block: {entriesEnd} > {data.Length}");
-        if (header.StringPoolOffset + header.StringPoolSize > data.Length)
+        if (header.StringPoolOffset > data.Length)
             throw new InvalidDataException("String pool extends beyond block");
 
         // Parse entries
-        var entries = new LocationEntryMemory[header.EntryCount];
-        var stringPool = data.AsSpan(header.StringPoolOffset, header.StringPoolSize);
+        var entries = new LocationEntry[header.EntryCount];
+        var stringPool = data.AsSpan(header.StringPoolOffset);
 
         int offset = CellBlockHeader.Size;
         for (int i = 0; i < header.EntryCount; i++)
         {
             var diskEntry = ParseLocationEntryDisk(data.AsSpan(offset, LocationEntryDisk.Size));
-            entries[i] = new LocationEntryMemory
+            
+            // Look up country name from index
+            string countryName = diskEntry.CountryIndex < countryNames.Length 
+                ? countryNames[diskEntry.CountryIndex] 
+                : string.Empty;
+
+            entries[i] = new LocationEntry
             {
                 Latitude = diskEntry.Latitude,
                 Longitude = diskEntry.Longitude,
-                GeoNameId = diskEntry.GeoNameId,
-                City = ReadStringFromPool(stringPool, diskEntry.CityOffset),
+                Name = ReadStringFromPool(stringPool, diskEntry.NameOffset),
                 State = ReadStringFromPool(stringPool, diskEntry.StateOffset),
-                Country = ReadStringFromPool(stringPool, diskEntry.CountryOffset),
-                PopulationK = diskEntry.PopulationK,
-                FeatureClass = diskEntry.FeatureClass == 0 ? ' ' : (char)diskEntry.FeatureClass,
+                Country = countryName,
+                PlaceType = diskEntry.PlaceType,
             };
             offset += LocationEntryDisk.Size;
         }
@@ -336,13 +398,14 @@ public sealed class CellLoader : IDisposable
         int memoryEstimate = entries.Length * 80; // Rough per-entry overhead
         foreach (var entry in entries)
         {
-            memoryEstimate += (entry.City.Length + entry.State.Length + entry.Country.Length) * 2;
+            memoryEstimate += (entry.Name.Length + entry.State.Length + entry.Country.Length) * 2;
         }
 
         return new GeoCell
         {
             Geohash = geohash,
             Entries = entries,
+            CityStartIndex = header.CityStartIndex,
             Bounds = Geohash.DecodeBounds(geohash),
             EstimatedMemoryBytes = memoryEstimate,
         };
@@ -354,13 +417,10 @@ public sealed class CellLoader : IDisposable
         {
             LatitudeMicro = BinaryPrimitives.ReadInt32LittleEndian(data[..4]),
             LongitudeMicro = BinaryPrimitives.ReadInt32LittleEndian(data.Slice(4, 4)),
-            GeoNameId = BinaryPrimitives.ReadInt32LittleEndian(data.Slice(8, 4)),
-            CityOffset = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(12, 2)),
-            StateOffset = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(14, 2)),
-            CountryOffset = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(16, 2)),
-            PopulationK = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(18, 2)),
-            FeatureClass = data[20],
-            Reserved = data[21],
+            NameOffset = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(8, 2)),
+            StateOffset = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(10, 2)),
+            CountryIndex = data[12],
+            PlaceType = (PlaceType)data[13],
         };
     }
 

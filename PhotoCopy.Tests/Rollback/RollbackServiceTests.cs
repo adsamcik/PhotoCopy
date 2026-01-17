@@ -358,6 +358,108 @@ public class RollbackServiceTests
 
     #endregion
 
+    #region Path Validation Security Tests
+
+    [Test]
+    public async Task RollbackAsync_WithPathTraversal_RejectsOperation()
+    {
+        // Arrange - create a log with path traversal attempt
+        var sourceFile = Path.Combine(_testDirectory, "..", "..", "secret", "file.txt");
+        var destFile = Path.Combine(_testDirectory, "dest", "file.txt");
+        
+        Directory.CreateDirectory(Path.Combine(_testDirectory, "dest"));
+        await File.WriteAllTextAsync(destFile, "test content");
+        
+        var transactionLog = CreateTransactionLog(new[]
+        {
+            new FileOperationEntry
+            {
+                SourcePath = sourceFile,
+                DestinationPath = destFile,
+                Operation = OperationType.Move,
+                Timestamp = DateTime.UtcNow,
+                FileSize = 12
+            }
+        });
+        
+        var logPath = await WriteTransactionLogAsync(transactionLog);
+
+        // Act
+        var result = await _rollbackService.RollbackAsync(logPath);
+
+        // Assert - should fail due to path traversal
+        result.Success.Should().BeFalse();
+        result.FilesFailed.Should().Be(1);
+        result.Errors.Should().ContainMatch("*Path traversal*");
+    }
+
+    [Test]
+    public async Task RollbackAsync_WithRelativePath_RejectsOperation()
+    {
+        // Arrange - create a log with relative path
+        var sourceFile = @"relative\path\file.txt";
+        var destFile = Path.Combine(_testDirectory, "dest", "file.txt");
+        
+        Directory.CreateDirectory(Path.Combine(_testDirectory, "dest"));
+        await File.WriteAllTextAsync(destFile, "test content");
+        
+        var transactionLog = CreateTransactionLog(new[]
+        {
+            new FileOperationEntry
+            {
+                SourcePath = sourceFile,
+                DestinationPath = destFile,
+                Operation = OperationType.Move,
+                Timestamp = DateTime.UtcNow,
+                FileSize = 12
+            }
+        });
+        
+        var logPath = await WriteTransactionLogAsync(transactionLog);
+
+        // Act
+        var result = await _rollbackService.RollbackAsync(logPath);
+
+        // Assert - should fail due to relative path
+        result.Success.Should().BeFalse();
+        result.FilesFailed.Should().Be(1);
+        result.Errors.Should().ContainMatch("*Relative path*");
+    }
+
+    [Test]
+    public async Task RollbackAsync_WithValidAbsolutePaths_Succeeds()
+    {
+        // Arrange
+        var destFile = Path.Combine(_testDirectory, "dest", "file.txt");
+        var sourceFile = Path.Combine(_testDirectory, "source", "file.txt");
+        
+        Directory.CreateDirectory(Path.Combine(_testDirectory, "dest"));
+        await File.WriteAllTextAsync(destFile, "test content");
+        
+        var transactionLog = CreateTransactionLog(new[]
+        {
+            new FileOperationEntry
+            {
+                SourcePath = sourceFile,
+                DestinationPath = destFile,
+                Operation = OperationType.Copy,
+                Timestamp = DateTime.UtcNow,
+                FileSize = 12
+            }
+        });
+        
+        var logPath = await WriteTransactionLogAsync(transactionLog);
+
+        // Act
+        var result = await _rollbackService.RollbackAsync(logPath);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.FilesRestored.Should().Be(1);
+    }
+
+    #endregion
+
     #region ListTransactionLogs Tests (GetTransactionLogs equivalent)
 
     [Test]

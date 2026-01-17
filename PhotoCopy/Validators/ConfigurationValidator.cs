@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using PhotoCopy.Configuration;
 
@@ -29,24 +30,29 @@ public record ConfigurationValidationError(string PropertyName, string ErrorMess
 /// </summary>
 public class ConfigurationValidator : IConfigurationValidator
 {
-    // Known destination pattern variables
-    private static readonly HashSet<string> ValidVariables = new(StringComparer.OrdinalIgnoreCase)
+    // Known destination pattern variable names (without braces)
+    private static readonly HashSet<string> ValidVariableNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        "{year}",
-        "{month}",
-        "{day}",
-        "{name}",
-        "{namenoext}",
-        "{ext}",
-        "{directory}",
-        "{number}",
-        "{city}",
-        "{state}",
-        "{country}"
+        "year",
+        "month",
+        "day",
+        "name",
+        "namenoext",
+        "ext",
+        "directory",
+        "number",
+        "city",
+        "state",
+        "country",
+        "district",
+        "county",
+        "lat",
+        "lon",
+        "filename"
     };
 
-    // Regex to find all {variable} patterns
-    private static readonly Regex VariablePattern = new(@"\{[^}]+\}", RegexOptions.Compiled);
+    // Regex to extract base variable name from patterns like {var}, {var|fallback}, {var?condition}, {var?condition|fallback}
+    private static readonly Regex VariablePattern = new(@"\{(?<varname>[a-zA-Z_][a-zA-Z0-9_]*)(?:\?[^|}\s]+)?(?:\|[^}]*)?\}", RegexOptions.Compiled);
 
     public IReadOnlyList<ConfigurationValidationError> Validate(PhotoCopyConfig config)
     {
@@ -151,13 +157,13 @@ public class ConfigurationValidator : IConfigurationValidator
         var matches = VariablePattern.Matches(config.Destination);
         foreach (Match match in matches)
         {
-            var variable = match.Value;
-            if (!ValidVariables.Contains(variable))
+            var variableName = match.Groups["varname"].Value;
+            if (!ValidVariableNames.Contains(variableName))
             {
                 errors.Add(new ConfigurationValidationError(
                     nameof(PhotoCopyConfig.Destination),
-                    $"Unknown destination pattern variable: '{variable}'. " +
-                    $"Valid variables are: {string.Join(", ", ValidVariables)}."));
+                    $"Unknown destination pattern variable: '{{{variableName}}}'. " +
+                    $"Valid variables are: {string.Join(", ", ValidVariableNames.Select(v => "{" + v + "}"))}."));
             }
         }
     }

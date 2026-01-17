@@ -24,3 +24,5 @@ PhotoCopy/data/allCountries.txt
 PhotoCopy/data/allCountries.zip
 PhotoCopy/data/cities*.txt
 PhotoCopy/data/cities*.zip
+/TestPhotos
+/TestOutput

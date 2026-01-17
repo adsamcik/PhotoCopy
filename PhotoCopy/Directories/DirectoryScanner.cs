@@ -16,15 +16,18 @@ public class DirectoryScanner : IDirectoryScanner
     private readonly ILogger<DirectoryScanner> _logger;
     private readonly PhotoCopyConfig _config;
     private readonly IFileFactory _fileFactory;
+    private readonly ICompanionGpsEnricher? _companionGpsEnricher;
 
     public DirectoryScanner(
         ILogger<DirectoryScanner> logger,
         IOptions<PhotoCopyConfig> config,
-        IFileFactory fileFactory)
+        IFileFactory fileFactory,
+        ICompanionGpsEnricher? companionGpsEnricher = null)
     {
         _logger = logger;
         _config = config.Value;
         _fileFactory = fileFactory;
+        _companionGpsEnricher = companionGpsEnricher;
     }
 
     public IEnumerable<IFile> EnumerateFiles(string path, CancellationToken cancellationToken = default)
@@ -82,6 +85,14 @@ public class DirectoryScanner : IDirectoryScanner
         }
 
         _logger.LogInformation("File enumeration complete: {FilesFound} files found.", filesFound);
+
+        // Second pass: Companion GPS enrichment for files without GPS data
+        // This runs after all files have been scanned so the GPS index is fully populated
+        if (_companionGpsEnricher != null && _companionGpsEnricher.IsEnabled)
+        {
+            _logger.LogInformation("Running companion GPS enrichment pass...");
+            _companionGpsEnricher.EnrichFiles(files);
+        }
 
         // Group files by their directory
         var filesByDirectory = files.GroupBy(f => Path.GetDirectoryName(f.File.FullName));

@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using NSubstitute;
 using PhotoCopy.Duplicates;
 using PhotoCopy.Files;
+using PhotoCopy.Tests.TestingImplementation;
 
 namespace PhotoCopy.Tests.Integration;
 
@@ -152,8 +153,8 @@ public class DuplicateDetectorIntegrationTests
         var testDirectory = CreateUniqueTestDirectory();
         try
         {
-            // Arrange - Create binary files with JPEG-like headers
-            var binaryContent = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46 };
+            // Arrange - Create binary files with valid JPEG content
+            var binaryContent = TestSampleImages.JpegWithNoExif;
             var file1Path = Path.Combine(testDirectory, "image1.jpg");
             var file2Path = Path.Combine(testDirectory, "image2.jpg");
 

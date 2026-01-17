@@ -9,6 +9,7 @@ using PhotoCopy.Directories;
 using PhotoCopy.Files;
 using PhotoCopy.Files.Metadata;
 using PhotoCopy.Rollback;
+using PhotoCopy.Tests.TestingImplementation;
 using PhotoCopy.Validators;
 
 namespace PhotoCopy.Tests.Integration;
@@ -47,7 +48,7 @@ public class CopyWorkflowIntegrationTests
         if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        File.WriteAllBytes(path, new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10 });
+        File.WriteAllBytes(path, TestSampleImages.JpegWithNoExif);
 
         if (fileDateTime.HasValue)
         {

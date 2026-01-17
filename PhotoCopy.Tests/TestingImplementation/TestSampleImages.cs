@@ -83,6 +83,38 @@ public static class TestSampleImages
         dateTaken: new DateTime(2023, 12, 21, 0, 0, 0),
         gps: (Lat: 90.0, Lon: 0.0));
 
+    /// <summary>
+    /// JPEG with GPS at the South Pole (-90, 0).
+    /// Tests extreme negative latitude value at the geographic pole.
+    /// </summary>
+    public static byte[] JpegSouthPole => MockImageGenerator.CreateJpeg(
+        dateTaken: new DateTime(2023, 6, 21, 12, 0, 0),
+        gps: (Lat: -90.0, Lon: 0.0));
+
+    /// <summary>
+    /// JPEG with GPS at the International Date Line (positive side: 0, 179.9999).
+    /// Tests extreme positive longitude value near the date line.
+    /// </summary>
+    public static byte[] JpegDateLinePlus => MockImageGenerator.CreateJpeg(
+        dateTaken: new DateTime(2023, 9, 15, 6, 0, 0),
+        gps: (Lat: 0.0, Lon: 179.9999));
+
+    /// <summary>
+    /// JPEG with GPS at the International Date Line (negative side: 0, -179.9999).
+    /// Tests extreme negative longitude value near the date line.
+    /// </summary>
+    public static byte[] JpegDateLineMinus => MockImageGenerator.CreateJpeg(
+        dateTaken: new DateTime(2023, 9, 15, 18, 0, 0),
+        gps: (Lat: 0.0, Lon: -179.9999));
+
+    /// <summary>
+    /// JPEG with GPS coordinates very close to zero but not exactly zero (0.0001, 0.0001).
+    /// Tests distinction from (0,0) IsZero check - should NOT be treated as zero.
+    /// </summary>
+    public static byte[] JpegNearZeroGps => MockImageGenerator.CreateJpeg(
+        dateTaken: new DateTime(2023, 5, 10, 14, 30, 0),
+        gps: (Lat: 0.0001, Lon: 0.0001));
+
     #endregion
 
     #region JPEG with Edge Case Dates
@@ -110,6 +142,78 @@ public static class TestSampleImages
     public static byte[] JpegVeryOldDate => MockImageGenerator.CreateJpeg(
         dateTaken: new DateTime(1990, 5, 15, 8, 30, 0),
         gps: null);
+
+    /// <summary>
+    /// JPEG with a future date (2099-12-31 23:59:59).
+    /// Tests handling of incorrectly set future dates.
+    /// </summary>
+    public static byte[] JpegFutureDate => MockImageGenerator.CreateJpeg(
+        dateTaken: new DateTime(2099, 12, 31, 23, 59, 59),
+        gps: null);
+
+    #endregion
+
+    #region JPEG with DateTimeDigitized (Extended Metadata)
+
+    /// <summary>
+    /// JPEG with only DateTimeDigitized set (no DateTimeOriginal).
+    /// Uses MockImageGeneratorExtended for DateTimeDigitized support.
+    /// Tests fallback behavior when DateTimeOriginal is missing but DateTimeDigitized is present.
+    /// </summary>
+    public static byte[] JpegWithDigitizedOnly => MockImageGeneratorExtended.Jpeg()
+        .WithDateDigitized(new DateTime(2023, 11, 15, 10, 30, 0))
+        .Build();
+
+    /// <summary>
+    /// JPEG with both DateTimeOriginal and DateTimeDigitized set to different values.
+    /// DateTimeOriginal: 2023-10-01 09:00:00, DateTimeDigitized: 2023-10-15 14:00:00.
+    /// Tests that DateTimeOriginal takes precedence over DateTimeDigitized.
+    /// </summary>
+    public static byte[] JpegWithBothDates => MockImageGeneratorExtended.Jpeg()
+        .WithDate(new DateTime(2023, 10, 1, 9, 0, 0))
+        .WithDateDigitized(new DateTime(2023, 10, 15, 14, 0, 0))
+        .Build();
+
+    /// <summary>
+    /// Gets the expected DateTimeDigitized for JpegWithDigitizedOnly.
+    /// </summary>
+    public static DateTime JpegWithDigitizedOnlyDate => new DateTime(2023, 11, 15, 10, 30, 0);
+
+    /// <summary>
+    /// Gets the expected DateTimeOriginal for JpegWithBothDates (should take precedence).
+    /// </summary>
+    public static DateTime JpegWithBothDatesOriginal => new DateTime(2023, 10, 1, 9, 0, 0);
+
+    /// <summary>
+    /// Gets the expected DateTimeDigitized for JpegWithBothDates.
+    /// </summary>
+    public static DateTime JpegWithBothDatesDigitized => new DateTime(2023, 10, 15, 14, 0, 0);
+
+    #endregion
+
+    #region JPEG with Camera Information (Extended Metadata)
+
+    /// <summary>
+    /// JPEG with full camera information: Make, Model, Orientation, and Dimensions.
+    /// Uses MockImageGeneratorExtended for extended EXIF support.
+    /// </summary>
+    public static byte[] JpegWithCameraInfo => MockImageGeneratorExtended.Jpeg()
+        .WithDate(new DateTime(2023, 6, 15, 14, 30, 0))
+        .WithGps(48.8566, 2.3522)
+        .WithCamera("Canon", "EOS R5")
+        .WithOrientation(1)
+        .WithDimensions(8192, 5464)
+        .Build();
+
+    /// <summary>
+    /// Gets the expected camera make for JpegWithCameraInfo.
+    /// </summary>
+    public static string JpegWithCameraInfoMake => "Canon";
+
+    /// <summary>
+    /// Gets the expected camera model for JpegWithCameraInfo.
+    /// </summary>
+    public static string JpegWithCameraInfoModel => "EOS R5";
 
     #endregion
 
@@ -253,6 +357,42 @@ public static class TestSampleImages
     /// Gets the expected DateTime for PngWithDateOnly.
     /// </summary>
     public static DateTime PngWithDateOnlyDate => new DateTime(2023, 4, 10, 11, 20, 0);
+
+    /// <summary>
+    /// Gets the expected GPS coordinates for JpegSouthPole.
+    /// </summary>
+    public static (double Lat, double Lon) JpegSouthPoleGps => (-90.0, 0.0);
+
+    /// <summary>
+    /// Gets the expected GPS coordinates for JpegDateLinePlus.
+    /// </summary>
+    public static (double Lat, double Lon) JpegDateLinePlusGps => (0.0, 179.9999);
+
+    /// <summary>
+    /// Gets the expected GPS coordinates for JpegDateLineMinus.
+    /// </summary>
+    public static (double Lat, double Lon) JpegDateLineMinusGps => (0.0, -179.9999);
+
+    /// <summary>
+    /// Gets the expected GPS coordinates for JpegNearZeroGps.
+    /// </summary>
+    public static (double Lat, double Lon) JpegNearZeroGpsCoordinates => (0.0001, 0.0001);
+
+    #endregion
+
+    #region Utility Content
+
+    /// <summary>
+    /// Small stub content for creating placeholder destination files in tests.
+    /// Use when you need to create a pre-existing file at destination for skip/overwrite tests.
+    /// </summary>
+    public static byte[] StubFileContent => new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05 };
+
+    /// <summary>
+    /// PDF file header (%PDF) for non-image file testing.
+    /// Tests graceful handling of non-image files.
+    /// </summary>
+    public static byte[] PdfHeader => new byte[] { 0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34 }; // %PDF-1.4
 
     #endregion
 }

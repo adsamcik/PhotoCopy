@@ -62,7 +62,7 @@ public class TieredGeocodingIntegrationTests
         var dataPath = Path.Combine(testDataDir, "geo.geodata");
 
         using var index = SpatialIndex.Load(indexPath);
-        using var loader = CellLoader.Open(dataPath);
+        using var loader = CellLoader.Open(dataPath, index.CountryNames);
         
         var cells = index.GetAllCells();
         await Assert.That(cells).IsNotNull();
@@ -89,7 +89,7 @@ public class TieredGeocodingIntegrationTests
         var dataPath = Path.Combine(testDataDir, "geo.geodata");
 
         using var index = SpatialIndex.Load(indexPath);
-        using var loader = CellLoader.Open(dataPath);
+        using var loader = CellLoader.Open(dataPath, index.CountryNames);
         using var cache = new CellCache();
 
         // New York coordinates
@@ -112,8 +112,8 @@ public class TieredGeocodingIntegrationTests
         
         await Assert.That(nearest).IsNotNull();
         // Should find a location in the US near NYC (could be "New York" or a nearby landmark/area)
-        await Assert.That(nearest!.City).IsNotEmpty();
-        await Assert.That(nearest.Country).IsEqualTo("US");
+        await Assert.That(nearest!.Name).IsNotEmpty();
+        await Assert.That(nearest.Country).IsEqualTo("United States");
         await Assert.That(nearest.DistanceKm(lat, lon)).IsLessThan(5.0); // Within 5km of Manhattan
     }
 
@@ -130,7 +130,7 @@ public class TieredGeocodingIntegrationTests
         var dataPath = Path.Combine(testDataDir, "geo.geodata");
 
         using var index = SpatialIndex.Load(indexPath);
-        using var loader = CellLoader.Open(dataPath);
+        using var loader = CellLoader.Open(dataPath, index.CountryNames);
         using var cache = new CellCache();
 
         // Tokyo coordinates
@@ -169,7 +169,7 @@ public class TieredGeocodingIntegrationTests
         if (bestResult != null)
         {
             await Assert.That(bestResult.DistanceKm).IsLessThan(100.0);
-            await Assert.That(bestResult.Location.City).IsNotEmpty();
+            await Assert.That(bestResult.Location.Name).IsNotEmpty();
         }
     }
 
@@ -186,7 +186,7 @@ public class TieredGeocodingIntegrationTests
         var dataPath = Path.Combine(testDataDir, "geo.geodata");
 
         using var index = SpatialIndex.Load(indexPath);
-        using var loader = CellLoader.Open(dataPath);
+        using var loader = CellLoader.Open(dataPath, index.CountryNames);
         using var cache = new CellCache();
 
         var cells = index.GetAllCells();

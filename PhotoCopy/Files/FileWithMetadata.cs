@@ -17,6 +17,11 @@ public class FileWithMetadata : IFile
     public LocationData? Location { get; set; }
     public string Checksum { get; private set; } = string.Empty;
     
+    /// <summary>
+    /// Gets or sets the reason why this file has no location data.
+    /// </summary>
+    public UnknownFileReason UnknownReason { get; set; } = UnknownFileReason.None;
+    
     public IReadOnlyCollection<IFile> RelatedFiles => _relatedFiles;
 
     public FileWithMetadata(FileInfo file, FileDateTime fileDateTime, ILogger logger)

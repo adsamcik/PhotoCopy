@@ -338,7 +338,8 @@ public class ConfigurationDiagnosticsTests
             "Mode", "LogLevel", "RelatedFileMode", "DuplicatesFormat", "MinDate", "MaxDate",
             "GeonamesPath", "CalculateChecksums", "Parallelism", "ShowProgress", "UseAsync",
             "DuplicateHandling", "EnableRollback", "MaxDepth", "AllowedExtensions",
-            "MinimumPopulation", "LocationGranularity", "UseFullCountryNames", "UnknownLocationFallback"
+            "MinimumPopulation", "LocationGranularity", "UseFullCountryNames", "UnknownLocationFallback",
+            "PathCasing", "UnknownReport"
         };
 
         // Act

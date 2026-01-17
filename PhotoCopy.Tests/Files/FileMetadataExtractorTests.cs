@@ -230,6 +230,192 @@ public class FileMetadataExtractorTests : TestBase
 
     #endregion
 
+    #region ISO 6709 Parsing Tests
+
+    [Test]
+    public async Task ParseIso6709_WithBasicPositiveCoordinates_ReturnsCorrectValues()
+    {
+        // Arrange - Paris coordinates
+        var iso6709 = "+48.8584+002.2945/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.Latitude).IsEqualTo(48.8584).Within(0.0001);
+        await Assert.That(result!.Value.Longitude).IsEqualTo(2.2945).Within(0.0001);
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithNegativeCoordinates_ReturnsCorrectValues()
+    {
+        // Arrange - South America coordinates
+        var iso6709 = "-23.5505-046.6333/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.Latitude).IsEqualTo(-23.5505).Within(0.0001);
+        await Assert.That(result!.Value.Longitude).IsEqualTo(-46.6333).Within(0.0001);
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithMixedSignCoordinates_ReturnsCorrectValues()
+    {
+        // Arrange - New York coordinates (positive lat, negative lon)
+        var iso6709 = "+40.7128-074.0060/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.Latitude).IsEqualTo(40.7128).Within(0.0001);
+        await Assert.That(result!.Value.Longitude).IsEqualTo(-74.0060).Within(0.0001);
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithAltitude_ReturnsLatLonAndIgnoresAltitude()
+    {
+        // Arrange - Paris with altitude
+        var iso6709 = "+48.8584+002.2945+100.00/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.Latitude).IsEqualTo(48.8584).Within(0.0001);
+        await Assert.That(result!.Value.Longitude).IsEqualTo(2.2945).Within(0.0001);
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithNegativeAltitude_ReturnsCorrectValues()
+    {
+        // Arrange - Dead Sea area with negative altitude
+        var iso6709 = "+31.5000+035.5000-400.00/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.Latitude).IsEqualTo(31.5).Within(0.0001);
+        await Assert.That(result!.Value.Longitude).IsEqualTo(35.5).Within(0.0001);
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithoutTrailingSlash_ReturnsCorrectValues()
+    {
+        // Arrange - Some encoders might not include the trailing slash
+        var iso6709 = "+48.8584+002.2945";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result!.Value.Latitude).IsEqualTo(48.8584).Within(0.0001);
+        await Assert.That(result!.Value.Longitude).IsEqualTo(2.2945).Within(0.0001);
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithEmptyString_ReturnsNull()
+    {
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709("");
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithNullString_ReturnsNull()
+    {
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(null!);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithWhitespaceOnly_ReturnsNull()
+    {
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709("   ");
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithInvalidFormat_ReturnsNull()
+    {
+        // Arrange - Missing second sign
+        var iso6709 = "+48.85842.2945/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithZeroCoordinates_ReturnsNull()
+    {
+        // Arrange - Zero coordinates should be treated as invalid (like GpsDirectory)
+        var iso6709 = "+00.0000+000.0000/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithInvalidLatitudeRange_ReturnsNull()
+    {
+        // Arrange - Latitude > 90
+        var iso6709 = "+91.0000+002.2945/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithInvalidLongitudeRange_ReturnsNull()
+    {
+        // Arrange - Longitude > 180
+        var iso6709 = "+48.8584+181.0000/";
+
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709(iso6709);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ParseIso6709_WithSlashOnly_ReturnsNull()
+    {
+        // Act
+        var result = FileMetadataExtractor.ParseIso6709("/");
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    #endregion
+
     #region Non-Image File Behavior Tests
 
     [Test]
@@ -264,14 +450,17 @@ public class FileMetadataExtractorTests : TestBase
     }
 
     [Test]
-    public async Task GetCoordinates_WithExtensionNotInAllowedList_ReturnsNull()
+    public async Task GetCoordinates_WithMismatchedExtension_StillReadsMetadata()
     {
         // Arrange
+        // Note: With video GPS support, GetCoordinates now attempts to read metadata from any file
+        // regardless of extension. The AllowedExtensions filtering happens at a higher level
+        // (DirectoryScanner/FileFactory) when deciding which files to process.
         var tempDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
         Directory.CreateDirectory(tempDir);
         var tempFile = Path.Combine(tempDir, "image.bmp");
         
-        // Create actual JPEG content but with .bmp extension not in allowed list
+        // Create actual JPEG content but with .bmp extension
         var jpegBytes = MockImageGenerator.CreateJpeg(gps: (40.7128, -74.0060));
         File.WriteAllBytes(tempFile, jpegBytes);
         
@@ -290,8 +479,10 @@ public class FileMetadataExtractorTests : TestBase
             // Act
             var result = extractor.GetCoordinates(fileInfo);
 
-            // Assert - should return null because extension is not in allowed list
-            await Assert.That(result).IsNull();
+            // Assert - should still read GPS metadata from the actual file content
+            await Assert.That(result).IsNotNull();
+            await Assert.That(result!.Value.Latitude).IsEqualTo(40.7128).Within(0.001);
+            await Assert.That(result!.Value.Longitude).IsEqualTo(-74.0060).Within(0.001);
         }
         finally
         {
@@ -346,7 +537,7 @@ public class FileMetadataExtractorTests : TestBase
         var tempFile = Path.Combine(tempDir, "corrupt.jpg");
         
         // Create a file with JPEG header but corrupt content
-        File.WriteAllBytes(tempFile, [0xFF, 0xD8, 0xFF, 0x00, 0x00, 0x00]);
+        File.WriteAllBytes(tempFile, TestSampleImages.CorruptJpeg);
         
         var fileInfo = new FileInfo(tempFile);
         var options = Substitute.For<IOptions<PhotoCopyConfig>>();
@@ -382,7 +573,7 @@ public class FileMetadataExtractorTests : TestBase
         var tempFile = Path.Combine(tempDir, "corrupt.jpg");
         
         // Create a file with JPEG header but corrupt content
-        File.WriteAllBytes(tempFile, [0xFF, 0xD8, 0xFF, 0x00, 0x00, 0x00]);
+        File.WriteAllBytes(tempFile, TestSampleImages.CorruptJpeg);
         
         var fileInfo = new FileInfo(tempFile);
         var options = Substitute.For<IOptions<PhotoCopyConfig>>();

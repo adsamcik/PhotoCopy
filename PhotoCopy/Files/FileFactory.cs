@@ -35,7 +35,8 @@ public class FileFactory : IFileFactory
         {
             var file = new FileWithMetadata(fileInfo, metadata.DateTime, _fileLogger)
             {
-                Location = metadata.Location
+                Location = metadata.Location,
+                UnknownReason = metadata.UnknownReason
             };
 
             if (!string.IsNullOrWhiteSpace(metadata.Checksum))
@@ -47,7 +48,10 @@ public class FileFactory : IFileFactory
         }
         else
         {
-            return new GenericFile(fileInfo, metadata.DateTime, metadata.Checksum);
+            return new GenericFile(fileInfo, metadata.DateTime, metadata.Checksum)
+            {
+                UnknownReason = metadata.UnknownReason
+            };
         }
     }
 }

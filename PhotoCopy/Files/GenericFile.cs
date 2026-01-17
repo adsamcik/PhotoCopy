@@ -5,16 +5,23 @@ using System.Threading.Tasks;
 
 namespace PhotoCopy.Files;
 
-public class GenericFile : IFile
+public class GenericFile : IFile, IDisposable
 {
     private string _checksum;
     private readonly object _checksumLock = new();
     private readonly SemaphoreSlim _asyncLock = new(1, 1);
     private readonly IChecksumCalculator _checksumCalculator;
+    private bool _disposed;
 
     public FileInfo File { get; }
     public FileDateTime FileDateTime { get; }
     public LocationData? Location => null;
+    
+    /// <summary>
+    /// Gets the reason why this file has no location data.
+    /// GenericFile always returns NoGpsData as it doesn't support location metadata.
+    /// </summary>
+    public UnknownFileReason UnknownReason { get; init; } = UnknownFileReason.NoGpsData;
     
     /// <summary>
     /// Gets the file checksum. Returns an empty string if not calculated.
@@ -121,5 +128,30 @@ public class GenericFile : IFile
         {
             _asyncLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Disposes the resources used by this file, including the async lock.
+    /// </summary>
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Disposes managed resources.
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
+        if (_disposed)
+            return;
+
+        if (disposing)
+        {
+            _asyncLock.Dispose();
+        }
+
+        _disposed = true;
     }
 }

@@ -178,8 +178,18 @@ public class Program
         if (!config.Destination.Contains(DestinationVariables.Name) && !config.Destination.Contains(DestinationVariables.NameNoExtension))
         {
             Console.WriteLine("Your destination path does not contain name or name without extension. This will result in files losing their original name and is generally undesirable. Are you absolutely sure about this? Write yes to confirm, anything else to abort.");
-            var response = Console.ReadLine();
-            if (response != "yes") isValid = false;
+            
+            // In non-interactive mode (piped input, CI), default to abort
+            if (Console.IsInputRedirected)
+            {
+                logger.LogWarning("Non-interactive mode detected, aborting due to missing filename variable in destination");
+                isValid = false;
+            }
+            else
+            {
+                var response = Console.ReadLine();
+                if (response != "yes") isValid = false;
+            }
         }
         return isValid;
     }

@@ -23,10 +23,20 @@ public class TransactionLogger : ITransactionLogger
     private int _operationsSinceLastSave;
     
     /// <summary>
+    /// Maximum number of operations per transaction log to prevent memory exhaustion.
+    /// </summary>
+    public const int MaxOperationsPerLog = 100000;
+    
+    /// <summary>
     /// Number of operations after which the log is automatically saved.
     /// Set to 0 to disable incremental saves.
     /// </summary>
     public int IncrementalSaveThreshold { get; set; } = 100;
+    
+    /// <summary>
+    /// Gets whether the current transaction log is at capacity.
+    /// </summary>
+    public bool IsLogFull => _currentTransaction?.Operations.Count >= MaxOperationsPerLog;
 
     public TransactionLogger(ILogger<TransactionLogger> logger, IOptions<PhotoCopyConfig> config)
     {
@@ -83,6 +93,15 @@ public class TransactionLogger : ITransactionLogger
             if (_currentTransaction is null)
             {
                 throw new InvalidOperationException("No transaction in progress. Call BeginTransaction first.");
+            }
+
+            // Check if log is at capacity
+            if (_currentTransaction.Operations.Count >= MaxOperationsPerLog)
+            {
+                _logger.LogWarning(
+                    "Transaction log at capacity ({MaxOperations} operations). Operation for {Source} -> {Destination} will not be logged.",
+                    MaxOperationsPerLog, sourcePath, destinationPath);
+                return;
             }
 
             _currentTransaction.Operations.Add(new FileOperationEntry

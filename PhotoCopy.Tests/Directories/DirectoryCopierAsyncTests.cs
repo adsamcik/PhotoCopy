@@ -497,7 +497,7 @@ public class DirectoryCopierAsyncTests
     {
         // Arrange
         _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
-        var location = new LocationData("New York", null, "NY", "USA");
+        var location = new LocationData("New York", "New York", null, "NY", "USA");
         var file = CreateMockFileWithLocation("photo.jpg", new DateTime(2023, 6, 15), location, 1024);
 
         var copier = new DirectoryCopierAsync(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);

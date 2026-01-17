@@ -190,7 +190,7 @@ public class InMemoryInfrastructureValidationTests
     {
         // Arrange
         var taken = new DateTime(2024, 7, 20, 10, 0, 0);
-        var location = new LocationData("Berlin", null, "Berlin", "Germany");
+        var location = new LocationData("Berlin", "Berlin", null, "Berlin", "Germany");
         
         // Act
         var file = InMemoryFile.CreatePhoto("photo.jpg", taken, location);

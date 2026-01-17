@@ -165,9 +165,8 @@ public class ValidateCommandIntegrationTests
         }
 
         var filePath = Path.Combine(directory, filename);
-        // Write random bytes that look like JPEG header but are actually corrupted
-        var corruptedBytes = new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00 };
-        await File.WriteAllBytesAsync(filePath, corruptedBytes);
+        // Write corrupted JPEG bytes from TestSampleImages
+        await File.WriteAllBytesAsync(filePath, TestSampleImages.CorruptJpeg);
         
         return filePath;
     }

@@ -46,11 +46,6 @@ public sealed class TieredGeocodingService : IReverseGeocodingService, IDisposab
     public const double DefaultMaxDistanceKm = 50.0;
 
     /// <summary>
-    /// Default priority threshold in km - within this distance, prefer populated places over parks.
-    /// </summary>
-    public const double DefaultPriorityThresholdKm = 15.0;
-
-    /// <summary>
     /// Gets whether the service has been initialized.
     /// </summary>
     public bool IsInitialized => _initialized;
@@ -93,19 +88,20 @@ public sealed class TieredGeocodingService : IReverseGeocodingService, IDisposab
                 var startTime = DateTime.UtcNow;
 
                 _index = SpatialIndex.Load(indexPath);
-                _loader = CellLoader.Open(dataPath);
+                _loader = CellLoader.Open(dataPath, _index.CountryNames);
                 _cache = new CellCache(DefaultCacheMemoryBytes);
                 _initialized = true;
 
                 var loadTime = DateTime.UtcNow - startTime;
                 _logger.LogInformation(
                     "Geo-index loaded in {LoadTime:F2}s: {CellCount} cells, {LocationCount} locations, " +
-                    "data size {DataSize:F2}MB, index size ~{IndexSize:F2}MB",
+                    "data size {DataSize:F2}MB, index size ~{IndexSize:F2}MB, {CountryCount} countries",
                     loadTime.TotalSeconds,
                     _index.CellCount,
                     _index.TotalLocationCount,
                     _index.DataFileSize / 1024.0 / 1024.0,
-                    _index.EstimatedMemoryBytes / 1024.0 / 1024.0);
+                    _index.EstimatedMemoryBytes / 1024.0 / 1024.0,
+                    _index.CountryNames.Count);
             }
             catch (Exception ex)
             {
@@ -129,16 +125,22 @@ public sealed class TieredGeocodingService : IReverseGeocodingService, IDisposab
 
         try
         {
-            var result = FindNearest(latitude, longitude, DefaultMaxDistanceKm);
-            if (result == null)
+            // Find nearest place of any type (district, village, town, city, etc.)
+            var nearestResult = FindNearest(latitude, longitude, DefaultMaxDistanceKm, citiesOnly: false);
+            
+            // Find nearest city (PlaceType >= Town)
+            var cityResult = FindNearest(latitude, longitude, DefaultMaxDistanceKm, citiesOnly: true);
+
+            if (nearestResult == null && cityResult == null)
                 return null;
 
             return new LocationData(
-                City: result.Location.City,
-                County: null, // Not stored in our format currently
-                State: string.IsNullOrEmpty(result.Location.State) ? null : result.Location.State,
-                Country: result.Location.Country,
-                Population: result.Location.PopulationK > 0 ? result.Location.PopulationK * 1000L : null
+                District: nearestResult?.Location.Name ?? cityResult?.Location.Name ?? string.Empty,
+                City: cityResult?.Location.Name,
+                County: null, // Not stored in our format
+                State: nearestResult?.Location.State ?? cityResult?.Location.State,
+                Country: nearestResult?.Location.Country ?? cityResult?.Location.Country ?? string.Empty,
+                Population: null // Population not stored in new format
             );
         }
         catch (Exception ex)
@@ -154,8 +156,10 @@ public sealed class TieredGeocodingService : IReverseGeocodingService, IDisposab
     /// <param name="latitude">Latitude in degrees.</param>
     /// <param name="longitude">Longitude in degrees.</param>
     /// <param name="maxDistanceKm">Maximum distance in km.</param>
+    /// <param name="citiesOnly">If true, only consider city-level places (PlaceType >= Town).</param>
+    /// <param name="countryFilter">If specified, only consider places in this country (ISO 3166-1 alpha-2).</param>
     /// <returns>Lookup result or null if no match within distance.</returns>
-    public GeoLookupResult? FindNearest(double latitude, double longitude, double maxDistanceKm = DefaultMaxDistanceKm)
+    public GeoLookupResult? FindNearest(double latitude, double longitude, double maxDistanceKm = DefaultMaxDistanceKm, bool citiesOnly = false, string? countryFilter = null)
     {
         if (_index == null || _loader == null || _cache == null)
             return null;
@@ -164,7 +168,9 @@ public sealed class TieredGeocodingService : IReverseGeocodingService, IDisposab
         string geohash = Geohash.Encode(latitude, longitude, GeoIndexFormat.DefaultPrecision);
 
         // Collect all candidates from the cell and its neighbors
-        List<(LocationEntryMemory Location, string CellHash, double Distance)> candidates = [];
+        LocationEntry? best = null;
+        double bestDistance = maxDistanceKm;
+        string? bestCellHash = null;
 
         foreach (var (cellHash, entry) in _index.GetCellAndNeighbors(geohash))
         {
@@ -172,78 +178,30 @@ public sealed class TieredGeocodingService : IReverseGeocodingService, IDisposab
             if (cell == null)
                 continue;
 
-            // Get the best from this cell (already applies priority logic within cell)
-            var nearest = cell.FindNearest(latitude, longitude, maxDistanceKm, DefaultPriorityThresholdKm);
-            if (nearest != null)
+            // Use the cell's efficient FindNearest with citiesOnly and country filter
+            var match = cell.FindNearest(latitude, longitude, bestDistance, citiesOnly, countryFilter);
+            if (match != null)
             {
-                double distance = nearest.DistanceKm(latitude, longitude);
-                candidates.Add((nearest, cellHash, distance));
+                double distance = match.DistanceKm(latitude, longitude);
+                if (distance < bestDistance)
+                {
+                    best = match;
+                    bestDistance = distance;
+                    bestCellHash = cellHash;
+                }
             }
         }
 
-        if (candidates.Count == 0)
+        if (best == null || bestCellHash == null)
             return null;
 
-        // Apply the same priority logic across all candidates
-        var best = SelectBestCandidate(candidates, DefaultPriorityThresholdKm);
-        
         return new GeoLookupResult
         {
-            Location = best.Location,
-            DistanceKm = best.Distance,
-            CellGeohash = best.CellHash,
-            IsFromNeighborCell = best.CellHash != geohash
+            Location = best,
+            DistanceKm = bestDistance,
+            CellGeohash = bestCellHash,
+            IsFromNeighborCell = bestCellHash != geohash
         };
-    }
-
-    /// <summary>
-    /// Selects the best candidate using priority logic:
-    /// - Within priority threshold: prefer better feature class (P > A > L), then closer
-    /// - Beyond threshold: prefer closer
-    /// </summary>
-    private static (LocationEntryMemory Location, string CellHash, double Distance) SelectBestCandidate(
-        List<(LocationEntryMemory Location, string CellHash, double Distance)> candidates,
-        double priorityThresholdKm)
-    {
-        var best = candidates[0];
-        int bestPriority = GeoFeatureClass.GetPriority(best.Location.FeatureClass);
-
-        for (int i = 1; i < candidates.Count; i++)
-        {
-            var current = candidates[i];
-            int currentPriority = GeoFeatureClass.GetPriority(current.Location.FeatureClass);
-
-            bool isBetter;
-            if (current.Distance <= priorityThresholdKm && best.Distance <= priorityThresholdKm)
-            {
-                // Both within threshold: prefer better priority, then closer
-                isBetter = currentPriority < bestPriority ||
-                           (currentPriority == bestPriority && current.Distance < best.Distance);
-            }
-            else if (current.Distance <= priorityThresholdKm)
-            {
-                // Current is within threshold, best isn't: prefer current
-                isBetter = true;
-            }
-            else if (best.Distance <= priorityThresholdKm)
-            {
-                // Best is within threshold, current isn't: keep best
-                isBetter = false;
-            }
-            else
-            {
-                // Both outside threshold: prefer closer
-                isBetter = current.Distance < best.Distance;
-            }
-
-            if (isBetter)
-            {
-                best = current;
-                bestPriority = currentPriority;
-            }
-        }
-
-        return best;
     }
 
     /// <summary>

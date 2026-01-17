@@ -380,7 +380,7 @@ public class OptionsParsingTests
     [Test]
     public void BooleanFlags_DefaultsAndExplicit_NoDryRunSpecified()
     {
-        // Arrange - no flag means null (not specified)
+        // Arrange - no flag means false (not specified)
         var args = new[] { "copy", "-s", @"C:\Source" };
 
         // Act
@@ -390,15 +390,15 @@ public class OptionsParsingTests
         result.Tag.Should().Be(ParserResultType.Parsed);
         result.WithParsed<CopyOptions>(opts =>
         {
-            opts.DryRun.Should().BeNull();
+            opts.DryRun.Should().BeFalse();
         });
     }
 
     [Test]
     public void BooleanFlags_DefaultsAndExplicit_SkipExistingAndOverwriteFlags()
     {
-        // Arrange - bool? requires explicit true/false value
-        var args = new[] { "copy", "--skip-existing", "true", "-o", "true" };
+        // Arrange - bool flags work without explicit value
+        var args = new[] { "copy", "--skip-existing", "-o" };
 
         // Act
         var result = Parser.Default.ParseArguments<CopyOptions, ScanOptions, ValidateOptions, ConfigOptions, RollbackOptions>(args);
@@ -415,8 +415,8 @@ public class OptionsParsingTests
     [Test]
     public void BooleanFlags_DefaultsAndExplicit_NoDuplicateSkip()
     {
-        // Arrange - bool? requires explicit true/false value
-        var args = new[] { "copy", "-k", "true" };
+        // Arrange - bool flags work without explicit value
+        var args = new[] { "copy", "-k" };
 
         // Act
         var result = Parser.Default.ParseArguments<CopyOptions, ScanOptions, ValidateOptions, ConfigOptions, RollbackOptions>(args);
@@ -432,8 +432,8 @@ public class OptionsParsingTests
     [Test]
     public void BooleanFlags_DefaultsAndExplicit_MultipleBooleanFlags()
     {
-        // Arrange - bool? requires explicit true/false values
-        var args = new[] { "copy", "-n", "true", "-e", "true", "-o", "true", "-k", "true" };
+        // Arrange - bool flags work without explicit value
+        var args = new[] { "copy", "-n", "-e", "-o", "-k" };
 
         // Act
         var result = Parser.Default.ParseArguments<CopyOptions, ScanOptions, ValidateOptions, ConfigOptions, RollbackOptions>(args);

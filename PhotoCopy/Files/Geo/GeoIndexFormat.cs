@@ -1,37 +1,40 @@
 using System;
-using System.Runtime.InteropServices;
 
 namespace PhotoCopy.Files.Geo;
 
 /// <summary>
-/// Defines binary format structures for the tiered geo-index.
+/// Defines binary format structures for the PhotoCopy geo-index v1.
+/// 
+/// Optimized for reverse geocoding photos with accurate city/district detection.
 /// 
 /// FILE STRUCTURE:
 /// ================
 /// 1. .geoindex file (Index File):
-///    - GeoIndexHeader (48 bytes)
-///    - CellIndexEntry[] - sorted by GeohashCode for binary search
+///    - GeoIndexHeader (32 bytes)
+///    - CountryTable[] (4 bytes each) - country code to name mapping
+///    - Country name string pool
+///    - CellIndexEntry[] (16 bytes each) - sorted by GeohashCode
 ///    
 /// 2. .geodata file (Data File):
-///    - For each cell: LZ4-compressed block containing:
-///      - CellBlockHeader (12 bytes)
-///      - LocationEntryDisk[] (24 bytes each)
-///      - String pool (UTF-8 encoded strings)
+///    - For each cell: Brotli-compressed block containing:
+///      - CellBlockHeader (6 bytes)
+///      - LocationEntryDisk[] (14 bytes each, sorted: districts first, cities last)
+///      - String pool (UTF-8 encoded, null-terminated strings)
 /// </summary>
 public static class GeoIndexFormat
 {
     /// <summary>
-    /// Magic number for index file validation ("GIDX").
+    /// Magic number for index file validation ("PGI1" - PhotoCopy Geo Index v1).
     /// </summary>
-    public const uint IndexMagic = 0x58444947; // "GIDX" in little-endian
+    public const uint IndexMagic = 0x31494750; // "PGI1" in little-endian
 
     /// <summary>
-    /// Magic number for data file validation ("GDAT").
+    /// Magic number for data file validation ("PGD1" - PhotoCopy Geo Data v1).
     /// </summary>
-    public const uint DataMagic = 0x54414447; // "GDAT" in little-endian
+    public const uint DataMagic = 0x31444750; // "PGD1" in little-endian
 
     /// <summary>
-    /// Current format version (chunked).
+    /// Current format version.
     /// </summary>
     public const ushort FormatVersion = 1;
 
@@ -42,12 +45,37 @@ public static class GeoIndexFormat
 }
 
 /// <summary>
-/// Header for the .geoindex file. Fixed 48 bytes.
+/// Place type classification based on GeoNames feature codes.
+/// Determines whether a place is a city or district/neighborhood.
+/// Ordered so that higher values indicate larger/more important places.
 /// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public enum PlaceType : byte
+{
+    /// <summary>PPLX - Section of populated place (neighborhood, district within a city).</summary>
+    District = 0,
+    
+    /// <summary>PPL with population less than 10K, or PPLL (locality).</summary>
+    Village = 1,
+    
+    /// <summary>PPL with population 10K-100K.</summary>
+    Town = 2,
+    
+    /// <summary>PPL with population over 100K.</summary>
+    City = 3,
+    
+    /// <summary>PPLA, PPLA2, PPLA3, PPLA4 - Seat of administrative division.</summary>
+    AdminSeat = 4,
+    
+    /// <summary>PPLC - Capital of a political entity (country capital).</summary>
+    Capital = 5,
+}
+
+/// <summary>
+/// Header for the .geoindex file. Fixed 32 bytes.
+/// </summary>
 public struct GeoIndexHeader
 {
-    /// <summary>Magic number (GIDX = 0x58444947).</summary>
+    /// <summary>Magic number (PGI1 = 0x31494750).</summary>
     public uint Magic;
 
     /// <summary>Format version number.</summary>
@@ -56,8 +84,8 @@ public struct GeoIndexHeader
     /// <summary>Geohash precision level (typically 4).</summary>
     public byte Precision;
 
-    /// <summary>Reserved for future flags.</summary>
-    public byte Flags;
+    /// <summary>Number of countries in the country table.</summary>
+    public byte CountryCount;
 
     /// <summary>Total number of cells in the index.</summary>
     public uint CellCount;
@@ -71,23 +99,41 @@ public struct GeoIndexHeader
     /// <summary>Size of the data file in bytes.</summary>
     public long DataFileSize;
 
-    /// <summary>Reserved for future use.</summary>
-    public long Reserved1;
-
-    /// <summary>Reserved for future use.</summary>
-    public long Reserved2;
-
-    /// <summary>Header size: 48 bytes.</summary>
-    public const int Size = 48;
+    /// <summary>Header size: 32 bytes.</summary>
+    public const int Size = 32;
 
     /// <summary>Whether header is valid.</summary>
-    public bool IsValid => Magic == GeoIndexFormat.IndexMagic && Version == GeoIndexFormat.FormatVersion;
+    public readonly bool IsValid => Magic == GeoIndexFormat.IndexMagic && Version == GeoIndexFormat.FormatVersion;
 }
 
 /// <summary>
-/// Entry in the cell index. Maps geohash to data file offset. Fixed 20 bytes.
+/// Country entry in the country table. 4 bytes each.
+/// The country table is stored after the header, followed by a string pool with country names.
 /// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
+public struct CountryEntry
+{
+    /// <summary>2-letter ISO country code as 2 ASCII bytes.</summary>
+    public ushort CountryCode;
+
+    /// <summary>Offset to full country name in the country name string pool.</summary>
+    public ushort NameOffset;
+
+    /// <summary>Entry size: 4 bytes.</summary>
+    public const int Size = 4;
+
+    /// <summary>Gets the country code as a string.</summary>
+    public readonly string GetCode() => new([(char)(CountryCode & 0xFF), (char)(CountryCode >> 8)]);
+
+    /// <summary>Creates a CountryEntry from a 2-letter code.</summary>
+    public static CountryEntry FromCode(string code) => new()
+    {
+        CountryCode = (ushort)(code[0] | (code[1] << 8))
+    };
+}
+
+/// <summary>
+/// Entry in the cell index. Maps geohash to data file offset. Fixed 16 bytes.
+/// </summary>
 public struct CellIndexEntry
 {
     /// <summary>Encoded geohash as uint32 (see Geohash.EncodeToUInt32).</summary>
@@ -99,44 +145,33 @@ public struct CellIndexEntry
     /// <summary>Compressed size of the cell block in bytes.</summary>
     public int CompressedSize;
 
-    /// <summary>Uncompressed size of the cell block in bytes.</summary>
-    public int UncompressedSize;
-
-    /// <summary>Entry size: 20 bytes.</summary>
-    public const int Size = 20;
+    /// <summary>Entry size: 16 bytes.</summary>
+    public const int Size = 16;
 }
 
 /// <summary>
-/// Header for a cell block in the data file. 12 bytes.
-/// Stored at the start of each uncompressed cell block.
+/// Header for a cell block in the data file. 6 bytes.
+/// Entries are sorted: districts (PlaceType 0-2) first, then cities (PlaceType 3-5).
 /// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct CellBlockHeader
 {
-    /// <summary>Number of location entries in this cell.</summary>
+    /// <summary>Total number of location entries in this cell.</summary>
     public ushort EntryCount;
+
+    /// <summary>Index where city-level entries begin (PlaceType >= City).</summary>
+    public ushort CityStartIndex;
 
     /// <summary>Offset to string pool from start of block.</summary>
     public ushort StringPoolOffset;
 
-    /// <summary>Size of string pool in bytes.</summary>
-    public ushort StringPoolSize;
-
-    /// <summary>Reserved for future use.</summary>
-    public ushort Reserved1;
-
-    /// <summary>Reserved for future use.</summary>
-    public uint Reserved2;
-
-    /// <summary>Header size: 12 bytes.</summary>
-    public const int Size = 12;
+    /// <summary>Header size: 6 bytes.</summary>
+    public const int Size = 6;
 }
 
 /// <summary>
-/// Disk format for location entries. Compact 22-byte structure.
+/// Disk format for location entries. Compact 14-byte structure.
 /// Strings are stored as offsets into the cell's string pool.
 /// </summary>
-[StructLayout(LayoutKind.Sequential, Pack = 1)]
 public struct LocationEntryDisk
 {
     /// <summary>Latitude in micro-degrees (degrees * 1,000,000).</summary>
@@ -145,51 +180,38 @@ public struct LocationEntryDisk
     /// <summary>Longitude in micro-degrees (degrees * 1,000,000).</summary>
     public int LongitudeMicro;
 
-    /// <summary>GeoNames ID (for debugging/lookup).</summary>
-    public int GeoNameId;
-
-    /// <summary>Offset to city/place name in string pool.</summary>
-    public ushort CityOffset;
+    /// <summary>Offset to place name in string pool.</summary>
+    public ushort NameOffset;
 
     /// <summary>Offset to state/admin1 name in string pool.</summary>
     public ushort StateOffset;
 
-    /// <summary>Offset to country name in string pool.</summary>
-    public ushort CountryOffset;
+    /// <summary>Index into the country table (0-255).</summary>
+    public byte CountryIndex;
 
-    /// <summary>Population (capped at 65535, 0 if unknown).</summary>
-    public ushort PopulationK;
+    /// <summary>Place type classification.</summary>
+    public PlaceType PlaceType;
 
-    /// <summary>Feature class code (P=populated, A=admin, etc).</summary>
-    public byte FeatureClass;
+    /// <summary>Entry size: 14 bytes (4+4+2+2+1+1).</summary>
+    public const int Size = 14;
 
-    /// <summary>Reserved padding byte.</summary>
-    public byte Reserved;
+    /// <summary>Converts micro-degrees to degrees.</summary>
+    public readonly double Latitude => LatitudeMicro / 1_000_000.0;
 
-    /// <summary>Entry size: 22 bytes (4+4+4+2+2+2+2+1+1).</summary>
-    public const int Size = 22;
+    /// <summary>Converts micro-degrees to degrees.</summary>
+    public readonly double Longitude => LongitudeMicro / 1_000_000.0;
 
-    /// <summary>
-    /// Converts micro-degrees to degrees.
-    /// </summary>
-    public double Latitude => LatitudeMicro / 1_000_000.0;
-
-    /// <summary>
-    /// Converts micro-degrees to degrees.
-    /// </summary>
-    public double Longitude => LongitudeMicro / 1_000_000.0;
-
-    /// <summary>
-    /// Converts degrees to micro-degrees.
-    /// </summary>
+    /// <summary>Converts degrees to micro-degrees.</summary>
     public static int ToMicroDegrees(double degrees) => (int)(degrees * 1_000_000);
+    
+    /// <summary>Whether this entry is a city-level place (Town, City, AdminSeat, or Capital).</summary>
+    public readonly bool IsCity => PlaceType >= PlaceType.Town;
 }
 
 /// <summary>
-/// In-memory format for location entries. 32-byte aligned for cache efficiency.
-/// String references point directly to managed strings.
+/// In-memory format for location entries with resolved string references.
 /// </summary>
-public sealed class LocationEntryMemory
+public sealed class LocationEntry
 {
     /// <summary>Latitude in degrees.</summary>
     public double Latitude { get; init; }
@@ -197,42 +219,42 @@ public sealed class LocationEntryMemory
     /// <summary>Longitude in degrees.</summary>
     public double Longitude { get; init; }
 
-    /// <summary>GeoNames ID.</summary>
-    public int GeoNameId { get; init; }
+    /// <summary>Place name.</summary>
+    public string Name { get; init; } = string.Empty;
 
-    /// <summary>City/place name.</summary>
-    public string City { get; init; } = string.Empty;
-
-    /// <summary>State/admin1 name.</summary>
+    /// <summary>State/province name (full name, not code).</summary>
     public string State { get; init; } = string.Empty;
 
-    /// <summary>Country name.</summary>
+    /// <summary>Country name (full name).</summary>
     public string Country { get; init; } = string.Empty;
 
-    /// <summary>Approximate population (in thousands).</summary>
-    public int PopulationK { get; init; }
+    /// <summary>Place type classification.</summary>
+    public PlaceType PlaceType { get; init; }
 
-    /// <summary>Feature class (P=populated, A=admin, etc).</summary>
-    public char FeatureClass { get; init; }
+    /// <summary>Whether this is a city-level place (Town or larger).</summary>
+    public bool IsCity => PlaceType >= PlaceType.Town;
 
-    /// <summary>
-    /// Calculates distance to specified coordinates.
-    /// </summary>
+    /// <summary>Calculates distance to specified coordinates in kilometers.</summary>
     public double DistanceKm(double lat, double lon) => Geohash.HaversineDistance(Latitude, Longitude, lat, lon);
 
-    public override string ToString() => $"{City}, {State}, {Country} ({Latitude:F4}, {Longitude:F4})";
+    public override string ToString() => $"{Name}, {State}, {Country} ({PlaceType})";
 }
 
 /// <summary>
 /// Represents a loaded cell with all its location entries.
+/// Entries are sorted: districts first (indices 0 to CityStartIndex-1), 
+/// then cities (indices CityStartIndex to end).
 /// </summary>
 public sealed class GeoCell
 {
     /// <summary>Geohash string for this cell.</summary>
     public string Geohash { get; init; } = string.Empty;
 
-    /// <summary>All location entries in this cell.</summary>
-    public LocationEntryMemory[] Entries { get; init; } = Array.Empty<LocationEntryMemory>();
+    /// <summary>All location entries in this cell (sorted: districts first, cities last).</summary>
+    public LocationEntry[] Entries { get; init; } = [];
+
+    /// <summary>Index where city-level entries begin.</summary>
+    public int CityStartIndex { get; init; }
 
     /// <summary>Cell bounds (minLat, maxLat, minLon, maxLon).</summary>
     public (double MinLat, double MaxLat, double MinLon, double MaxLon) Bounds { get; init; }
@@ -240,64 +262,46 @@ public sealed class GeoCell
     /// <summary>Approximate memory size in bytes.</summary>
     public int EstimatedMemoryBytes { get; init; }
 
+    /// <summary>Gets only district-level entries (PlaceType &lt; Town).</summary>
+    public ReadOnlySpan<LocationEntry> Districts => Entries.AsSpan(0, CityStartIndex);
+
+    /// <summary>Gets only city-level entries (PlaceType >= Town).</summary>
+    public ReadOnlySpan<LocationEntry> Cities => Entries.AsSpan(CityStartIndex);
+
     /// <summary>
     /// Finds the nearest location to the specified coordinates.
     /// </summary>
     /// <param name="latitude">Query latitude.</param>
     /// <param name="longitude">Query longitude.</param>
     /// <param name="maxDistanceKm">Maximum search distance in km.</param>
-    /// <param name="priorityThresholdKm">
-    /// Within this distance, prefer higher-priority feature classes (P > A > L).
-    /// Beyond this distance, just use closest location. Default 15km.
-    /// </param>
-    public LocationEntryMemory? FindNearest(
+    /// <param name="citiesOnly">If true, only search city-level entries (Town or larger).</param>
+    /// <param name="countryFilter">If specified, only consider entries from this country (ISO 3166-1 alpha-2).</param>
+    public LocationEntry? FindNearest(
         double latitude, 
         double longitude, 
         double maxDistanceKm = double.MaxValue,
-        double priorityThresholdKm = 15.0)
+        bool citiesOnly = false,
+        string? countryFilter = null)
     {
-        LocationEntryMemory? best = null;
+        LocationEntry? best = null;
         double bestDistance = maxDistanceKm;
-        int bestPriority = int.MaxValue;
 
-        foreach (var entry in Entries)
+        var entries = citiesOnly ? Cities : Entries.AsSpan();
+        
+        foreach (var entry in entries)
         {
-            double distance = entry.DistanceKm(latitude, longitude);
-            if (distance >= maxDistanceKm)
+            // Apply country filter if specified
+            if (countryFilter != null && 
+                !string.Equals(entry.Country, countryFilter, StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
-
-            int priority = GeoFeatureClass.GetPriority(entry.FeatureClass);
-
-            // Within priority threshold: prefer better feature class, then closer
-            // Beyond threshold: just prefer closer (ignore feature class)
-            bool isBetter;
-            if (distance <= priorityThresholdKm && bestDistance <= priorityThresholdKm)
-            {
-                // Both within threshold: prefer better priority, then closer
-                isBetter = priority < bestPriority || 
-                           (priority == bestPriority && distance < bestDistance);
-            }
-            else if (distance <= priorityThresholdKm)
-            {
-                // New one is within threshold, old one isn't: prefer new
-                isBetter = true;
-            }
-            else if (bestDistance <= priorityThresholdKm)
-            {
-                // Old one is within threshold, new one isn't: keep old
-                isBetter = false;
-            }
-            else
-            {
-                // Both outside threshold: just prefer closer
-                isBetter = distance < bestDistance;
             }
 
-            if (isBetter)
+            double distance = entry.DistanceKm(latitude, longitude);
+            if (distance < bestDistance)
             {
                 best = entry;
                 bestDistance = distance;
-                bestPriority = priority;
             }
         }
 
@@ -311,7 +315,7 @@ public sealed class GeoCell
 public sealed class GeoLookupResult
 {
     /// <summary>The matched location.</summary>
-    public required LocationEntryMemory Location { get; init; }
+    public required LocationEntry Location { get; init; }
 
     /// <summary>Distance from query point to matched location in kilometers.</summary>
     public required double DistanceKm { get; init; }
@@ -326,29 +330,78 @@ public sealed class GeoLookupResult
 }
 
 /// <summary>
-/// Feature class codes from GeoNames.
+/// Extension methods for PlaceType classification.
+/// </summary>
+public static class PlaceTypeExtensions
+{
+    /// <summary>
+    /// Determines the PlaceType from a GeoNames feature_code and population.
+    /// </summary>
+    public static PlaceType FromFeatureCode(string featureCode, long population)
+    {
+        // Country capitals
+        if (featureCode == "PPLC")
+            return PlaceType.Capital;
+
+        // Administrative seats (state/region capitals)
+        if (featureCode.StartsWith("PPLA"))
+            return PlaceType.AdminSeat;
+
+        // District/neighborhood within a city
+        if (featureCode == "PPLX")
+            return PlaceType.District;
+
+        // Locality (very small place)
+        if (featureCode == "PPLL")
+            return PlaceType.Village;
+
+        // For generic PPL, classify by population
+        return population switch
+        {
+            >= 100_000 => PlaceType.City,
+            >= 10_000 => PlaceType.Town,
+            _ => PlaceType.Village
+        };
+    }
+}
+
+/// <summary>
+/// Helper class for working with GeoNames feature classes.
+/// Used by StreamedGeocodingService which reads raw GeoNames data.
 /// </summary>
 public static class GeoFeatureClass
 {
-    public const char AdminBoundary = 'A';
-    public const char HydroGraphic = 'H';
-    public const char Area = 'L';
-    public const char PopulatedPlace = 'P';
-    public const char Road = 'R';
-    public const char Spot = 'S';
-    public const char HypsoGraphic = 'T';
-    public const char Undersea = 'U';
-    public const char Vegetation = 'V';
-
     /// <summary>
-    /// Priority order for selecting best match (lower = better).
+    /// Gets a priority value for a GeoNames feature code.
+    /// Higher priority = more preferred for geocoding results.
     /// </summary>
-    public static int GetPriority(char featureClass) => featureClass switch
+    public static int GetPriority(string featureCode)
     {
-        PopulatedPlace => 0,    // Cities/towns are best
-        AdminBoundary => 1,     // Admin regions second
-        Spot => 2,              // Buildings, facilities
-        Area => 3,              // Parks, regions
-        _ => 4                  // Everything else
-    };
+        // Capitals are highest priority
+        if (featureCode == "PPLC")
+            return 100;
+
+        // Administrative seats (state capitals, etc)
+        if (featureCode.StartsWith("PPLA"))
+            return 80;
+
+        // Regular populated places
+        if (featureCode == "PPL")
+            return 60;
+
+        // Sections/districts of cities
+        if (featureCode == "PPLX")
+            return 40;
+
+        // Very small localities
+        if (featureCode == "PPLL")
+            return 20;
+
+        // Any other PPL type
+        if (featureCode.StartsWith("PPL"))
+            return 50;
+
+        // Non-PPL features (shouldn't happen in our data)
+        return 10;
+    }
 }

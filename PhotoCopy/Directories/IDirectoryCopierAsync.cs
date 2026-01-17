@@ -43,7 +43,8 @@ public sealed record CopyResult(
     int FilesFailed,
     int FilesSkipped,
     long BytesProcessed,
-    IReadOnlyList<CopyError> Errors);
+    IReadOnlyList<CopyError> Errors,
+    UnknownFilesReport? UnknownFilesReport = null);
 
 /// <summary>
 /// Represents an error that occurred during copying.

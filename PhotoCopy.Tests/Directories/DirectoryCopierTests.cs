@@ -192,7 +192,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("New York", null, "NY", "USA"));
+            new LocationData("New York", "New York", null, "NY", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -208,7 +208,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{state}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Los Angeles", null, "California", "USA"));
+            new LocationData("Los Angeles", "Los Angeles", null, "California", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -224,7 +224,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{country}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Paris", null, "Île-de-France", "France"));
+            new LocationData("Paris", "Paris", null, "Île-de-France", "France"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -240,7 +240,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("vacation.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Miami", null, "Florida", "USA"));
+            new LocationData("Miami", "Miami", null, "Florida", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -256,7 +256,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{year}", "{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("beach.jpg", new DateTime(2023, 7, 4), 
-            new LocationData("San Diego", null, "California", "USA"));
+            new LocationData("San Diego", "San Diego", null, "California", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -272,7 +272,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{state}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Singapore", null, null, "Singapore"));
+            new LocationData("Singapore", "Singapore", null, null, "Singapore"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -356,7 +356,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Manhattan", "New York County", "NY", "USA"));
+            new LocationData("Manhattan", "Manhattan", "New York County", "NY", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -372,7 +372,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("London", null, "ENG", "GB"));
+            new LocationData("London", "London", null, "ENG", "GB"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -388,7 +388,7 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{county}", "{city}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("vacation.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Manhattan", "New York County", "NY", "USA"));
+            new LocationData("Manhattan", "Manhattan", "New York County", "NY", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -409,7 +409,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.Country;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("New York", "New York County", "NY", "USA"));
+            new LocationData("New York", "New York", "New York County", "NY", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -426,7 +426,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.State;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("New York", "New York County", "NY", "USA"));
+            new LocationData("New York", "New York", "New York County", "NY", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -443,7 +443,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.County;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Manhattan", "New York County", "NY", "USA"));
+            new LocationData("Manhattan", "Manhattan", "New York County", "NY", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -460,7 +460,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.City;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Manhattan", "New York County", "NY", "USA"));
+            new LocationData("Manhattan", "Manhattan", "New York County", "NY", "USA"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -481,7 +481,7 @@ public class DirectoryCopierTests
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("New York", null, "NY", "US"));
+            new LocationData("New York", "New York", null, "NY", "US"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -498,7 +498,7 @@ public class DirectoryCopierTests
         _config.UseFullCountryNames = false;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Paris", null, "IDF", "FR"));
+            new LocationData("Paris", "Paris", null, "IDF", "FR"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -515,7 +515,7 @@ public class DirectoryCopierTests
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Unknown City", null, null, "XX")); // Unknown country code
+            new LocationData("Unknown City", "Unknown City", null, null, "XX")); // Unknown country code
 
         // Act
         var result = copier.GeneratePath(file);
@@ -553,7 +553,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.Country;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Paris", "Paris", "IDF", "FR"));
+            new LocationData("Paris", "Paris", null, "IDF", "FR"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -574,11 +574,321 @@ public class DirectoryCopierTests
         // Act
         var result = copier.GeneratePath(file);
 
-        // Assert - Fallback is empty, resulting in consecutive path separators
-        // Two empty fallbacks ({country} and {city}) create two extra separators
-        var sep = Path.DirectorySeparatorChar;
-        var expectedPath = TestPaths.Dest + sep + sep + sep + "test.jpg";
-        result.Should().Be(expectedPath);
+        // Assert - Empty fallbacks are now cleaned up by path normalization
+        // Consecutive separators from empty variables are collapsed
+        result.Should().Be(TestPaths.Dest + Path.DirectorySeparatorChar + "test.jpg");
+    }
+
+    #endregion
+
+    #region GeneratePath Tests - Inline Fallback Syntax
+
+    [Test]
+    public void GeneratePath_WithInlineFallback_UsesInlineFallbackWhenLocationNull()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country|NoCountry}", "{city|NoCity}", "{name}{ext}");
+        _config.UnknownLocationFallback = "Unknown"; // Should be overridden by inline fallback
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15)); // No location
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Inline fallbacks are used instead of global fallback
+        result.Should().Be(TestPaths.InDest("NoCountry", "NoCity", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithInlineFallback_UsesActualValueWhenLocationExists()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country|NoCountry}", "{city|NoCity}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Prague", "Prague", null, null, "CZ"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Actual values are used, not fallbacks
+        result.Should().Be(TestPaths.InDest("CZ", "Prague", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithEmptyInlineFallback_UsesEmptyString()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country|}", "{city|}", "{name}{ext}");
+        _config.UnknownLocationFallback = "Unknown"; // Should be overridden by empty inline fallback
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15)); // No location
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Empty inline fallbacks result in normalized path (consecutive separators removed)
+        result.Should().Be(TestPaths.Dest + Path.DirectorySeparatorChar + "test.jpg");
+    }
+
+    [Test]
+    public void GeneratePath_WithPartialInlineFallback_MixesInlineAndGlobalFallback()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country|NoCountry}", "{city}", "{name}{ext}");
+        _config.UnknownLocationFallback = "Unknown";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15)); // No location
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - {country} uses inline fallback, {city} uses global fallback
+        result.Should().Be(TestPaths.InDest("NoCountry", "Unknown", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithInlineFallbackAndCasing_AppliesCasingToFallback()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country|no-country}", "{city|no-city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.Uppercase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15)); // No location
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Inline fallbacks have casing applied
+        result.Should().Be(TestPaths.InDest("NO-COUNTRY", "NO-CITY", "test.jpg"));
+    }
+
+    #endregion
+
+    #region GeneratePath Tests - Path Normalization
+
+    [Test]
+    public void GeneratePath_WithConsecutiveSeparators_NormalizesToSingleSeparator()
+    {
+        // Arrange - Empty fallback creates consecutive separators that get normalized
+        _config.Destination = TestPaths.Dest + Path.DirectorySeparatorChar + "{country}" + Path.DirectorySeparatorChar + "{city}" + Path.DirectorySeparatorChar + "{name}{ext}";
+        _config.UnknownLocationFallback = "";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Consecutive separators are collapsed
+        result.Should().Be(TestPaths.Dest + Path.DirectorySeparatorChar + "test.jpg");
+    }
+
+    [Test]
+    public void GeneratePath_WithHyphenSeparatedEmptyVariables_RemovesOrphanedHyphens()
+    {
+        // Arrange - Pattern like {country}-{city} with both empty
+        _config.Destination = TestPaths.DestPattern("{year}", "{country}-{city}", "{name}{ext}");
+        _config.UnknownLocationFallback = "";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15)); // No location
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - The "-" segment (from empty-{empty}) is removed
+        result.Should().Be(TestPaths.InDest("2023", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithOneEmptyVariableInHyphenPair_RemovesLeadingHyphen()
+    {
+        // Arrange - Pattern like {country}-{city} with only country empty
+        _config.Destination = TestPaths.DestPattern("{year}", "{country}-{city}", "{name}{ext}");
+        _config.UnknownLocationFallback = "";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Prague", "Prague", null, null, "")); // Empty country, valid city
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - The leading hyphen before Prague is removed
+        result.Should().Be(TestPaths.InDest("2023", "Prague", "test.jpg"));
+    }
+
+    #endregion
+
+    #region GeneratePath Tests - Conditional Variables
+
+    [Test]
+    public void GeneratePath_WithMinCondition_UsesValueWhenConditionMet()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?min=5|Unknown}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+        
+        // Create statistics with 10 files for London
+        var stats = new LocationStatistics();
+        for (int i = 0; i < 10; i++)
+            stats.RecordFile(new LocationData("Central London", "London", "London", "England", "GB"));
+        var context = new PathGeneratorContext(stats, 10);
+
+        // Act
+        var result = copier.GeneratePath(file, context);
+
+        // Assert - Condition met (10 >= 5), use actual value
+        result.Should().Be(TestPaths.InDest("2023", "London", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithMinCondition_UsesFallbackWhenConditionNotMet()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?min=20|Unknown}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+        
+        // Create statistics with only 5 files for London
+        var stats = new LocationStatistics();
+        for (int i = 0; i < 5; i++)
+            stats.RecordFile(new LocationData("Central London", "London", "London", "England", "GB"));
+        var context = new PathGeneratorContext(stats, 5);
+
+        // Act
+        var result = copier.GeneratePath(file, context);
+
+        // Assert - Condition NOT met (5 < 20), use fallback
+        result.Should().Be(TestPaths.InDest("2023", "Unknown", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithMaxCondition_UsesValueWhenConditionMet()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?max=50}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+        
+        // Create statistics with 10 files for London
+        var stats = new LocationStatistics();
+        for (int i = 0; i < 10; i++)
+            stats.RecordFile(new LocationData("Central London", "London", "London", "England", "GB"));
+        var context = new PathGeneratorContext(stats, 10);
+
+        // Act
+        var result = copier.GeneratePath(file, context);
+
+        // Assert - Condition met (10 <= 50), use actual value
+        result.Should().Be(TestPaths.InDest("2023", "London", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithMaxCondition_UsesFallbackWhenConditionNotMet()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?max=5|TooMany}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+        
+        // Create statistics with 10 files for London - exceeds max
+        var stats = new LocationStatistics();
+        for (int i = 0; i < 10; i++)
+            stats.RecordFile(new LocationData("Central London", "London", "London", "England", "GB"));
+        var context = new PathGeneratorContext(stats, 10);
+
+        // Act
+        var result = copier.GeneratePath(file, context);
+
+        // Assert - Condition NOT met (10 > 5), use fallback
+        result.Should().Be(TestPaths.InDest("2023", "TooMany", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithMinAndMaxConditions_UsesValueWhenBothMet()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?min=5,max=50}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+        
+        // Create statistics with 10 files for London (within range 5-50)
+        var stats = new LocationStatistics();
+        for (int i = 0; i < 10; i++)
+            stats.RecordFile(new LocationData("Central London", "London", "London", "England", "GB"));
+        var context = new PathGeneratorContext(stats, 10);
+
+        // Act
+        var result = copier.GeneratePath(file, context);
+
+        // Assert - Both conditions met, use actual value
+        result.Should().Be(TestPaths.InDest("2023", "London", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithConditionButNoContext_UsesValueIgnoringConditions()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?min=5|Unknown}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+
+        // Act - No context provided (backward compatibility)
+        var result = copier.GeneratePath(file); // No context
+
+        // Assert - Without context, conditions can't be evaluated, so value is used (backward compatible)
+        result.Should().Be(TestPaths.InDest("2023", "London", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithVariableFallback_UsesOtherLocationVariable()
+    {
+        // Arrange - Use country as fallback when city condition fails
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?min=20|country}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+        
+        // Create statistics with only 5 files for London (fails min=20)
+        var stats = new LocationStatistics();
+        for (int i = 0; i < 5; i++)
+            stats.RecordFile(new LocationData("Central London", "London", "London", "England", "GB"));
+        var context = new PathGeneratorContext(stats, 5);
+
+        // Act
+        var result = copier.GeneratePath(file, context);
+
+        // Assert - Condition NOT met, fallback to country value "GB"
+        result.Should().Be(TestPaths.InDest("2023", "GB", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithEmptyConditionAndNoFallback_UsesEmptyString()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{year}", "{city?min=20}", "{name}{ext}");
+        _config.UnknownLocationFallback = "";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Central London", "London", "London", "England", "GB"));
+        
+        // Create statistics with only 5 files for London (fails min=20)
+        var stats = new LocationStatistics();
+        for (int i = 0; i < 5; i++)
+            stats.RecordFile(new LocationData("Central London", "London", "London", "England", "GB"));
+        var context = new PathGeneratorContext(stats, 5);
+
+        // Act
+        var result = copier.GeneratePath(file, context);
+
+        // Assert - Condition NOT met, no fallback, uses empty (normalized path)
+        result.Should().Be(TestPaths.InDest("2023", "test.jpg"));
     }
 
     #endregion
@@ -594,7 +904,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.Country;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Berlin", "Berlin", "BE", "DE"));
+            new LocationData("Berlin", "Berlin", null, "BE", "DE"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -612,7 +922,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.State;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Munich", "Oberbayern", "BY", "DE"));
+            new LocationData("Munich", "Munich", "Oberbayern", "BY", "DE"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -631,7 +941,7 @@ public class DirectoryCopierTests
         _config.UnknownLocationFallback = "NoCity";
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("vacation.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("San Francisco", "San Francisco County", "CA", "US"));
+            new LocationData("San Francisco", "San Francisco", "San Francisco County", "CA", "US"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -665,7 +975,7 @@ public class DirectoryCopierTests
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("sakura.jpg", new DateTime(2023, 4, 1), 
-            new LocationData("Tokyo", null, "TK", "JP"));
+            new LocationData("Tokyo", "Tokyo", null, "TK", "JP"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -682,7 +992,7 @@ public class DirectoryCopierTests
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("bigben.jpg", new DateTime(2023, 7, 15), 
-            new LocationData("London", "Greater London", "ENG", "GB"));
+            new LocationData("London", "London", "Greater London", "ENG", "GB"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -699,7 +1009,7 @@ public class DirectoryCopierTests
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("opera.jpg", new DateTime(2023, 1, 26), 
-            new LocationData("Sydney", null, "NSW", "AU"));
+            new LocationData("Sydney", "Sydney", null, "NSW", "AU"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -716,7 +1026,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.City; // Most detailed
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Oakland", "Alameda County", "CA", "US"));
+            new LocationData("Oakland", "Oakland", "Alameda County", "CA", "US"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -733,7 +1043,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.Country; // Only country visible
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Oakland", "Alameda County", "CA", "US"));
+            new LocationData("Oakland", "Oakland", "Alameda County", "CA", "US"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -750,7 +1060,7 @@ public class DirectoryCopierTests
         _config.LocationGranularity = LocationGranularity.City;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Rome", null, "Lazio", "IT"));
+            new LocationData("Rome", "Rome", null, "Lazio", "IT"));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -767,7 +1077,7 @@ public class DirectoryCopierTests
         _config.UseFullCountryNames = true;
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("New York", "New York County", "NY", "US", 8336817));
+            new LocationData("New York", "New York", "New York County", "NY", "US", 8336817));
 
         // Act
         var result = copier.GeneratePath(file);
@@ -783,13 +1093,523 @@ public class DirectoryCopierTests
         _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
         var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
         var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15), 
-            new LocationData("Chicago", "Cook County", "IL", "US"));
+            new LocationData("Chicago", "Chicago", "Cook County", "IL", "US"));
 
         // Act
         var result = copier.GeneratePath(file);
 
         // Assert
         result.Should().Be(TestPaths.InDest("Cook County", "test.jpg"));
+    }
+
+    #endregion
+
+    #region GeneratePath Tests - PathCasing
+
+    [Test]
+    public void GeneratePath_WithOriginalCasing_PreservesOriginalLocationValues()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.Original;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("United States", "New York", "New York", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithLowercaseCasing_ConvertsAllLocationVariablesToLowercase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.Lowercase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("united states", "new york", "new york", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithUppercaseCasing_ConvertsAllLocationVariablesToUppercase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.Uppercase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("UNITED STATES", "NEW YORK", "NEW YORK", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithTitleCaseCasing_ConvertsAllLocationVariablesToTitleCase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.TitleCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("los angeles", "los angeles", "Los Angeles County", "california", "united states"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("United States", "California", "Los Angeles", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithPascalCaseCasing_ConvertsAllLocationVariablesToPascalCase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.PascalCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("UnitedStates", "NewYork", "NewYork", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithCamelCaseCasing_ConvertsAllLocationVariablesToCamelCase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.CamelCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("unitedStates", "newYork", "newYork", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithSnakeCaseCasing_ConvertsAllLocationVariablesToSnakeCase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.SnakeCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("united_states", "new_york", "new_york", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCaseCasing_ConvertsAllLocationVariablesToKebabCase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("united-states", "new-york", "new-york", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithScreamingSnakeCaseCasing_ConvertsAllLocationVariablesToScreamingSnakeCase()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.ScreamingSnakeCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("UNITED_STATES", "NEW_YORK", "NEW_YORK", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_AppliesCasingToDistrictVariable()
+    {
+        // Arrange - Use multi-word district to test hyphenation
+        _config.Destination = TestPaths.DestPattern("{district}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Old Town", "Praha", "Prague", "Central Bohemia", "Czechia"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Verifies hyphen insertion between words
+        result.Should().Be(TestPaths.InDest("old-town", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_AppliesCasingToCountyVariable()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{county}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Chicago", "Chicago", "Cook County", "Illinois", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("cook-county", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithLowercaseCasing_AppliesCasingToAllFiveLocationVariables()
+    {
+        // Arrange - Test all location variables: district, city, county, state, country
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{county}", "{city}", "{district}", "{name}{ext}");
+        _config.PathCasing = PathCasing.Lowercase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Manhattan", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("united states", "new york", "new york county", "new york", "manhattan", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_DoesNotAffectNonLocationVariables()
+    {
+        // Arrange - Year, month, day, name should not be affected
+        _config.Destination = TestPaths.DestPattern("{year}", "{month}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("MyPhoto_2023.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Los Angeles", "Los Angeles", null, "California", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Year/month stay as is, city is kebab-cased, filename stays as is
+        result.Should().Be(TestPaths.InDest("2023", "06", "los-angeles", "MyPhoto_2023.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_AppliesCasingToUnknownLocationFallback()
+    {
+        // Arrange - When location is null, fallback should be cased
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        _config.UnknownLocationFallback = "No Location Data";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("no-location-data", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithSnakeCase_AppliesCasingToUnknownLocationFallback()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.SnakeCase;
+        _config.UnknownLocationFallback = "Unknown Location";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("test.jpg", new DateTime(2023, 6, 15));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("unknown_location", "unknown_location", "unknown_location", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_PreservesDiacriticsInLocationNames()
+    {
+        // Arrange - Test that diacritics are preserved (CasingFormatter doesn't normalize them)
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        _config.UseFullCountryNames = true;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("München", "München", null, "Bavaria", "DE"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Diacritics are preserved, only case is changed
+        result.Should().Be(TestPaths.InDest("germany", "münchen", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithTitleCase_ConvertsUppercaseLocationsToTitleCase()
+    {
+        // Arrange - Uppercase input is converted to Title Case (not preserved)
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{name}{ext}");
+        _config.PathCasing = PathCasing.TitleCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Washington", "Washington", null, "DC", "USA"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("Usa", "Dc", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithPascalCase_HandlesMultiWordCityNames()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.PascalCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("San Francisco", "San Francisco", "San Francisco County", "California", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("SanFrancisco", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithCamelCase_HandlesMultiWordStateNames()
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{state}", "{name}{ext}");
+        _config.PathCasing = PathCasing.CamelCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Raleigh", "Raleigh", "Wake County", "North Carolina", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("northCarolina", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithSnakeCase_HandlesCountryWithFullName()
+    {
+        // Arrange - Test that full country name is also converted
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.SnakeCase;
+        _config.UseFullCountryNames = true;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("London", "London", "Greater London", "England", "GB"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest("united_kingdom", "london", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_AndLocationGranularityState_AppliesCasingToVisibleVariables()
+    {
+        // Arrange - With State granularity, city/district use fallback
+        _config.Destination = TestPaths.DestPattern("{country}", "{state}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        _config.LocationGranularity = LocationGranularity.State;
+        _config.UnknownLocationFallback = "Not Available";
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - State and Country visible, City masked with fallback
+        result.Should().Be(TestPaths.InDest("united-states", "new-york", "not-available", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithScreamingSnakeCase_HandlesMultiWordLocations()
+    {
+        // Arrange - Use multi-word locations to test underscore joining
+        _config.Destination = TestPaths.DestPattern("{country}", "{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.ScreamingSnakeCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Los Angeles", "Los Angeles", null, "California", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Verifies underscore insertion and uppercase
+        result.Should().Be(TestPaths.InDest("UNITED_STATES", "LOS_ANGELES", "test.jpg"));
+    }
+
+    [Test]
+    [Arguments(PathCasing.Original, "New York")]
+    [Arguments(PathCasing.Lowercase, "new york")]
+    [Arguments(PathCasing.Uppercase, "NEW YORK")]
+    [Arguments(PathCasing.TitleCase, "New York")]
+    [Arguments(PathCasing.PascalCase, "NewYork")]
+    [Arguments(PathCasing.CamelCase, "newYork")]
+    [Arguments(PathCasing.SnakeCase, "new_york")]
+    [Arguments(PathCasing.KebabCase, "new-york")]
+    [Arguments(PathCasing.ScreamingSnakeCase, "NEW_YORK")]
+    public void GeneratePath_WithVariousCasings_ProducesExpectedCityOutput(PathCasing casing, string expectedCity)
+    {
+        // Arrange
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = casing;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", "New York County", "New York", "United States"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert
+        result.Should().Be(TestPaths.InDest(expectedCity, "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithOriginalCasing_PreservesMixedCaseInput()
+    {
+        // Arrange - Verify Original casing truly preserves mixed-case exactly
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.Original;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("nEw YoRk", "nEw YoRk", null, "NY", "USA"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Mixed case is preserved as-is
+        result.Should().Be(TestPaths.InDest("nEw YoRk", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_HandlesLocationWithExistingHyphens()
+    {
+        // Arrange - Location name already has hyphens
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Saint-Tropez", "Saint-Tropez", null, "Provence", "France"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Should not produce double hyphens
+        result.Should().Be(TestPaths.InDest("saint-tropez", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithSnakeCase_HandlesLocationWithExistingUnderscores()
+    {
+        // Arrange - Location name already has underscores
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.SnakeCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Some_City", "Some_City", null, "State", "Country"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Should not produce double underscores
+        result.Should().Be(TestPaths.InDest("some_city", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithDefaultPathCasing_UsesOriginalCasing()
+    {
+        // Arrange - PathCasing not explicitly set, should default to Original
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        // PathCasing is NOT set - relies on default value
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("New York", "New York", null, "NY", "USA"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Default should be Original, preserving case
+        result.Should().Be(TestPaths.InDest("New York", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_AndNullCityFallsBackToDistrict_AppliesCasing()
+    {
+        // Arrange - City is null, should fallback to District and apply casing
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Old Town", null, null, "State", "Country"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Falls back to district "Old Town" and applies kebab-case
+        result.Should().Be(TestPaths.InDest("old-town", "test.jpg"));
+    }
+
+    [Test]
+    public void GeneratePath_WithKebabCase_HandlesSingleWordLocation()
+    {
+        // Arrange - Single word location (edge case for hyphen-based casings)
+        _config.Destination = TestPaths.DestPattern("{city}", "{name}{ext}");
+        _config.PathCasing = PathCasing.KebabCase;
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFileWithLocation("test.jpg", new DateTime(2023, 6, 15),
+            new LocationData("Tokyo", "Tokyo", null, "Tokyo", "Japan"));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Single word just lowercased, no hyphen needed
+        result.Should().Be(TestPaths.InDest("tokyo", "test.jpg"));
     }
 
     #endregion
@@ -1699,3 +2519,4 @@ public class DirectoryCopierTests
 
     #endregion
 }
+

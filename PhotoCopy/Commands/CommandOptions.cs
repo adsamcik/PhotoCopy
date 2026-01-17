@@ -29,16 +29,16 @@ public class CopyOptions : CommonOptions
     public string? Destination { get; set; }
 
     [Option('n', "dry-run", Required = false, HelpText = "Don't actually copy/move files")]
-    public bool? DryRun { get; set; }
+    public bool DryRun { get; set; }
 
     [Option('e', "skip-existing", Required = false, HelpText = "Skip files that already exist")]
-    public bool? SkipExisting { get; set; }
+    public bool SkipExisting { get; set; }
 
     [Option('o', "overwrite", Required = false, HelpText = "Overwrite existing files")]
-    public bool? Overwrite { get; set; }
+    public bool Overwrite { get; set; }
 
     [Option('k', "no-duplicate-skip", Required = false, HelpText = "Don't skip duplicate files")]
-    public bool? NoDuplicateSkip { get; set; }
+    public bool NoDuplicateSkip { get; set; }
 
     [Option('m', "mode", Required = false, HelpText = "Operation mode (copy/move)")]
     public OperationMode? Mode { get; set; }
@@ -59,7 +59,7 @@ public class CopyOptions : CommonOptions
     public string? GeonamesPath { get; set; }
 
     [Option("calculate-checksums", Required = false, HelpText = "Enable or disable checksum calculation during metadata enrichment")]
-    public bool? CalculateChecksums { get; set; }
+    public bool CalculateChecksums { get; set; }
 
     [Option('p', "parallel", Required = false, HelpText = "Number of parallel operations (default: processor count)")]
     public int? Parallelism { get; set; }
@@ -68,10 +68,37 @@ public class CopyOptions : CommonOptions
     public DuplicateHandlingOption? DuplicateHandling { get; set; }
 
     [Option("enable-rollback", Required = false, HelpText = "Enable transaction logging for rollback support")]
-    public bool? EnableRollback { get; set; }
+    public bool EnableRollback { get; set; }
 
     [Option("max-depth", Required = false, HelpText = "Maximum directory recursion depth (0 or omit for unlimited, 1 = root only)")]
     public int? MaxDepth { get; set; }
+
+    [Option("path-casing", Required = false, HelpText = "Casing style for path variables (original/lowercase/uppercase/titlecase/pascalcase/camelcase/snakecase/kebabcase/screamingsnakecase)")]
+    public PathCasing? PathCasing { get; set; }
+
+    [Option("unknown-report", Required = false, HelpText = "Show a report of files that went to Unknown folder (none/summary/detailed)")]
+    public UnknownReportLevel? UnknownReport { get; set; }
+}
+
+/// <summary>
+/// Level of detail for the unknown files report.
+/// </summary>
+public enum UnknownReportLevel
+{
+    /// <summary>
+    /// No report is shown.
+    /// </summary>
+    None,
+
+    /// <summary>
+    /// Show summary statistics only.
+    /// </summary>
+    Summary,
+
+    /// <summary>
+    /// Show detailed report including file list.
+    /// </summary>
+    Detailed
 }
 
 /// <summary>
@@ -104,7 +131,7 @@ public class ScanOptions : CommonOptions
     public string? GeonamesPath { get; set; }
 
     [Option("calculate-checksums", Required = false, HelpText = "Enable or disable checksum calculation during metadata enrichment")]
-    public bool? CalculateChecksums { get; set; }
+    public bool CalculateChecksums { get; set; }
 
     [Option("max-depth", Required = false, HelpText = "Maximum directory recursion depth (0 or omit for unlimited, 1 = root only)")]
     public int? MaxDepth { get; set; }

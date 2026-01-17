@@ -31,6 +31,7 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
 
     public CopyResult Copy(IReadOnlyCollection<IValidator> validators)
     {
+        ClearUnknownFilesReport();
         var files = FileSystem.EnumerateFiles(Config.Source);
         var plan = BuildCopyPlan(files, validators);
 
@@ -42,7 +43,8 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
                 0,
                 plan.SkippedFiles.Count,
                 plan.TotalBytes,
-                Array.Empty<CopyError>());
+                Array.Empty<CopyError>(),
+                GetUnknownFilesReport());
         }
 
         // Begin transaction logging if rollback is enabled
@@ -74,7 +76,8 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
                 failed,
                 plan.SkippedFiles.Count,
                 bytesProcessed,
-                errors);
+                errors,
+                GetUnknownFilesReport());
         }
         catch (Exception ex)
         {
@@ -101,6 +104,9 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
         foreach (var file in files)
         {
             filesProcessed++;
+            
+            // Track files that will go to Unknown folder
+            TrackUnknownFile(file);
             
             // Log progress every 5 seconds
             var now = DateTime.UtcNow;

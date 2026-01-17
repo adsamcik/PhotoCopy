@@ -124,7 +124,7 @@ public class EnrichmentStepsTests
         // Arrange
         var latitude = 40.7128;
         var longitude = -74.0060;
-        var expectedLocation = new LocationData("New York", null, "NY", "USA");
+        var expectedLocation = new LocationData("New York", "New York", null, "NY", "USA");
 
         var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
         metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
@@ -238,7 +238,7 @@ public class EnrichmentStepsTests
         // Arrange
         var latitude = 51.5074;
         var longitude = -0.1278;
-        var expectedLocation = new LocationData("London", null, null, "United Kingdom");
+        var expectedLocation = new LocationData("London", "London", null, null, "United Kingdom");
 
         var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
         metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
@@ -418,7 +418,7 @@ public class EnrichmentStepsTests
         {
             var context = new FileMetadataContext(new FileInfo(tempFile));
             var originalDateTime = context.Metadata.DateTime;
-            var testLocation = new LocationData("TestCity", null, "TestState", "TestCountry");
+            var testLocation = new LocationData("TestCity", "TestCity", null, "TestState", "TestCountry");
             context.Metadata.Location = testLocation;
 
             // Act
@@ -436,7 +436,143 @@ public class EnrichmentStepsTests
     }
 
     #endregion
+    #region LocationMetadataEnrichmentStep UnknownReason Tests
 
+    [Test]
+    public void LocationEnrichmentStep_WithGpsCoordinates_SetsUnknownReasonToNone()
+    {
+        // Arrange
+        var latitude = 40.7128;
+        var longitude = -74.0060;
+        var expectedLocation = new LocationData("New York", "New York", null, "NY", "USA");
+
+        var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
+        metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
+            .Returns((latitude, longitude));
+
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+        reverseGeocodingService.ReverseGeocode(latitude, longitude)
+            .Returns(expectedLocation);
+
+        var step = new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService);
+        var tempFile = CreateTempFile("location_test.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().NotBeNull();
+            context.Metadata.UnknownReason.Should().Be(UnknownFileReason.None);
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void LocationEnrichmentStep_WithoutGps_SetsUnknownReasonToNoGpsData()
+    {
+        // Arrange
+        var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
+        metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
+            .Returns((ValueTuple<double, double>?)null);
+
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+
+        var step = new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService);
+        var tempFile = CreateTempFile("no_gps_reason.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().BeNull();
+            context.Metadata.UnknownReason.Should().Be(UnknownFileReason.NoGpsData);
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void LocationEnrichmentStep_WhenGpsExtractionThrows_SetsUnknownReasonToGpsExtractionError()
+    {
+        // Arrange
+        var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
+        metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
+            .Returns(x => throw new Exception("Corrupt EXIF data"));
+
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+
+        var step = new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService);
+        var tempFile = CreateTempFile("corrupt_exif.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().BeNull();
+            context.Metadata.UnknownReason.Should().Be(UnknownFileReason.GpsExtractionError);
+            
+            // Verify geocoding was not attempted
+            reverseGeocodingService.DidNotReceive().ReverseGeocode(Arg.Any<double>(), Arg.Any<double>());
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void LocationEnrichmentStep_WhenGeocodingReturnsNull_SetsUnknownReasonToGeocodingFailed()
+    {
+        // Arrange
+        var latitude = 0.0;
+        var longitude = 0.0;
+
+        var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
+        metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
+            .Returns((latitude, longitude));
+
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+        reverseGeocodingService.ReverseGeocode(latitude, longitude)
+            .Returns((LocationData?)null);
+
+        var step = new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService);
+        var tempFile = CreateTempFile("ocean_coords.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().BeNull();
+            context.Metadata.UnknownReason.Should().Be(UnknownFileReason.GeocodingFailed);
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    #endregion
     #region Helper Methods
 
     private static string CreateTempFile(string fileName)

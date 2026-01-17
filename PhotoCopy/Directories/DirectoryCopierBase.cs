@@ -1,15 +1,19 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
 using PhotoCopy.Extensions;
 using PhotoCopy.Files;
+using PhotoCopy.Progress;
 using PhotoCopy.Rollback;
 using PhotoCopy.Validators;
+// IPathGeneratorContext is in the same namespace, no extra using needed
 
 namespace PhotoCopy.Directories;
 
@@ -18,10 +22,18 @@ namespace PhotoCopy.Directories;
 /// </summary>
 public abstract class DirectoryCopierBase
 {
+    // Cache for compiled regex patterns by variable name
+    private static readonly ConcurrentDictionary<string, Regex> VariableRegexCache = new(StringComparer.OrdinalIgnoreCase);
+
     protected readonly IFileSystem FileSystem;
     protected readonly PhotoCopyConfig Config;
     protected readonly ITransactionLogger TransactionLogger;
     protected readonly IFileValidationService FileValidationService;
+    
+    /// <summary>
+    /// Report tracking files that went to Unknown folders.
+    /// </summary>
+    protected readonly UnknownFilesReport UnknownFilesReport = new();
 
     /// <summary>
     /// Gets the logger for the derived class.
@@ -43,32 +55,47 @@ public abstract class DirectoryCopierBase
     /// <summary>
     /// Generates the destination path for a file using the configured pattern.
     /// </summary>
-    public string GeneratePath(IFile file)
+    /// <param name="file">The file to generate a destination path for.</param>
+    /// <param name="context">Optional context with statistics for conditional path generation.</param>
+    public string GeneratePath(IFile file, IPathGeneratorContext? context = null)
     {
         var destPath = Config.Destination ?? string.Empty;
+        var casing = Config.PathCasing;
 
         destPath = destPath.Replace(DestinationVariables.Year, file.FileDateTime.DateTime.Year.ToString());
         destPath = destPath.Replace(DestinationVariables.Month, file.FileDateTime.DateTime.Month.ToString("00"));
         destPath = destPath.Replace(DestinationVariables.Day, file.FileDateTime.DateTime.Day.ToString("00"));
 
-        var fallback = Config.UnknownLocationFallback;
+        var globalFallback = CasingFormatter.ApplyCasing(Config.UnknownLocationFallback, casing);
         
+        // Get location values
+        string? district = null, city = null, county = null, state = null, country = null;
         if (file.Location != null)
         {
-            var (city, county, state, country) = GetLocationValuesWithGranularity(file.Location, fallback);
-            
-            destPath = destPath.Replace(DestinationVariables.City, PathSanitizer.SanitizeOrFallback(city, fallback));
-            destPath = destPath.Replace(DestinationVariables.County, PathSanitizer.SanitizeOrFallback(county, fallback));
-            destPath = destPath.Replace(DestinationVariables.State, PathSanitizer.SanitizeOrFallback(state, fallback));
-            destPath = destPath.Replace(DestinationVariables.Country, PathSanitizer.SanitizeOrFallback(country, fallback));
+            var locationValues = GetLocationValuesWithGranularity(file.Location, string.Empty);
+            district = locationValues.District;
+            city = locationValues.City;
+            county = locationValues.County;
+            state = locationValues.State;
+            country = locationValues.Country;
         }
-        else
+        
+        // Build a dictionary of location values for conditional expression evaluation
+        var locationValues2 = new Dictionary<string, string?>
         {
-            destPath = destPath.Replace(DestinationVariables.City, fallback);
-            destPath = destPath.Replace(DestinationVariables.County, fallback);
-            destPath = destPath.Replace(DestinationVariables.State, fallback);
-            destPath = destPath.Replace(DestinationVariables.Country, fallback);
-        }
+            { "district", district },
+            { "city", city },
+            { "county", county },
+            { "state", state },
+            { "country", country }
+        };
+        
+        // Replace location variables with inline fallback support and conditional expressions
+        destPath = ReplaceVariableWithFallback(destPath, "district", district, globalFallback, casing, context, locationValues2);
+        destPath = ReplaceVariableWithFallback(destPath, "city", city, globalFallback, casing, context, locationValues2);
+        destPath = ReplaceVariableWithFallback(destPath, "county", county, globalFallback, casing, context, locationValues2);
+        destPath = ReplaceVariableWithFallback(destPath, "state", state, globalFallback, casing, context, locationValues2);
+        destPath = ReplaceVariableWithFallback(destPath, "country", country, globalFallback, casing, context, locationValues2);
 
         string directory;
         try
@@ -79,7 +106,8 @@ public abstract class DirectoryCopierBase
         }
         catch (ArgumentException)
         {
-            directory = Path.GetDirectoryName(file.File.Name) ?? string.Empty;
+            // Fallback when paths are on different drives (Windows) or incompatible
+            directory = file.File.DirectoryName ?? Path.GetDirectoryName(file.File.FullName) ?? string.Empty;
         }
 
         destPath = destPath.Replace(DestinationVariables.Directory, directory);
@@ -92,13 +120,107 @@ public abstract class DirectoryCopierBase
         destPath = destPath.Replace(DestinationVariables.Extension, ext);
         destPath = destPath.Replace("{filename}", file.File.Name);
 
+        // Normalize path to clean up orphaned separators from empty variables
+        destPath = NormalizeDestinationPath(destPath);
+
         return destPath;
+    }
+    
+    /// <summary>
+    /// Replaces a variable in the path, supporting conditional syntax like {variable?min=N|fallback}.
+    /// If the value is empty or conditions fail, uses the inline fallback if specified, otherwise uses the global fallback.
+    /// </summary>
+    private static string ReplaceVariableWithFallback(
+        string path, 
+        string variableName, 
+        string? value, 
+        string globalFallback, 
+        PathCasing casing,
+        IPathGeneratorContext? context = null,
+        Dictionary<string, string?>? allLocationValues = null)
+    {
+        // Get or create cached regex for this variable name
+        var regex = VariableRegexCache.GetOrAdd(variableName, name =>
+        {
+            var pattern = $@"\{{{name}(?:\?([^|}}\s]+))?(?:\|([^}}]*))?\}}";
+            return new Regex(pattern, RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        });
+        
+        return regex.Replace(path, match =>
+        {
+            var conditionsStr = match.Groups[1].Success ? match.Groups[1].Value : null;
+            var inlineFallback = match.Groups[2].Success ? match.Groups[2].Value : null;
+            var sanitizedValue = PathSanitizer.SanitizeOrFallback(CasingFormatter.ApplyCasing(value, casing), string.Empty);
+            
+            // Parse and evaluate conditions if present
+            bool conditionsPassed = true;
+            if (!string.IsNullOrEmpty(conditionsStr) && context != null && !string.IsNullOrEmpty(sanitizedValue))
+            {
+                // Parse the conditions (min=N, max=N)
+                var expression = VariableExpressionParser.Parse(match.Value);
+                if (expression != null && expression.HasConditions)
+                {
+                    conditionsPassed = VariableExpressionParser.EvaluateConditions(expression, sanitizedValue, context);
+                }
+            }
+            
+            // If value is not empty and conditions pass, use the value
+            if (!string.IsNullOrEmpty(sanitizedValue) && conditionsPassed)
+            {
+                return sanitizedValue;
+            }
+            
+            // Conditions failed or value is empty - check if fallback is another variable
+            if (inlineFallback != null)
+            {
+                // Check if the fallback is a variable name (without braces)
+                if (allLocationValues != null && allLocationValues.TryGetValue(inlineFallback.ToLowerInvariant(), out var fallbackValue))
+                {
+                    var sanitizedFallback = PathSanitizer.SanitizeOrFallback(CasingFormatter.ApplyCasing(fallbackValue, casing), string.Empty);
+                    if (!string.IsNullOrEmpty(sanitizedFallback))
+                    {
+                        return sanitizedFallback;
+                    }
+                }
+                // Otherwise use the inline fallback as a literal value
+                return CasingFormatter.ApplyCasing(inlineFallback, casing);
+            }
+            
+            return globalFallback;
+        });
+    }
+    
+    /// <summary>
+    /// Normalizes a destination path by cleaning up orphaned separators from empty variables.
+    /// Only cleans up patterns that result from empty variable replacements, preserving valid path segments.
+    /// </summary>
+    private static string NormalizeDestinationPath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+            return path;
+
+        // Replace multiple consecutive separators with a single separator
+        path = Regex.Replace(path, @"[\\/]{2,}", Path.DirectorySeparatorChar.ToString());
+        
+        // Remove path segments that are ONLY separators (e.g., "/-/" -> "/", "/--/" -> "/", "/_/" -> "/")
+        // This handles the case of {country}-{city} when both are empty, resulting in "-" as a segment
+        path = Regex.Replace(path, @"[\\/][-_]+[\\/]", Path.DirectorySeparatorChar.ToString());
+        
+        // Handle consecutive hyphens/underscores within a segment (e.g., "country--city" -> "country-city")
+        // This handles the case where one variable is empty: {country}-{city} with empty country becomes "-city"
+        path = Regex.Replace(path, @"(?<=[\\/])[-_]+(?=[^-_\\/])", string.Empty);
+        
+        // Remove trailing separator-only segments at the end before filename
+        // (e.g., "2024/01/-/photo.jpg" should become "2024/01/photo.jpg")
+        // Already handled by the segment removal above
+
+        return path;
     }
     
     /// <summary>
     /// Gets location values adjusted for the configured granularity level.
     /// </summary>
-    private (string City, string County, string State, string Country) GetLocationValuesWithGranularity(
+    private (string District, string City, string County, string State, string Country) GetLocationValuesWithGranularity(
         LocationData location, string fallback)
     {
         var granularity = Config.LocationGranularity;
@@ -109,8 +231,14 @@ public abstract class DirectoryCopierBase
             : location.Country;
         
         // Apply granularity masking
+        // District is the nearest place (neighborhood/district within a city)
+        var district = granularity == LocationGranularity.City 
+            ? location.District 
+            : fallback;
+        
+        // City is the nearest city-level place (excludes districts/neighborhoods)
         var city = granularity == LocationGranularity.City 
-            ? location.City 
+            ? location.City ?? location.District  // Fall back to district if city is null
             : fallback;
             
         var county = granularity <= LocationGranularity.County 
@@ -121,7 +249,7 @@ public abstract class DirectoryCopierBase
             ? location.State ?? fallback 
             : fallback;
         
-        return (city, county, state, country);
+        return (district, city, county, state, country);
     }
 
     /// <summary>
@@ -157,11 +285,19 @@ public abstract class DirectoryCopierBase
         var filenameWithoutExt = Path.GetFileNameWithoutExtension(destinationPath);
         var extension = Path.GetExtension(destinationPath);
 
+        const int maxIterations = 10000;
         var counter = 1;
         string newPath;
 
         do
         {
+            if (counter > maxIterations)
+            {
+                throw new InvalidOperationException(
+                    $"Unable to find available path for '{destinationPath}' after {maxIterations} attempts. " +
+                    "This may indicate a naming pattern issue or an extremely high number of duplicates.");
+            }
+
             var suffixFormat = Config.DuplicatesFormat.Replace("{number}", counter.ToString());
             var newFilename = $"{filenameWithoutExt}{suffixFormat}{extension}";
             newPath = Path.Combine(directory ?? string.Empty, newFilename);
@@ -220,9 +356,16 @@ public abstract class DirectoryCopierBase
         var primaryCount = plan.Operations.Count;
         var relatedCount = plan.Operations.Sum(o => o.RelatedFiles.Count);
         var directories = plan.DirectoriesToCreate.Count;
+        var operationType = Config.Mode == OperationMode.Move ? "Move" : "Copy";
 
         Logger.LogInformation("DryRun Summary: {Primary} primary files, {Related} related files", primaryCount, relatedCount);
         Logger.LogInformation("DryRun Summary: {Directories} directories to create", directories);
+        
+        foreach (var dir in plan.DirectoriesToCreate.OrderBy(d => d))
+        {
+            Logger.LogInformation("DryRun: Will create directory {Directory}", dir);
+        }
+        
         Logger.LogInformation("DryRun Summary: Total bytes {Bytes} ({Readable})", plan.TotalBytes, FormatBytes(plan.TotalBytes));
 
         if (plan.SkippedFiles.Count > 0)
@@ -232,6 +375,39 @@ public abstract class DirectoryCopierBase
         else
         {
             Logger.LogInformation("DryRun Summary: No files skipped by validators");
+        }
+        
+        // Log each planned operation with full details
+        Logger.LogInformation("DryRun: Planned operations:");
+        foreach (var op in plan.Operations)
+        {
+            var size = SafeFileLength(op.File);
+            Logger.LogInformation(
+                "DryRun: Will {Operation} {Source} -> {Destination} ({Size})",
+                operationType, op.File.File.FullName, op.DestinationPath, FormatBytes(size));
+            
+            // Log related files (sidecar files like XMP, JSON, etc.)
+            foreach (var related in op.RelatedFiles)
+            {
+                var relatedSize = SafeFileLength(related.File);
+                Logger.LogInformation(
+                    "DryRun:   -> {Source} -> {Destination} ({Size}) [related]",
+                    related.File.File.Name, related.DestinationPath, FormatBytes(relatedSize));
+            }
+        }
+        
+        // Log skipped files in dry-run output too
+        if (plan.SkippedFiles.Count > 0)
+        {
+            Logger.LogInformation("DryRun: Skipped files:");
+            foreach (var skipped in plan.SkippedFiles)
+            {
+                Logger.LogInformation(
+                    "DryRun: Skipped {File} ({Validator}: {Reason})",
+                    skipped.File.File.Name,
+                    skipped.ValidatorName,
+                    skipped.Reason ?? "No reason provided");
+            }
         }
     }
 
@@ -277,4 +453,32 @@ public abstract class DirectoryCopierBase
     /// Formats bytes as human-readable string.
     /// </summary>
     protected static string FormatBytes(long bytes) => ByteFormatter.FormatBytes(bytes);
+
+    /// <summary>
+    /// Tracks a file if it has no location data (goes to Unknown folder).
+    /// </summary>
+    /// <param name="file">The file to check.</param>
+    protected void TrackUnknownFile(IFile file)
+    {
+        if (file.Location == null && file.UnknownReason != UnknownFileReason.None)
+        {
+            UnknownFilesReport.AddEntry(file, file.UnknownReason);
+        }
+    }
+
+    /// <summary>
+    /// Clears the unknown files report. Called at the start of a copy operation.
+    /// </summary>
+    protected void ClearUnknownFilesReport()
+    {
+        UnknownFilesReport.Clear();
+    }
+
+    /// <summary>
+    /// Gets a clone of the current unknown files report.
+    /// </summary>
+    protected UnknownFilesReport GetUnknownFilesReport()
+    {
+        return UnknownFilesReport;
+    }
 }

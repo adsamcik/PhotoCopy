@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using PhotoCopy.Commands;
 using PhotoCopy.Duplicates;
 
 namespace PhotoCopy.Configuration;
@@ -76,6 +77,25 @@ public class PhotoCopyConfig
     /// Fallback text used when location data is unavailable.
     /// </summary>
     public string UnknownLocationFallback { get; set; } = "Unknown";
+    
+    /// <summary>
+    /// The casing style to apply to destination path variable values.
+    /// Affects location-based variables like {city}, {country}, {state}, etc.
+    /// </summary>
+    public PathCasing PathCasing { get; set; } = PathCasing.Original;
+    
+    /// <summary>
+    /// Level of detail for the unknown files report after copy operations.
+    /// </summary>
+    public UnknownReportLevel UnknownReport { get; set; } = UnknownReportLevel.None;
+    
+    /// <summary>
+    /// Time window in minutes for companion GPS fallback.
+    /// When a video or photo lacks GPS data, the system will look for nearby photos
+    /// (within this time window) that have GPS data and use their location.
+    /// Null or 0 disables this feature (default).
+    /// </summary>
+    public int? GpsProximityWindowMinutes { get; set; }
     
     public HashSet<string> AllowedExtensions { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {

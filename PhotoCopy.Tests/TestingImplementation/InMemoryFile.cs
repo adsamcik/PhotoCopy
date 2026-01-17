@@ -12,6 +12,7 @@ public class InMemoryFile : IFile
     public FileDateTime FileDateTime { get; private set; }
     public LocationData? Location { get; private set; }
     public string Checksum { get; private set; }
+    public UnknownFileReason UnknownReason { get; set; } = UnknownFileReason.None;
 
     /// <summary>
     /// Creates an InMemoryFile with all metadata values specified.
@@ -30,6 +31,8 @@ public class InMemoryFile : IFile
         FileDateTime = fileDateTime;
         Location = location;
         Checksum = checksum;
+        // Set UnknownReason based on location
+        UnknownReason = location == null ? UnknownFileReason.NoGpsData : UnknownFileReason.None;
     }
 
     /// <summary>
@@ -61,17 +64,17 @@ public class InMemoryFile : IFile
     /// <summary>
     /// Returns a new InMemoryFile with the specified location details.
     /// </summary>
-    public InMemoryFile WithLocation(string city, string? state, string country)
+    public InMemoryFile WithLocation(string district, string? state, string country)
     {
-        return WithLocation(new LocationData(city, null, state, country));
+        return WithLocation(new LocationData(district, district, null, state, country));
     }
     
     /// <summary>
     /// Returns a new InMemoryFile with the specified location details including county.
     /// </summary>
-    public InMemoryFile WithLocation(string city, string? county, string? state, string country)
+    public InMemoryFile WithLocation(string district, string? county, string? state, string country)
     {
-        return WithLocation(new LocationData(city, county, state, country));
+        return WithLocation(new LocationData(district, district, county, state, country));
     }
 
     /// <summary>
@@ -202,15 +205,15 @@ public class InMemoryFile : IFile
             return this;
         }
 
-        public InMemoryFileBuilder WithLocation(string city, string? state, string country)
+        public InMemoryFileBuilder WithLocation(string district, string? state, string country)
         {
-            _location = new LocationData(city, null, state, country);
+            _location = new LocationData(district, district, null, state, country);
             return this;
         }
         
-        public InMemoryFileBuilder WithLocation(string city, string? county, string? state, string country)
+        public InMemoryFileBuilder WithLocation(string district, string? county, string? state, string country)
         {
-            _location = new LocationData(city, county, state, country);
+            _location = new LocationData(district, district, county, state, country);
             return this;
         }
 

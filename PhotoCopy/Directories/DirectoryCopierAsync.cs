@@ -42,6 +42,7 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         IReadOnlyCollection<IValidator> validators,
         CancellationToken cancellationToken = default)
     {
+        ClearUnknownFilesReport();
         var files = FileSystem.EnumerateFiles(Config.Source).ToList();
         return await Task.Run(() => BuildCopyPlan(files, validators), cancellationToken);
     }
@@ -61,7 +62,8 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
                 FilesFailed: 0,
                 FilesSkipped: plan.SkippedFiles.Count,
                 BytesProcessed: plan.TotalBytes,
-                Errors: Array.Empty<CopyError>());
+                Errors: Array.Empty<CopyError>(),
+                UnknownFilesReport: GetUnknownFilesReport());
         }
 
         // Begin transaction logging if rollback is enabled
@@ -113,6 +115,9 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
 
         foreach (var file in files)
         {
+            // Track files that will go to Unknown folder
+            TrackUnknownFile(file);
+            
             var failure = EvaluateValidators(file, validators);
             if (failure is not null)
             {
@@ -196,18 +201,31 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
                     // Process related files sequentially within this operation
                     foreach (var related in operation.RelatedFiles)
                     {
-                        await ProcessOperationAsync(related.File, related.DestinationPath, ct);
-                        var relatedSize = SafeFileLength(related.File);
-                        Interlocked.Add(ref processedBytes, relatedSize);
-                        current = Interlocked.Increment(ref processedCount);
+                        try
+                        {
+                            await ProcessOperationAsync(related.File, related.DestinationPath, ct);
+                            var relatedSize = SafeFileLength(related.File);
+                            Interlocked.Add(ref processedBytes, relatedSize);
+                            current = Interlocked.Increment(ref processedCount);
 
-                        progressReporter.Report(new CopyProgress(
-                            current,
-                            totalOperations,
-                            Interlocked.Read(ref processedBytes),
-                            plan.TotalBytes,
-                            related.File.File.Name,
-                            stopwatch.Elapsed));
+                            progressReporter.Report(new CopyProgress(
+                                current,
+                                totalOperations,
+                                Interlocked.Read(ref processedBytes),
+                                plan.TotalBytes,
+                                related.File.File.Name,
+                                stopwatch.Elapsed));
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            throw;
+                        }
+                        catch (Exception ex)
+                        {
+                            // Attribute error to the related file, not the primary file
+                            errors.Add(new CopyError(related.File, related.DestinationPath, ex.Message));
+                            progressReporter.ReportError(related.File.File.Name, ex);
+                        }
                     }
                 }
                 catch (OperationCanceledException)
@@ -240,7 +258,8 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
             FilesFailed: errors.Count,
             FilesSkipped: plan.SkippedFiles.Count,
             BytesProcessed: processedBytes,
-            Errors: errors.ToList());
+            Errors: errors.ToList(),
+            UnknownFilesReport: GetUnknownFilesReport());
     }
 
     private Task ProcessOperationAsync(IFile file, string destinationPath, CancellationToken cancellationToken)
@@ -306,11 +325,19 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         var filenameWithoutExt = Path.GetFileNameWithoutExtension(destinationPath);
         var extension = Path.GetExtension(destinationPath);
 
+        const int maxIterations = 10000;
         var counter = 1;
         string newPath;
 
         do
         {
+            if (counter > maxIterations)
+            {
+                throw new InvalidOperationException(
+                    $"Unable to find available path for '{destinationPath}' after {maxIterations} attempts. " +
+                    "This may indicate a naming pattern issue or an extremely high number of duplicates.");
+            }
+
             var suffixFormat = Config.DuplicatesFormat.Replace("{number}", counter.ToString());
             var newFilename = $"{filenameWithoutExt}{suffixFormat}{extension}";
             newPath = Path.Combine(directory ?? string.Empty, newFilename);
@@ -318,21 +345,6 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         } while (FileSystem.FileExists(newPath) || !_reservedPaths.TryAdd(newPath, 0));
 
         return newPath;
-    }
-
-    /// <summary>
-    /// Override to include per-file logging for dry run.
-    /// </summary>
-    protected override void LogDryRunSummary(CopyPlan plan)
-    {
-        base.LogDryRunSummary(plan);
-
-        // Log each planned operation
-        foreach (var op in plan.Operations)
-        {
-            _logger.LogInformation("DryRun: {Mode} {Source} to {Destination}",
-                Config.Mode, op.File.File.FullName, op.DestinationPath);
-        }
     }
 }
 

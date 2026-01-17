@@ -449,7 +449,7 @@ public class FileFactoryTests : TestBase
         // Arrange
         var fileInfo = CreateFileInfo("photo.jpg");
         var expectedDateTime = new DateTime(2023, 8, 20, 15, 45, 30);
-        var expectedLocation = new LocationData("Paris", null, "Île-de-France", "France");
+        var expectedLocation = new LocationData("Paris", "Paris", null, "Île-de-France", "France");
         var expectedChecksum = "abc123def456";
         
         var metadata = CreateMockMetadata(expectedDateTime, expectedLocation, expectedChecksum);
@@ -514,7 +514,7 @@ public class FileFactoryTests : TestBase
     {
         // Arrange
         var fileInfo = CreateFileInfo("geotagged.jpg");
-        var location = new LocationData("London", null, null, "UK");
+        var location = new LocationData("London", "London", null, null, "UK");
         var metadata = CreateMockMetadata(location: location);
         SetupMetadataEnricher(metadata);
 
@@ -548,7 +548,7 @@ public class FileFactoryTests : TestBase
     {
         // Arrange
         var fileInfo = CreateFileInfo("document.txt");
-        var location = new LocationData("New York", null, "New York", "USA");
+        var location = new LocationData("New York", "New York", null, "New York", "USA");
         var metadata = CreateMockMetadata(location: location);
         SetupMetadataEnricher(metadata);
 

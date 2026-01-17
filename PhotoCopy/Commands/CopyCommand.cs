@@ -48,21 +48,22 @@ public class CopyCommand : ICommand
 
             var validators = _validatorFactory.Create(_config);
 
+            CopyResult result;
             if (_config.UseAsync)
             {
-                var result = await _directoryCopierAsync.CopyAsync(
+                result = await _directoryCopierAsync.CopyAsync(
                     validators, _progressReporter, cancellationToken);
-
-                LogResult(result);
-                return result.FilesFailed > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
             }
             else
             {
                 // Use synchronous copier (wrap in task for consistency)
-                var result = await Task.Run(() => _directoryCopier.Copy(validators), cancellationToken);
-                LogResult(result);
-                return result.FilesFailed > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
+                result = await Task.Run(() => _directoryCopier.Copy(validators), cancellationToken);
             }
+            
+            LogResult(result);
+            OutputUnknownFilesReport(result);
+            
+            return result.FilesFailed > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
         }
         catch (OperationCanceledException)
         {
@@ -87,5 +88,26 @@ public class CopyCommand : ICommand
             _logger.LogError("Failed to process {File}: {Error}",
                 error.File.File.Name, error.ErrorMessage);
         }
+    }
+
+    private void OutputUnknownFilesReport(CopyResult result)
+    {
+        if (_config.UnknownReport == UnknownReportLevel.None || result.UnknownFilesReport == null)
+        {
+            return;
+        }
+
+        var report = result.UnknownFilesReport;
+        if (report.Count == 0)
+        {
+            return;
+        }
+
+        var includeDetailedList = _config.UnknownReport == UnknownReportLevel.Detailed;
+        var reportText = report.GenerateReport(includeDetailedList);
+        
+        // Output to console directly for visibility
+        Console.WriteLine();
+        Console.WriteLine(reportText);
     }
 }

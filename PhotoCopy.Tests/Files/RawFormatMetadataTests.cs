@@ -87,7 +87,7 @@ public class RawFormatMetadataTests : TestBase
     {
         // Arrange - HEIC file with mock EXIF date and location data
         var expectedDate = new DateTime(2024, 6, 15, 14, 30, 0);
-        var expectedLocation = new LocationData("San Francisco", null, "California", "USA");
+        var expectedLocation = new LocationData("San Francisco", "San Francisco", null, "California", "USA");
         var fileInfo = CreateFileInfo("IMG_1234.heic");
         var metadata = CreateMockMetadata(expectedDate, expectedLocation);
         SetupMetadataEnricher(metadata);
@@ -533,7 +533,7 @@ public class RawFormatMetadataTests : TestBase
     public void HeicFile_WithGps_ExtractsCoordinates()
     {
         // Arrange - Mock HEIC with location data (reverse-geocoded from GPS)
-        var location = new LocationData("New York", null, "New York", "USA");
+        var location = new LocationData("New York", "New York", null, "New York", "USA");
         var fileInfo = CreateFileInfo("gps_photo.heic");
         var metadata = CreateMockMetadata(DateTime.Now, location);
         SetupMetadataEnricher(metadata);

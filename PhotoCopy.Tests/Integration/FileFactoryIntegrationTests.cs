@@ -6,6 +6,7 @@ using NSubstitute;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files;
 using PhotoCopy.Files.Metadata;
+using PhotoCopy.Tests.TestingImplementation;
 
 namespace PhotoCopy.Tests.Integration;
 
@@ -78,7 +79,7 @@ public class FileFactoryIntegrationTests
         try
         {
             var filePath = Path.Combine(testDir, "photo.jpg");
-            File.WriteAllBytes(filePath, new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10 });
+            File.WriteAllBytes(filePath, TestSampleImages.JpegWithNoExif);
             var fileInfo = new FileInfo(filePath);
 
             var factory = CreateFactory();

@@ -10,6 +10,7 @@ using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Files;
 using PhotoCopy.Files.Metadata;
+using PhotoCopy.Tests.TestingImplementation;
 
 namespace PhotoCopy.Tests.Integration;
 
@@ -101,7 +102,7 @@ public class DirectoryScannerIntegrationTests
         {
             // Arrange
             var testFile = Path.Combine(testDirectory, "photo.jpg");
-            File.WriteAllBytes(testFile, new byte[] { 0xFF, 0xD8, 0xFF }); // JPEG header
+            File.WriteAllBytes(testFile, TestSampleImages.JpegWithNoExif);
 
             var scanner = CreateScanner();
 
@@ -308,7 +309,7 @@ public class DirectoryScannerIntegrationTests
         {
             // Arrange
             var testFile = Path.Combine(testDirectory, "photo.jpg");
-            File.WriteAllBytes(testFile, new byte[] { 0xFF, 0xD8, 0xFF }); // JPEG header
+            File.WriteAllBytes(testFile, TestSampleImages.JpegWithNoExif);
 
             var scanner = CreateScanner();
 
@@ -357,7 +358,7 @@ public class DirectoryScannerIntegrationTests
         try
         {
             // Arrange
-            File.WriteAllBytes(Path.Combine(testDirectory, "photo.jpg"), new byte[] { 0xFF, 0xD8, 0xFF });
+            File.WriteAllBytes(Path.Combine(testDirectory, "photo.jpg"), TestSampleImages.JpegWithNoExif);
             File.WriteAllText(Path.Combine(testDirectory, "document.txt"), "text");
             File.WriteAllText(Path.Combine(testDirectory, "video.mp4"), "video");
 

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using NSubstitute;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files;
+using PhotoCopy.Tests.TestingImplementation;
 
 namespace PhotoCopy.Tests.Integration;
 
@@ -85,7 +86,7 @@ public class FileMetadataExtractorIntegrationTests
         try
         {
             var filePath = Path.Combine(testDir, "fake.jpg");
-            File.WriteAllBytes(filePath, new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10 });
+            File.WriteAllBytes(filePath, TestSampleImages.JpegWithNoExif);
             var fileInfo = new FileInfo(filePath);
 
             var result = _extractor.GetDateTime(fileInfo);
@@ -152,7 +153,7 @@ public class FileMetadataExtractorIntegrationTests
         try
         {
             var filePath = Path.Combine(testDir, "no_gps.jpg");
-            File.WriteAllBytes(filePath, new byte[] { 0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10 });
+            File.WriteAllBytes(filePath, TestSampleImages.JpegWithNoExif);
             var fileInfo = new FileInfo(filePath);
 
             var result = _extractor.GetCoordinates(fileInfo);

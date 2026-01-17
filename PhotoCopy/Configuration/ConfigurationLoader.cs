@@ -117,7 +117,7 @@ public static class ConfigurationLoader
         if (!string.IsNullOrEmpty(options.ConfigPath))
         {
             configFilePath = options.ConfigPath;
-            var ext = Path.GetExtension(options.ConfigPath).ToLower();
+            var ext = Path.GetExtension(options.ConfigPath).ToLowerInvariant();
             if (ext is ".yaml" or ".yml")
             {
                 builder.AddYamlFile(options.ConfigPath, optional: false);
@@ -135,20 +135,22 @@ public static class ConfigurationLoader
     {
         ApplyIfNotEmpty(options.Source, v => config.Source = v, "Source", "--source", diagnostics);
         ApplyIfNotEmpty(options.Destination, v => config.Destination = v, "Destination", "--destination", diagnostics);
-        ApplyIfHasValue(options.DryRun, v => config.DryRun = v, "DryRun", "--dry-run", diagnostics);
-        ApplyIfHasValue(options.SkipExisting, v => config.SkipExisting = v, "SkipExisting", "--skip-existing", diagnostics);
-        ApplyIfHasValue(options.Overwrite, v => config.Overwrite = v, "Overwrite", "--overwrite", diagnostics);
-        ApplyIfHasValue(options.NoDuplicateSkip, v => config.NoDuplicateSkip = v, "NoDuplicateSkip", "--no-duplicate-skip", diagnostics);
+        ApplyIfTrue(options.DryRun, v => config.DryRun = v, "DryRun", "--dry-run", diagnostics);
+        ApplyIfTrue(options.SkipExisting, v => config.SkipExisting = v, "SkipExisting", "--skip-existing", diagnostics);
+        ApplyIfTrue(options.Overwrite, v => config.Overwrite = v, "Overwrite", "--overwrite", diagnostics);
+        ApplyIfTrue(options.NoDuplicateSkip, v => config.NoDuplicateSkip = v, "NoDuplicateSkip", "--no-duplicate-skip", diagnostics);
         ApplyIfHasValue(options.Mode, v => config.Mode = v, "Mode", "--mode", diagnostics);
         ApplyIfHasValue(options.RelatedFileMode, v => config.RelatedFileMode = v, "RelatedFileMode", "--related-file-mode", diagnostics);
         ApplyIfNotEmpty(options.DuplicatesFormat, v => config.DuplicatesFormat = v, "DuplicatesFormat", "--duplicates-format", diagnostics);
         ApplyIfHasValue(options.MinDate, v => config.MinDate = v, "MinDate", "--min-date", diagnostics);
         ApplyIfHasValue(options.MaxDate, v => config.MaxDate = v, "MaxDate", "--max-date", diagnostics);
         ApplyIfNotEmpty(options.GeonamesPath, v => config.GeonamesPath = v, "GeonamesPath", "--geonames-path", diagnostics);
-        ApplyIfHasValue(options.CalculateChecksums, v => config.CalculateChecksums = v, "CalculateChecksums", "--calculate-checksums", diagnostics);
+        ApplyIfTrue(options.CalculateChecksums, v => config.CalculateChecksums = v, "CalculateChecksums", "--calculate-checksums", diagnostics);
         ApplyIfHasValue(options.Parallelism, v => config.Parallelism = v, "Parallelism", "--parallelism", diagnostics);
-        ApplyIfHasValue(options.EnableRollback, v => config.EnableRollback = v, "EnableRollback", "--enable-rollback", diagnostics);
+        ApplyIfTrue(options.EnableRollback, v => config.EnableRollback = v, "EnableRollback", "--enable-rollback", diagnostics);
         ApplyIfHasValue(options.MaxDepth, v => config.MaxDepth = v, "MaxDepth", "--max-depth", diagnostics);
+        ApplyIfHasValue(options.PathCasing, v => config.PathCasing = v, "PathCasing", "--path-casing", diagnostics);
+        ApplyIfHasValue(options.UnknownReport, v => config.UnknownReport = v, "UnknownReport", "--unknown-report", diagnostics);
 
         if (options.DuplicateHandling.HasValue)
         {
@@ -169,7 +171,7 @@ public static class ConfigurationLoader
         ApplyIfHasValue(options.MinDate, v => config.MinDate = v, "MinDate", "--min-date", diagnostics);
         ApplyIfHasValue(options.MaxDate, v => config.MaxDate = v, "MaxDate", "--max-date", diagnostics);
         ApplyIfNotEmpty(options.GeonamesPath, v => config.GeonamesPath = v, "GeonamesPath", "--geonames-path", diagnostics);
-        ApplyIfHasValue(options.CalculateChecksums, v => config.CalculateChecksums = v, "CalculateChecksums", "--calculate-checksums", diagnostics);
+        ApplyIfTrue(options.CalculateChecksums, v => config.CalculateChecksums = v, "CalculateChecksums", "--calculate-checksums", diagnostics);
         ApplyIfHasValue(options.MaxDepth, v => config.MaxDepth = v, "MaxDepth", "--max-depth", diagnostics);
     }
 
@@ -204,6 +206,19 @@ public static class ConfigurationLoader
         {
             setter(value.Value);
             diagnostics?.RecordSource(propertyName, value.Value.ToString()!, ConfigSourceType.CommandLine, cliFlag);
+        }
+    }
+
+    /// <summary>
+    /// Applies a boolean flag value only if it's true (flag was specified on command line).
+    /// This allows config file values to remain when the flag isn't used.
+    /// </summary>
+    private static void ApplyIfTrue(bool value, Action<bool> setter, string propertyName, string cliFlag, ConfigurationDiagnostics? diagnostics)
+    {
+        if (value)
+        {
+            setter(true);
+            diagnostics?.RecordSource(propertyName, "True", ConfigSourceType.CommandLine, cliFlag);
         }
     }
 }

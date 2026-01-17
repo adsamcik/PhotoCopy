@@ -555,7 +555,7 @@ public class InMemoryCLITests
     public async Task CopyCommand_WithLocationVariables_ReplacesLocationData()
     {
         // Arrange
-        var location = new LocationData("Paris", null, "Île-de-France", "France");
+        var location = new LocationData("Paris", "Paris", null, "Île-de-France", "France");
         var scenario = _scenarioBuilder
             .WithSourceDirectory(TestPaths.Source)
             .WithDestinationDirectory(TestPaths.Dest)

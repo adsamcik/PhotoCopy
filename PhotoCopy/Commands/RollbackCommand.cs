@@ -72,7 +72,14 @@ public class RollbackCommand : ICommand
                 var response = Console.ReadLine();
                 if (!string.Equals(response, "yes", StringComparison.OrdinalIgnoreCase))
                 {
-                    _logger.LogInformation("Rollback cancelled by user.");
+                    if (string.IsNullOrEmpty(response) && Console.IsInputRedirected)
+                    {
+                        _logger.LogInformation("Rollback cancelled: no input provided in non-interactive mode. Use --yes to skip confirmation.");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Rollback cancelled by user.");
+                    }
                     return (int)ExitCode.Success;
                 }
             }

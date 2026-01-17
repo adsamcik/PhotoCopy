@@ -10,12 +10,17 @@ using System.Linq;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using K4os.Compression.LZ4;
 
 namespace GeoIndexGenerator;
 
 /// <summary>
 /// Generates optimized geo-index files from GeoNames data.
+/// 
+/// Produces v1 format with:
+/// - PlaceType classification (District, Village, Town, City, AdminSeat, Capital)
+/// - Full state/admin names (not codes)
+/// - Country table with full country names
+/// - Entries sorted: districts first, cities last for efficient filtering
 /// 
 /// Usage:
 ///   GeoIndexGenerator --download --output ./data
@@ -25,12 +30,19 @@ namespace GeoIndexGenerator;
 class Program
 {
     const string GeoNamesUrl = "https://download.geonames.org/export/dump/allCountries.zip";
-    const string CitiesUrl = "https://download.geonames.org/export/dump/cities15000.zip"; // Cities with pop > 15000
+    const string CitiesUrl = "https://download.geonames.org/export/dump/cities15000.zip";
+    const string Admin1Url = "https://download.geonames.org/export/dump/admin1CodesASCII.txt";
+    const string CountryInfoUrl = "https://download.geonames.org/export/dump/countryInfo.txt";
     const int DefaultPrecision = 4;
+
+    // Magic numbers for v1 format
+    const uint IndexMagic = 0x31494750; // "PGI1"
+    const uint DataMagic = 0x31444750; // "PGD1"
+    const ushort FormatVersion = 1;
 
     static async Task<int> Main(string[] args)
     {
-        var rootCommand = new RootCommand("GeoNames index generator for PhotoCopy");
+        var rootCommand = new RootCommand("GeoNames index generator for PhotoCopy (v1 format)");
 
         var downloadOption = new Option<bool>(
             "--download",
@@ -47,7 +59,7 @@ class Program
 
         var testOnlyOption = new Option<bool>(
             "--test-only",
-            "Generate small test dataset (~1000 cities) for unit tests");
+            "Generate small test dataset (~100 cities) for unit tests");
 
         var citiesOnlyOption = new Option<bool>(
             "--cities-only",
@@ -61,7 +73,16 @@ class Program
         var pruneDistanceOption = new Option<double>(
             "--prune-distance",
             () => 5.0,
-            "Prune locations within this distance (km). Within this radius, only the highest priority location is kept (P > A > L, then by population). Set to 0 to disable.");
+            "Prune locations within this distance (km). Set to 0 to disable.");
+
+        var boundariesOption = new Option<bool>(
+            "--boundaries",
+            "Generate country boundary data (.geobounds) from Natural Earth");
+
+        var simplifyToleranceOption = new Option<double>(
+            "--simplify-tolerance",
+            () => 0.01,
+            "Polygon simplification tolerance in degrees (default 0.01 = ~1km)");
 
         rootCommand.AddOption(downloadOption);
         rootCommand.AddOption(inputOption);
@@ -70,26 +91,32 @@ class Program
         rootCommand.AddOption(citiesOnlyOption);
         rootCommand.AddOption(precisionOption);
         rootCommand.AddOption(pruneDistanceOption);
+        rootCommand.AddOption(boundariesOption);
+        rootCommand.AddOption(simplifyToleranceOption);
 
-        rootCommand.SetHandler(async (bool download, FileInfo? input, DirectoryInfo output, bool testOnly, bool citiesOnly, int precision, double pruneDistance) =>
+        rootCommand.SetHandler(async (bool download, FileInfo? input, DirectoryInfo output, bool testOnly, bool citiesOnly, int precision, double pruneDistance, bool boundaries, double simplifyTolerance) =>
         {
             try
             {
-                await RunAsync(download, input, output, testOnly, citiesOnly, precision, pruneDistance);
+                if (boundaries)
+                {
+                    await BoundaryGenerator.GenerateAsync(output, simplifyTolerance);
+                }
+                else
+                {
+                    await RunAsync(download, input, output, testOnly, citiesOnly, precision, pruneDistance);
+                }
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Error: {ex.Message}");
                 Environment.ExitCode = 1;
             }
-        }, downloadOption, inputOption, outputOption, testOnlyOption, citiesOnlyOption, precisionOption, pruneDistanceOption);
+        }, downloadOption, inputOption, outputOption, testOnlyOption, citiesOnlyOption, precisionOption, pruneDistanceOption, boundariesOption, simplifyToleranceOption);
 
         return await rootCommand.InvokeAsync(args);
     }
 
-    /// <summary>
-    /// Main entry point for programmatic access.
-    /// </summary>
     public static async Task RunAsync(bool download, FileInfo? input, DirectoryInfo output, bool testOnly, bool citiesOnly, int precision, double pruneDistanceKm = 5.0)
     {
         if (precision < 1 || precision > 6)
@@ -97,15 +124,42 @@ class Program
 
         output.Create();
 
-        string? dataPath = input?.FullName;
+        // Load lookup tables
+        var admin1Lookup = new Dictionary<string, string>();
+        var countryLookup = new Dictionary<string, string>();
 
         if (testOnly)
         {
             Console.WriteLine("Generating test dataset...");
-            var testData = GenerateTestData();
-            await BuildIndexAsync(testData, output.FullName, precision, pruneDistanceKm);
+            // Use hardcoded test data with pre-resolved names
+            var testData = GenerateTestData(out admin1Lookup, out countryLookup);
+            await BuildIndexAsync(testData, admin1Lookup, countryLookup, output.FullName, precision, pruneDistanceKm);
             return;
         }
+
+        // Download or locate lookup files
+        string admin1Path = Path.Combine(output.FullName, "admin1CodesASCII.txt");
+        string countryPath = Path.Combine(output.FullName, "countryInfo.txt");
+
+        if (download || !File.Exists(admin1Path))
+        {
+            Console.WriteLine("Downloading admin1 codes...");
+            await DownloadFileAsync(Admin1Url, admin1Path);
+        }
+
+        if (download || !File.Exists(countryPath))
+        {
+            Console.WriteLine("Downloading country info...");
+            await DownloadFileAsync(CountryInfoUrl, countryPath);
+        }
+
+        // Parse lookup tables
+        Console.WriteLine("Loading lookup tables...");
+        admin1Lookup = await ParseAdmin1CodesAsync(admin1Path);
+        countryLookup = await ParseCountryInfoAsync(countryPath);
+        Console.WriteLine($"  Loaded {admin1Lookup.Count} admin1 codes, {countryLookup.Count} countries");
+
+        string? dataPath = input?.FullName;
 
         if (download)
         {
@@ -132,7 +186,15 @@ class Program
         Console.WriteLine($"Parsing {dataPath}...");
         var locations = await ParseGeoNamesAsync(dataPath);
 
-        await BuildIndexAsync(locations, output.FullName, precision, pruneDistanceKm);
+        await BuildIndexAsync(locations, admin1Lookup, countryLookup, output.FullName, precision, pruneDistanceKm);
+    }
+
+    static async Task DownloadFileAsync(string url, string destPath)
+    {
+        using var httpClient = new HttpClient();
+        httpClient.Timeout = TimeSpan.FromMinutes(10);
+        var content = await httpClient.GetStringAsync(url);
+        await File.WriteAllTextAsync(destPath, content);
     }
 
     static async Task DownloadAndExtractAsync(string url, string outputDir)
@@ -142,7 +204,6 @@ class Program
 
         var zipPath = Path.Combine(outputDir, Path.GetFileName(new Uri(url).LocalPath));
 
-        // Download with progress
         Console.Write("Downloading: ");
         using (var response = await httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead))
         {
@@ -175,10 +236,49 @@ class Program
         }
         Console.WriteLine("Done!");
 
-        // Extract
         Console.WriteLine("Extracting...");
         ZipFile.ExtractToDirectory(zipPath, outputDir, overwriteFiles: true);
         Console.WriteLine($"Extracted to {outputDir}");
+    }
+
+    static async Task<Dictionary<string, string>> ParseAdmin1CodesAsync(string path)
+    {
+        var result = new Dictionary<string, string>();
+        
+        foreach (var line in await File.ReadAllLinesAsync(path))
+        {
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                continue;
+
+            // Format: CountryCode.Admin1Code<TAB>Name<TAB>ASCIIName<TAB>GeonameId
+            var parts = line.Split('\t');
+            if (parts.Length >= 2)
+            {
+                result[parts[0]] = parts[1]; // Key = "US.CA", Value = "California"
+            }
+        }
+
+        return result;
+    }
+
+    static async Task<Dictionary<string, string>> ParseCountryInfoAsync(string path)
+    {
+        var result = new Dictionary<string, string>();
+
+        foreach (var line in await File.ReadAllLinesAsync(path))
+        {
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                continue;
+
+            // Format: ISO<TAB>ISO3<TAB>ISO-Numeric<TAB>fips<TAB>Country<TAB>...
+            var parts = line.Split('\t');
+            if (parts.Length >= 5)
+            {
+                result[parts[0]] = parts[4]; // Key = "US", Value = "United States"
+            }
+        }
+
+        return result;
     }
 
     static async Task<List<GeoLocation>> ParseGeoNamesAsync(string path)
@@ -218,148 +318,117 @@ class Program
         // 0: geonameId, 1: name, 2: asciiname, 3: alternatenames,
         // 4: latitude, 5: longitude, 6: feature_class, 7: feature_code,
         // 8: country_code, 9: cc2, 10: admin1_code, 11: admin2_code,
-        // 12: admin3_code, 13: admin4_code, 14: population, 15: elevation,
-        // 16: dem, 17: timezone, 18: modification_date
+        // 12: admin3_code, 13: admin4_code, 14: population, ...
 
         var parts = line.Split('\t');
         if (parts.Length < 15)
             return null;
 
-        // Filter: only keep populated places and administrative divisions
+        // Only keep populated places (feature class P)
         char featureClass = parts[6].Length > 0 ? parts[6][0] : ' ';
-        // P = populated places, A = administrative divisions, L = areas (parks, reserves, regions)
-        if (featureClass != 'P' && featureClass != 'A' && featureClass != 'L')
+        if (featureClass != 'P')
             return null;
 
         if (!double.TryParse(parts[4], NumberStyles.Float, CultureInfo.InvariantCulture, out double lat) ||
             !double.TryParse(parts[5], NumberStyles.Float, CultureInfo.InvariantCulture, out double lon))
             return null;
 
-        if (!int.TryParse(parts[0], out int geoNameId))
-            return null;
-
         long.TryParse(parts[14], out long population);
+
+        string featureCode = parts[7];
 
         return new GeoLocation
         {
-            GeoNameId = geoNameId,
             Name = parts[1],
             Latitude = lat,
             Longitude = lon,
-            FeatureClass = featureClass,
+            FeatureCode = featureCode,
             CountryCode = parts[8],
             Admin1Code = parts[10],
             Population = population
         };
     }
 
-    static List<GeoLocation> GenerateTestData()
+    static List<GeoLocation> GenerateTestData(out Dictionary<string, string> admin1Lookup, out Dictionary<string, string> countryLookup)
     {
-        // Generate ~1000 test cities across the world
-        var cities = new List<GeoLocation>
+        admin1Lookup = new Dictionary<string, string>
         {
-            // Major world cities
-            new() { GeoNameId = 1, Name = "New York", Latitude = 40.7128, Longitude = -74.0060, CountryCode = "US", Admin1Code = "NY", FeatureClass = 'P', Population = 8336817 },
-            new() { GeoNameId = 2, Name = "Los Angeles", Latitude = 34.0522, Longitude = -118.2437, CountryCode = "US", Admin1Code = "CA", FeatureClass = 'P', Population = 3979576 },
-            new() { GeoNameId = 3, Name = "Chicago", Latitude = 41.8781, Longitude = -87.6298, CountryCode = "US", Admin1Code = "IL", FeatureClass = 'P', Population = 2693976 },
-            new() { GeoNameId = 4, Name = "Houston", Latitude = 29.7604, Longitude = -95.3698, CountryCode = "US", Admin1Code = "TX", FeatureClass = 'P', Population = 2320268 },
-            new() { GeoNameId = 5, Name = "Phoenix", Latitude = 33.4484, Longitude = -112.0740, CountryCode = "US", Admin1Code = "AZ", FeatureClass = 'P', Population = 1680992 },
-            new() { GeoNameId = 6, Name = "London", Latitude = 51.5074, Longitude = -0.1278, CountryCode = "GB", Admin1Code = "ENG", FeatureClass = 'P', Population = 8982000 },
-            new() { GeoNameId = 7, Name = "Paris", Latitude = 48.8566, Longitude = 2.3522, CountryCode = "FR", Admin1Code = "IDF", FeatureClass = 'P', Population = 2161000 },
-            new() { GeoNameId = 8, Name = "Berlin", Latitude = 52.5200, Longitude = 13.4050, CountryCode = "DE", Admin1Code = "BE", FeatureClass = 'P', Population = 3748148 },
-            new() { GeoNameId = 9, Name = "Tokyo", Latitude = 35.6762, Longitude = 139.6503, CountryCode = "JP", Admin1Code = "13", FeatureClass = 'P', Population = 13960000 },
-            new() { GeoNameId = 10, Name = "Sydney", Latitude = -33.8688, Longitude = 151.2093, CountryCode = "AU", Admin1Code = "NSW", FeatureClass = 'P', Population = 5312000 },
-            new() { GeoNameId = 11, Name = "Moscow", Latitude = 55.7558, Longitude = 37.6173, CountryCode = "RU", Admin1Code = "MOW", FeatureClass = 'P', Population = 12537954 },
-            new() { GeoNameId = 12, Name = "Beijing", Latitude = 39.9042, Longitude = 116.4074, CountryCode = "CN", Admin1Code = "11", FeatureClass = 'P', Population = 21540000 },
-            new() { GeoNameId = 13, Name = "Mumbai", Latitude = 19.0760, Longitude = 72.8777, CountryCode = "IN", Admin1Code = "MH", FeatureClass = 'P', Population = 12478447 },
-            new() { GeoNameId = 14, Name = "São Paulo", Latitude = -23.5505, Longitude = -46.6333, CountryCode = "BR", Admin1Code = "SP", FeatureClass = 'P', Population = 12325232 },
-            new() { GeoNameId = 15, Name = "Cairo", Latitude = 30.0444, Longitude = 31.2357, CountryCode = "EG", Admin1Code = "C", FeatureClass = 'P', Population = 20076000 },
-            new() { GeoNameId = 16, Name = "Mexico City", Latitude = 19.4326, Longitude = -99.1332, CountryCode = "MX", Admin1Code = "CMX", FeatureClass = 'P', Population = 8918653 },
-            new() { GeoNameId = 17, Name = "Toronto", Latitude = 43.6532, Longitude = -79.3832, CountryCode = "CA", Admin1Code = "ON", FeatureClass = 'P', Population = 2731571 },
-            new() { GeoNameId = 18, Name = "Seoul", Latitude = 37.5665, Longitude = 126.9780, CountryCode = "KR", Admin1Code = "11", FeatureClass = 'P', Population = 9776000 },
-            new() { GeoNameId = 19, Name = "Singapore", Latitude = 1.3521, Longitude = 103.8198, CountryCode = "SG", Admin1Code = "", FeatureClass = 'P', Population = 5685807 },
-            new() { GeoNameId = 20, Name = "Cape Town", Latitude = -33.9249, Longitude = 18.4241, CountryCode = "ZA", Admin1Code = "WC", FeatureClass = 'P', Population = 433688 },
+            ["US.NY"] = "New York",
+            ["US.CA"] = "California",
+            ["US.TX"] = "Texas",
+            ["US.IL"] = "Illinois",
+            ["GB.ENG"] = "England",
+            ["FR.IDF"] = "Île-de-France",
+            ["DE.BE"] = "Berlin",
+            ["JP.13"] = "Tokyo",
+            ["AU.NSW"] = "New South Wales",
+            ["CZ.10"] = "Prague",
         };
 
-        // Add more US cities
-        var usCities = new[]
+        countryLookup = new Dictionary<string, string>
         {
-            ("San Francisco", 37.7749, -122.4194, "CA", 873965),
-            ("Seattle", 47.6062, -122.3321, "WA", 753675),
-            ("Denver", 39.7392, -104.9903, "CO", 727211),
-            ("Boston", 42.3601, -71.0589, "MA", 692600),
-            ("Miami", 25.7617, -80.1918, "FL", 467963),
-            ("Atlanta", 33.7490, -84.3880, "GA", 498044),
-            ("Dallas", 32.7767, -96.7970, "TX", 1304379),
-            ("Philadelphia", 39.9526, -75.1652, "PA", 1584064),
-            ("San Diego", 32.7157, -117.1611, "CA", 1423851),
-            ("Portland", 45.5152, -122.6784, "OR", 652503),
-            ("Las Vegas", 36.1699, -115.1398, "NV", 651319),
-            ("Austin", 30.2672, -97.7431, "TX", 978908),
-            ("Nashville", 36.1627, -86.7816, "TN", 689447),
-            ("Orlando", 28.5383, -81.3792, "FL", 307573),
-            ("Minneapolis", 44.9778, -93.2650, "MN", 429954),
+            ["US"] = "United States",
+            ["GB"] = "United Kingdom",
+            ["FR"] = "France",
+            ["DE"] = "Germany",
+            ["JP"] = "Japan",
+            ["AU"] = "Australia",
+            ["CZ"] = "Czech Republic",
         };
 
-        int id = 100;
-        foreach (var (name, lat, lon, state, pop) in usCities)
+        return new List<GeoLocation>
         {
-            cities.Add(new GeoLocation
-            {
-                GeoNameId = id++,
-                Name = name,
-                Latitude = lat,
-                Longitude = lon,
-                CountryCode = "US",
-                Admin1Code = state,
-                FeatureClass = 'P',
-                Population = pop
-            });
-        }
-
-        // Add European cities
-        var euCities = new[]
-        {
-            ("Amsterdam", 52.3676, 4.9041, "NL", "NH", 872680),
-            ("Rome", 41.9028, 12.4964, "IT", "RM", 2872800),
-            ("Madrid", 40.4168, -3.7038, "ES", "M", 3223334),
-            ("Barcelona", 41.3851, 2.1734, "ES", "CT", 1620343),
-            ("Vienna", 48.2082, 16.3738, "AT", "9", 1897491),
-            ("Prague", 50.0755, 14.4378, "CZ", "10", 1309000),
-            ("Munich", 48.1351, 11.5820, "DE", "BY", 1471508),
-            ("Dublin", 53.3498, -6.2603, "IE", "L", 544107),
-            ("Brussels", 50.8503, 4.3517, "BE", "BRU", 1208542),
-            ("Stockholm", 59.3293, 18.0686, "SE", "AB", 975904),
-            ("Oslo", 59.9139, 10.7522, "NO", "03", 693494),
-            ("Copenhagen", 55.6761, 12.5683, "DK", "84", 602481),
-            ("Helsinki", 60.1699, 24.9384, "FI", "18", 653835),
-            ("Warsaw", 52.2297, 21.0122, "PL", "MZ", 1790658),
-            ("Budapest", 47.4979, 19.0402, "HU", "BU", 1752286),
+            // Major cities (PPLC or large PPL)
+            new() { Name = "New York", Latitude = 40.7128, Longitude = -74.0060, CountryCode = "US", Admin1Code = "NY", FeatureCode = "PPL", Population = 8336817 },
+            new() { Name = "Los Angeles", Latitude = 34.0522, Longitude = -118.2437, CountryCode = "US", Admin1Code = "CA", FeatureCode = "PPL", Population = 3979576 },
+            new() { Name = "Chicago", Latitude = 41.8781, Longitude = -87.6298, CountryCode = "US", Admin1Code = "IL", FeatureCode = "PPL", Population = 2693976 },
+            new() { Name = "Houston", Latitude = 29.7604, Longitude = -95.3698, CountryCode = "US", Admin1Code = "TX", FeatureCode = "PPL", Population = 2320268 },
+            new() { Name = "London", Latitude = 51.5074, Longitude = -0.1278, CountryCode = "GB", Admin1Code = "ENG", FeatureCode = "PPLC", Population = 8982000 },
+            new() { Name = "Paris", Latitude = 48.8566, Longitude = 2.3522, CountryCode = "FR", Admin1Code = "IDF", FeatureCode = "PPLC", Population = 2161000 },
+            new() { Name = "Berlin", Latitude = 52.5200, Longitude = 13.4050, CountryCode = "DE", Admin1Code = "BE", FeatureCode = "PPLC", Population = 3748148 },
+            new() { Name = "Tokyo", Latitude = 35.6762, Longitude = 139.6503, CountryCode = "JP", Admin1Code = "13", FeatureCode = "PPLC", Population = 13960000 },
+            new() { Name = "Sydney", Latitude = -33.8688, Longitude = 151.2093, CountryCode = "AU", Admin1Code = "NSW", FeatureCode = "PPL", Population = 5312000 },
+            new() { Name = "Prague", Latitude = 50.0755, Longitude = 14.4378, CountryCode = "CZ", Admin1Code = "10", FeatureCode = "PPLC", Population = 1309000 },
+            
+            // Districts (PPLX) - neighborhoods within cities
+            new() { Name = "Manhattan", Latitude = 40.7831, Longitude = -73.9712, CountryCode = "US", Admin1Code = "NY", FeatureCode = "PPLX", Population = 1628706 },
+            new() { Name = "Brooklyn", Latitude = 40.6782, Longitude = -73.9442, CountryCode = "US", Admin1Code = "NY", FeatureCode = "PPLX", Population = 2559903 },
+            new() { Name = "Westminster", Latitude = 51.4975, Longitude = -0.1357, CountryCode = "GB", Admin1Code = "ENG", FeatureCode = "PPLX", Population = 255324 },
+            new() { Name = "Stodůlky", Latitude = 50.0453, Longitude = 14.3086, CountryCode = "CZ", Admin1Code = "10", FeatureCode = "PPLX", Population = 15000 },
+            
+            // Small towns (PPL with small population)
+            new() { Name = "Smallville", Latitude = 40.5, Longitude = -74.5, CountryCode = "US", Admin1Code = "NY", FeatureCode = "PPL", Population = 5000 },
         };
-
-        foreach (var (name, lat, lon, country, admin1, pop) in euCities)
-        {
-            cities.Add(new GeoLocation
-            {
-                GeoNameId = id++,
-                Name = name,
-                Latitude = lat,
-                Longitude = lon,
-                CountryCode = country,
-                Admin1Code = admin1,
-                FeatureClass = 'P',
-                Population = pop
-            });
-        }
-
-        Console.WriteLine($"Generated {cities.Count} test cities");
-        return cities;
     }
 
-    static async Task BuildIndexAsync(List<GeoLocation> locations, string outputDir, int precision, double pruneDistanceKm = 5.0)
+    static async Task BuildIndexAsync(List<GeoLocation> locations, 
+        Dictionary<string, string> admin1Lookup, 
+        Dictionary<string, string> countryLookup,
+        string outputDir, int precision, double pruneDistanceKm = 5.0)
     {
-        Console.WriteLine($"Building index at precision {precision}...");
+        Console.WriteLine($"Building v1 index at precision {precision}...");
         var sw = Stopwatch.StartNew();
+
+        // Build country table (byte index → country name)
+        var countryIndex = new Dictionary<string, byte>(); // country code → index
+        var countryNames = new List<string>(); // index → country name
+        
+        foreach (var loc in locations)
+        {
+            if (!countryIndex.ContainsKey(loc.CountryCode))
+            {
+                if (countryNames.Count >= 255)
+                {
+                    Console.WriteLine($"Warning: More than 255 countries, truncating.");
+                    break;
+                }
+                byte idx = (byte)countryNames.Count;
+                countryIndex[loc.CountryCode] = idx;
+                string name = countryLookup.TryGetValue(loc.CountryCode, out var n) ? n : loc.CountryCode;
+                countryNames.Add(name);
+            }
+        }
+        Console.WriteLine($"  {countryNames.Count} unique countries");
 
         // Group locations by geohash cell
         var cells = new Dictionary<string, List<GeoLocation>>();
@@ -374,28 +443,27 @@ class Program
             list.Add(loc);
         }
 
-        int originalLocationCount = locations.Count;
-        Console.WriteLine($"Grouped into {cells.Count} cells");
+        Console.WriteLine($"  Grouped into {cells.Count} cells");
 
-        // Prune nearby locations - keep only the best representative per area
+        // Prune nearby locations
         if (pruneDistanceKm > 0)
         {
             int prunedCount = 0;
-            foreach (var (geohash, cellLocations) in cells)
+            foreach (var (_, cellLocations) in cells)
             {
                 int before = cellLocations.Count;
                 PruneNearbyLocations(cellLocations, pruneDistanceKm);
                 prunedCount += before - cellLocations.Count;
             }
-            Console.WriteLine($"Pruned {prunedCount:N0} locations within {pruneDistanceKm}km of higher-priority locations");
+            Console.WriteLine($"  Pruned {prunedCount:N0} locations within {pruneDistanceKm}km of higher-priority locations");
         }
 
         // Sort cells by geohash code for binary search
         var sortedCells = cells.OrderBy(kv => EncodeGeohashToUInt32(kv.Key)).ToList();
 
-        // Write single data file and collect index entries
+        // Write data file
         string dataPath = Path.Combine(outputDir, "geo.geodata");
-        var cellEntries = new List<(uint GeohashCode, long Offset, int CompressedSize, int UncompressedSize)>();
+        var cellEntries = new List<(uint GeohashCode, long Offset, int CompressedSize)>();
         int totalLocations = 0;
 
         await using (var dataStream = File.Create(dataPath))
@@ -403,9 +471,9 @@ class Program
             foreach (var (geohash, cellLocations) in sortedCells)
             {
                 long offset = dataStream.Position;
-                var (compressedSize, uncompressedSize) = WriteCellBlock(dataStream, cellLocations);
+                int compressedSize = WriteCellBlock(dataStream, cellLocations, admin1Lookup, countryIndex);
                 uint code = EncodeGeohashToUInt32(geohash);
-                cellEntries.Add((code, offset, compressedSize, uncompressedSize));
+                cellEntries.Add((code, offset, compressedSize));
                 totalLocations += cellLocations.Count;
             }
         }
@@ -416,27 +484,54 @@ class Program
         string indexPath = Path.Combine(outputDir, "geo.geoindex");
         await using var indexStream = File.Create(indexPath);
 
-        // Write index header (48 bytes)
-        var headerBytes = new byte[48];
-        BinaryPrimitives.WriteUInt32LittleEndian(headerBytes.AsSpan(0, 4), 0x58444947); // "GIDX"
-        BinaryPrimitives.WriteUInt16LittleEndian(headerBytes.AsSpan(4, 2), 1); // Version 1
+        // 1. Write header (32 bytes)
+        var headerBytes = new byte[32];
+        BinaryPrimitives.WriteUInt32LittleEndian(headerBytes.AsSpan(0, 4), IndexMagic);
+        BinaryPrimitives.WriteUInt16LittleEndian(headerBytes.AsSpan(4, 2), FormatVersion);
         headerBytes[6] = (byte)precision;
-        headerBytes[7] = 0; // Flags: reserved
+        headerBytes[7] = (byte)countryNames.Count;
         BinaryPrimitives.WriteUInt32LittleEndian(headerBytes.AsSpan(8, 4), (uint)cellEntries.Count);
         BinaryPrimitives.WriteUInt32LittleEndian(headerBytes.AsSpan(12, 4), (uint)totalLocations);
         BinaryPrimitives.WriteInt64LittleEndian(headerBytes.AsSpan(16, 8), DateTimeOffset.UtcNow.ToUnixTimeSeconds());
-        BinaryPrimitives.WriteInt64LittleEndian(headerBytes.AsSpan(24, 8), dataInfo.Length); // Data file size
-        // Rest is reserved/zero
+        BinaryPrimitives.WriteInt64LittleEndian(headerBytes.AsSpan(24, 8), dataInfo.Length);
         await indexStream.WriteAsync(headerBytes);
 
-        // Write cell index entries (20 bytes each: 4 code + 8 offset + 4 compressed + 4 uncompressed)
-        var entryBytes = new byte[20];
-        foreach (var (code, offset, compressedSize, uncompressedSize) in cellEntries)
+        // 2. Write country table (4 bytes per entry)
+        var countryPool = new MemoryStream();
+        var countryPoolOffsets = new ushort[countryNames.Count];
+        for (int i = 0; i < countryNames.Count; i++)
+        {
+            countryPoolOffsets[i] = (ushort)countryPool.Position;
+            var nameBytes = Encoding.UTF8.GetBytes(countryNames[i]);
+            countryPool.Write(nameBytes);
+            countryPool.WriteByte(0); // null terminator
+        }
+
+        // Get the country codes in order
+        var countryCodesByIndex = countryIndex.OrderBy(kv => kv.Value).Select(kv => kv.Key).ToArray();
+        var countryEntryBytes = new byte[4];
+        for (int i = 0; i < countryNames.Count; i++)
+        {
+            string code = countryCodesByIndex[i];
+            // 2 bytes: country code as ASCII
+            countryEntryBytes[0] = (byte)code[0];
+            countryEntryBytes[1] = (byte)(code.Length > 1 ? code[1] : ' ');
+            // 2 bytes: offset into string pool
+            BinaryPrimitives.WriteUInt16LittleEndian(countryEntryBytes.AsSpan(2, 2), countryPoolOffsets[i]);
+            await indexStream.WriteAsync(countryEntryBytes);
+        }
+
+        // 3. Write country name string pool
+        countryPool.Position = 0;
+        await countryPool.CopyToAsync(indexStream);
+
+        // 4. Write cell index entries (16 bytes each)
+        var entryBytes = new byte[16];
+        foreach (var (code, offset, compressedSize) in cellEntries)
         {
             BinaryPrimitives.WriteUInt32LittleEndian(entryBytes.AsSpan(0, 4), code);
             BinaryPrimitives.WriteInt64LittleEndian(entryBytes.AsSpan(4, 8), offset);
             BinaryPrimitives.WriteInt32LittleEndian(entryBytes.AsSpan(12, 4), compressedSize);
-            BinaryPrimitives.WriteInt32LittleEndian(entryBytes.AsSpan(16, 4), uncompressedSize);
             await indexStream.WriteAsync(entryBytes);
         }
 
@@ -449,8 +544,16 @@ class Program
         Console.WriteLine($"  Cells: {cellEntries.Count:N0}, Locations: {totalLocations:N0}");
     }
 
-    static (int CompressedSize, int UncompressedSize) WriteCellBlock(Stream stream, List<GeoLocation> locations)
+    static int WriteCellBlock(Stream stream, List<GeoLocation> locations, 
+        Dictionary<string, string> admin1Lookup, Dictionary<string, byte> countryIndex)
     {
+        // Sort entries: districts first (PlaceType < Town), cities last (PlaceType >= Town)
+        var sortedLocations = locations.OrderBy(loc => GetPlaceType(loc.FeatureCode, loc.Population) >= PlaceType.Town ? 1 : 0).ToList();
+        
+        // Find city start index
+        int cityStartIndex = sortedLocations.FindIndex(loc => GetPlaceType(loc.FeatureCode, loc.Population) >= PlaceType.Town);
+        if (cityStartIndex < 0) cityStartIndex = sortedLocations.Count;
+
         // Build uncompressed block
         using var blockStream = new MemoryStream();
         using var writer = new BinaryWriter(blockStream);
@@ -462,54 +565,64 @@ class Program
         ushort GetOrAddString(string s)
         {
             if (string.IsNullOrEmpty(s))
+            {
+                // Add empty string at offset 0 if not present
+                if (!stringOffsets.ContainsKey(""))
+                {
+                    stringOffsets[""] = 0;
+                    stringPool.WriteByte(0); // null terminator for empty string
+                }
                 return 0;
+            }
             if (stringOffsets.TryGetValue(s, out var offset))
                 return offset;
             offset = (ushort)stringPool.Position;
             var bytes = Encoding.UTF8.GetBytes(s);
             stringPool.Write(bytes);
-            stringPool.WriteByte(0); // null terminator
+            stringPool.WriteByte(0);
             stringOffsets[s] = offset;
             return offset;
         }
 
-        // Pre-calculate string offsets
-        var entries = new List<(GeoLocation Loc, ushort CityOffset, ushort StateOffset, ushort CountryOffset)>();
-        foreach (var loc in locations)
+        // Pre-calculate string offsets and resolve admin names
+        var entries = new List<(GeoLocation Loc, ushort NameOffset, ushort StateOffset, byte CountryIdx, PlaceType PlaceType)>();
+        foreach (var loc in sortedLocations)
         {
-            var cityOffset = GetOrAddString(loc.Name);
-            var stateOffset = GetOrAddString(loc.Admin1Code);
-            var countryOffset = GetOrAddString(loc.CountryCode);
-            entries.Add((loc, cityOffset, stateOffset, countryOffset));
+            var nameOffset = GetOrAddString(loc.Name);
+            
+            // Resolve admin1 code to full name
+            string admin1Key = $"{loc.CountryCode}.{loc.Admin1Code}";
+            string stateName = admin1Lookup.TryGetValue(admin1Key, out var resolved) ? resolved : loc.Admin1Code;
+            var stateOffset = GetOrAddString(stateName);
+            
+            byte countryIdx = countryIndex.TryGetValue(loc.CountryCode, out var idx) ? idx : (byte)0;
+            var placeType = GetPlaceType(loc.FeatureCode, loc.Population);
+            
+            entries.Add((loc, nameOffset, stateOffset, countryIdx, placeType));
         }
 
-        // Write header
-        ushort entriesSize = (ushort)(12 + entries.Count * 22); // 12-byte header + 22 bytes per entry
+        // Write header (6 bytes)
+        ushort entriesDataSize = (ushort)(6 + entries.Count * 14); // 6-byte header + 14 bytes per entry
         writer.Write((ushort)entries.Count);
-        writer.Write(entriesSize); // StringPoolOffset
-        writer.Write((ushort)stringPool.Length);
-        writer.Write((ushort)0); // Reserved
-        writer.Write((uint)0); // Reserved
+        writer.Write((ushort)cityStartIndex);
+        writer.Write(entriesDataSize); // StringPoolOffset
 
-        // Write entries
-        foreach (var (loc, cityOffset, stateOffset, countryOffset) in entries)
+        // Write entries (14 bytes each)
+        foreach (var (loc, nameOffset, stateOffset, countryIdx, placeType) in entries)
         {
             writer.Write((int)(loc.Latitude * 1_000_000));
             writer.Write((int)(loc.Longitude * 1_000_000));
-            writer.Write(loc.GeoNameId);
-            writer.Write(cityOffset);
+            writer.Write(nameOffset);
             writer.Write(stateOffset);
-            writer.Write(countryOffset);
-            writer.Write((ushort)Math.Min(loc.Population / 1000, ushort.MaxValue));
-            writer.Write((byte)loc.FeatureClass);
-            writer.Write((byte)0); // Reserved
+            writer.Write(countryIdx);
+            writer.Write((byte)placeType);
         }
 
         // Write string pool
         stringPool.Position = 0;
         stringPool.CopyTo(blockStream);
 
-        // Compress with Brotli (Optimal = level 4, good balance of speed and compression)
+        // Compress with Brotli
         var uncompressedData = blockStream.ToArray();
         using var compressedStream = new MemoryStream();
         using (var brotli = new BrotliStream(compressedStream, CompressionLevel.Optimal, leaveOpen: true))
@@ -519,10 +632,37 @@ class Program
         var compressedData = compressedStream.ToArray();
 
         stream.Write(compressedData, 0, compressedData.Length);
-        return (compressedData.Length, uncompressedData.Length);
+        return compressedData.Length;
     }
 
-    // Simple geohash implementation for the generator
+    static PlaceType GetPlaceType(string featureCode, long population)
+    {
+        // Country capitals
+        if (featureCode == "PPLC")
+            return PlaceType.Capital;
+
+        // Administrative seats (state/region capitals)
+        if (featureCode.StartsWith("PPLA"))
+            return PlaceType.AdminSeat;
+
+        // District/neighborhood within a city
+        if (featureCode == "PPLX")
+            return PlaceType.District;
+
+        // Locality (very small place)
+        if (featureCode == "PPLL")
+            return PlaceType.Village;
+
+        // For generic PPL, classify by population
+        return population switch
+        {
+            >= 100_000 => PlaceType.City,
+            >= 10_000 => PlaceType.Town,
+            _ => PlaceType.Village
+        };
+    }
+
+    // Simple geohash implementation
     const string Base32Chars = "0123456789bcdefghjkmnpqrstuvwxyz";
 
     static string EncodeGeohash(double latitude, double longitude, int precision)
@@ -596,43 +736,34 @@ class Program
             result = (result << 5) | (uint)decode[c];
         }
         
-        // Left-align the geohash bits (shift to fill 30 bits for 6 chars max)
         int bitsUsed = geohash.Length * 5;
         result <<= (30 - bitsUsed);
         
-        // Store: [3-bit length in upper bits][29-bit geohash data]
         return ((uint)geohash.Length << 29) | (result >> 1);
     }
 
-    /// <summary>
-    /// Prunes nearby locations, keeping only the best representative per area.
-    /// Priority: P (populated) > A (admin) > L (area), then by population.
-    /// </summary>
     static void PruneNearbyLocations(List<GeoLocation> locations, double thresholdKm)
     {
         if (locations.Count <= 1)
             return;
 
-        // Sort by priority (P > A > L) then by population descending
-        // This ensures we process the best locations first
+        // Sort by importance: cities first (higher PlaceType), then by population
         locations.Sort((a, b) =>
         {
-            int priorityA = GetFeatureClassPriority(a.FeatureClass);
-            int priorityB = GetFeatureClassPriority(b.FeatureClass);
-            if (priorityA != priorityB)
-                return priorityB.CompareTo(priorityA); // Higher priority first
+            var typeA = GetPlaceType(a.FeatureCode, a.Population);
+            var typeB = GetPlaceType(b.FeatureCode, b.Population);
+            if (typeA != typeB)
+                return typeB.CompareTo(typeA); // Higher type first
             return b.Population.CompareTo(a.Population); // Higher population first
         });
 
-        // Mark locations to keep using a simple greedy algorithm
         var keep = new bool[locations.Count];
-        keep[0] = true; // Always keep the best one
+        keep[0] = true;
 
         for (int i = 1; i < locations.Count; i++)
         {
             bool shouldKeep = true;
             
-            // Check if this location is too close to any already-kept location
             for (int j = 0; j < i; j++)
             {
                 if (!keep[j])
@@ -644,7 +775,6 @@ class Program
 
                 if (distance <= thresholdKm)
                 {
-                    // Too close to a better location - prune this one
                     shouldKeep = false;
                     break;
                 }
@@ -653,7 +783,6 @@ class Program
             keep[i] = shouldKeep;
         }
 
-        // Remove pruned locations (iterate backwards to preserve indices)
         for (int i = locations.Count - 1; i >= 0; i--)
         {
             if (!keep[i])
@@ -661,27 +790,9 @@ class Program
         }
     }
 
-    /// <summary>
-    /// Gets the priority of a feature class. Higher = better.
-    /// P (populated places) > A (administrative) > L (areas/landmarks)
-    /// </summary>
-    static int GetFeatureClassPriority(char featureClass)
-    {
-        return featureClass switch
-        {
-            'P' => 3, // Populated places (cities, towns, villages)
-            'A' => 2, // Administrative divisions
-            'L' => 1, // Areas, parks, reserves
-            _ => 0,
-        };
-    }
-
-    /// <summary>
-    /// Calculates the distance between two coordinates using the Haversine formula.
-    /// </summary>
     static double HaversineDistance(double lat1, double lon1, double lat2, double lon2)
     {
-        const double R = 6371.0; // Earth's radius in km
+        const double R = 6371.0;
 
         double dLat = DegreesToRadians(lat2 - lat1);
         double dLon = DegreesToRadians(lon2 - lon1);
@@ -698,13 +809,22 @@ class Program
     static double DegreesToRadians(double degrees) => degrees * Math.PI / 180.0;
 }
 
+enum PlaceType : byte
+{
+    District = 0,
+    Village = 1,
+    Town = 2,
+    City = 3,
+    AdminSeat = 4,
+    Capital = 5,
+}
+
 class GeoLocation
 {
-    public int GeoNameId { get; set; }
     public string Name { get; set; } = "";
     public double Latitude { get; set; }
     public double Longitude { get; set; }
-    public char FeatureClass { get; set; }
+    public string FeatureCode { get; set; } = "";
     public string CountryCode { get; set; } = "";
     public string Admin1Code { get; set; } = "";
     public long Population { get; set; }

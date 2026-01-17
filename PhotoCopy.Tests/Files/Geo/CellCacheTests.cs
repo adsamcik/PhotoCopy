@@ -121,7 +121,7 @@ public class CellCacheTests
         return new GeoCell
         {
             Geohash = geohash,
-            Entries = Array.Empty<LocationEntryMemory>(),
+            Entries = Array.Empty<LocationEntry>(),
             Bounds = Geohash.DecodeBounds(geohash),
             EstimatedMemoryBytes = estimatedBytes
         };

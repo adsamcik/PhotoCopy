@@ -62,6 +62,36 @@ public class RollbackService : IRollbackService
         };
     }
 
+    /// <summary>
+    /// Validates that a path is safe for file operations (no path traversal, is rooted).
+    /// </summary>
+    private bool ValidatePath(string path, List<string> errors)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            errors.Add($"Path is null or empty");
+            return false;
+        }
+
+        // Check for path traversal attempts
+        if (path.Contains(".."))
+        {
+            errors.Add($"Path traversal detected in path: {path}");
+            _logger.LogError("Security: Path traversal attempt detected: {Path}", path);
+            return false;
+        }
+
+        // Ensure path is absolute
+        if (!Path.IsPathRooted(path))
+        {
+            errors.Add($"Relative path not allowed: {path}");
+            _logger.LogError("Security: Relative path in transaction log: {Path}", path);
+            return false;
+        }
+
+        return true;
+    }
+
     public async Task<RollbackResult> RollbackAsync(string transactionLogPath, CancellationToken cancellationToken = default)
     {
         if (!File.Exists(transactionLogPath))
@@ -94,6 +124,13 @@ public class RollbackService : IRollbackService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // Validate paths before any file operation
+            if (!ValidatePath(operation.SourcePath, errors) || !ValidatePath(operation.DestinationPath, errors))
+            {
+                filesFailed++;
+                continue;
+            }
+
             try
             {
                 if (operation.Operation == OperationType.Move)
@@ -107,7 +144,14 @@ public class RollbackService : IRollbackService
                             Directory.CreateDirectory(sourceDir);
                         }
 
-                        File.Move(operation.DestinationPath, operation.SourcePath);
+                        // Check if source already exists (user recreated the file)
+                        if (File.Exists(operation.SourcePath))
+                        {
+                            _logger.LogWarning("Source file already exists, will be overwritten during rollback: {Source}",
+                                operation.SourcePath);
+                        }
+
+                        File.Move(operation.DestinationPath, operation.SourcePath, overwrite: true);
                         filesRestored++;
                         _logger.LogDebug("Restored {Destination} to {Source}",
                             operation.DestinationPath, operation.SourcePath);
@@ -148,6 +192,12 @@ public class RollbackService : IRollbackService
 
         foreach (var dir in sortedDirs)
         {
+            // Validate directory path before removal
+            if (!ValidatePath(dir, errors))
+            {
+                continue;
+            }
+
             try
             {
                 if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())

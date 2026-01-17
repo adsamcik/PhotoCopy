@@ -153,7 +153,7 @@ public class InMemoryScenarioBuilder
         var path = Path.Combine(_sourceDirectory, name);
         var content = MockImageGenerator.CreateJpeg(taken, (gps.Latitude, gps.Longitude));
         var fileDateTime = new FileDateTime(taken, taken, taken);
-        var location = new LocationData(city, null, state, country);
+        var location = new LocationData(city, city, null, state, country);
         var checksum = GenerateChecksum(path, taken);
         var metadataFile = new InMemoryFile(path, fileDateTime, location, checksum);
 

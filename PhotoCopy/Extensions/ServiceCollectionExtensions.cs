@@ -7,6 +7,8 @@ using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Duplicates;
 using PhotoCopy.Files;
+using PhotoCopy.Files.Geo;
+using PhotoCopy.Files.Geo.Boundaries;
 using PhotoCopy.Files.Metadata;
 using PhotoCopy.Progress;
 using PhotoCopy.Rollback;
@@ -94,6 +96,7 @@ public static class ServiceCollectionExtensions
         ConfigurationDiagnostics? diagnostics = null)
     {
         services.AddSingleton<IOptions<PhotoCopyConfig>>(Options.Create(config));
+        services.AddSingleton(config); // Also register config directly for services that need it
         services.AddSingleton(diagnostics ?? new ConfigurationDiagnostics());
 
         return services;
@@ -104,11 +107,29 @@ public static class ServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddPhotoCopyCoreServices(this IServiceCollection services)
     {
-        // Geocoding service - singleton (holds large KdTree in memory)
-        services.AddSingleton<IReverseGeocodingService, ReverseGeocodingService>();
+        // Boundary service - singleton for country boundary detection
+        services.AddSingleton<IBoundaryService, BoundaryIndex>();
+        
+        // Geocoding service - singleton using tiered chunked loading (only loads cells on-demand)
+        // BoundaryAwareGeocodingService wraps TieredGeocodingService with country filtering
+        services.AddSingleton<TieredGeocodingService>();
+        services.AddSingleton<IReverseGeocodingService>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<BoundaryAwareGeocodingService>>();
+            var geocodingLogger = sp.GetRequiredService<ILogger<TieredGeocodingService>>();
+            var boundaryLogger = sp.GetRequiredService<ILogger<BoundaryIndex>>();
+            var config = sp.GetRequiredService<PhotoCopyConfig>();
+            return new BoundaryAwareGeocodingService(logger, geocodingLogger, boundaryLogger, config);
+        });
         
         // Checksum calculator - singleton (stateless)
         services.AddSingleton<IChecksumCalculator, Sha256ChecksumCalculator>();
+        
+        // GPS location index - singleton for companion GPS fallback (shared across all file processing)
+        services.AddSingleton<IGpsLocationIndex, GpsLocationIndex>();
+        
+        // Companion GPS enricher - singleton for second-pass GPS enrichment
+        services.AddSingleton<ICompanionGpsEnricher, CompanionGpsEnricher>();
         
         // Metadata extraction pipeline
         services.AddTransient<IFileMetadataExtractor, FileMetadataExtractor>();

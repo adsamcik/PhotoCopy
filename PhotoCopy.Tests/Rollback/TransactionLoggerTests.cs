@@ -906,6 +906,29 @@ public class TransactionLoggerTests
 
     #endregion
 
+    #region Size Limit Tests
+
+    [Test]
+    public async Task IsLogFull_BeforeAnyOperations_ReturnsFalse()
+    {
+        // Arrange
+        var logger = CreateTransactionLogger();
+        logger.BeginTransaction(_testDirectory, "{year}/{month}/{name}{ext}", false);
+
+        // Act & Assert
+        await Assert.That(logger.IsLogFull).IsFalse();
+    }
+
+    [Test]
+    public async Task MaxOperationsPerLog_HasExpectedValue()
+    {
+        // Assert - MaxOperationsPerLog should be 100000
+        var value = TransactionLogger.MaxOperationsPerLog;
+        await Assert.That(value).IsEqualTo(100000);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private TransactionLogger CreateTransactionLogger()
