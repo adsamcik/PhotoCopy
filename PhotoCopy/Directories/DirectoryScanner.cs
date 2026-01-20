@@ -16,17 +16,20 @@ public class DirectoryScanner : IDirectoryScanner
     private readonly ILogger<DirectoryScanner> _logger;
     private readonly PhotoCopyConfig _config;
     private readonly IFileFactory _fileFactory;
+    private readonly ILivePhotoEnricher? _livePhotoEnricher;
     private readonly ICompanionGpsEnricher? _companionGpsEnricher;
 
     public DirectoryScanner(
         ILogger<DirectoryScanner> logger,
         IOptions<PhotoCopyConfig> config,
         IFileFactory fileFactory,
+        ILivePhotoEnricher? livePhotoEnricher = null,
         ICompanionGpsEnricher? companionGpsEnricher = null)
     {
         _logger = logger;
         _config = config.Value;
         _fileFactory = fileFactory;
+        _livePhotoEnricher = livePhotoEnricher;
         _companionGpsEnricher = companionGpsEnricher;
     }
 
@@ -85,6 +88,14 @@ public class DirectoryScanner : IDirectoryScanner
         }
 
         _logger.LogInformation("File enumeration complete: {FilesFound} files found.", filesFound);
+
+        // First pass: Live Photo enrichment - pair .heic photos with companion .mov videos
+        // This should run before companion GPS enrichment as it's more specific/accurate
+        if (_livePhotoEnricher != null && _livePhotoEnricher.IsEnabled)
+        {
+            _logger.LogInformation("Running Live Photo enrichment pass...");
+            _livePhotoEnricher.EnrichFiles(files);
+        }
 
         // Second pass: Companion GPS enrichment for files without GPS data
         // This runs after all files have been scanned so the GPS index is fully populated

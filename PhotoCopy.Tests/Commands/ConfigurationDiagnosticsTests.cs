@@ -337,9 +337,11 @@ public class ConfigurationDiagnosticsTests
             "Source", "Destination", "DryRun", "SkipExisting", "Overwrite", "NoDuplicateSkip",
             "Mode", "LogLevel", "RelatedFileMode", "DuplicatesFormat", "MinDate", "MaxDate",
             "GeonamesPath", "CalculateChecksums", "Parallelism", "ShowProgress", "UseAsync",
-            "DuplicateHandling", "EnableRollback", "MaxDepth", "AllowedExtensions",
+            "DuplicateHandling", "EnableRollback", "MaxDepth", "AllowedExtensions", "Resume", "FreshStart",
             "MinimumPopulation", "LocationGranularity", "UseFullCountryNames", "UnknownLocationFallback",
-            "PathCasing", "UnknownReport", "GpsProximityWindowMinutes"
+            "UnknownCameraFallback", "PathCasing", "UnknownReport", "GpsProximityWindowMinutes", 
+            "EnableLivePhotoInheritance", "ExcludePatterns", "SidecarMetadataFallback", "SidecarExtensions", 
+            "GoogleTakeoutSupport", "SidecarPriority", "TimeOffset", "EnableCheckpoint", "CheckpointDirectory"
         };
 
         // Act

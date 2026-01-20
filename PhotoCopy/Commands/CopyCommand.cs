@@ -7,6 +7,7 @@ using PhotoCopy;
 using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
 using PhotoCopy.Progress;
+using PhotoCopy.Statistics;
 using PhotoCopy.Validators;
 
 namespace PhotoCopy.Commands;
@@ -22,6 +23,7 @@ public class CopyCommand : ICommand
     private readonly IDirectoryCopierAsync _directoryCopierAsync;
     private readonly IValidatorFactory _validatorFactory;
     private readonly IProgressReporter _progressReporter;
+    private readonly StatisticsReporter _statisticsReporter;
 
     public CopyCommand(
         ILogger<CopyCommand> logger,
@@ -37,6 +39,7 @@ public class CopyCommand : ICommand
         _directoryCopierAsync = directoryCopierAsync;
         _validatorFactory = validatorFactory;
         _progressReporter = progressReporter;
+        _statisticsReporter = new StatisticsReporter();
     }
 
     public async Task<int> ExecuteAsync(CancellationToken cancellationToken = default)
@@ -61,6 +64,7 @@ public class CopyCommand : ICommand
             }
             
             LogResult(result);
+            OutputStatisticsSummary(result);
             OutputUnknownFilesReport(result);
             
             return result.FilesFailed > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
@@ -88,6 +92,27 @@ public class CopyCommand : ICommand
             _logger.LogError("Failed to process {File}: {Error}",
                 error.File.File.Name, error.ErrorMessage);
         }
+    }
+
+    private void OutputStatisticsSummary(CopyResult result)
+    {
+        // Don't output statistics if log level is ErrorsOnly or if there are no statistics
+        if (_config.LogLevel == OutputLevel.ErrorsOnly || result.Statistics == null)
+        {
+            return;
+        }
+
+        // Only show summary if files were actually processed
+        if (result.Statistics.TotalFiles == 0 && result.FilesProcessed == 0)
+        {
+            return;
+        }
+
+        var report = _statisticsReporter.GenerateReport(result.Statistics);
+        
+        // Output to console directly for visibility (after progress is complete)
+        Console.WriteLine();
+        Console.WriteLine(report);
     }
 
     private void OutputUnknownFilesReport(CopyResult result)

@@ -36,7 +36,8 @@ public class FileFactory : IFileFactory
             var file = new FileWithMetadata(fileInfo, metadata.DateTime, _fileLogger)
             {
                 Location = metadata.Location,
-                UnknownReason = metadata.UnknownReason
+                UnknownReason = metadata.UnknownReason,
+                Camera = metadata.Camera
             };
 
             if (!string.IsNullOrWhiteSpace(metadata.Checksum))

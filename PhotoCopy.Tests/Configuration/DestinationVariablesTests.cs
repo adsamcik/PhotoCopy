@@ -91,8 +91,8 @@ public class DestinationVariablesTests
     [Test]
     public async Task DestinationVariables_HasExpectedCount()
     {
-        // Assert - there should be exactly 13 variable constants
-        await Assert.That(VariableFields.Length).IsEqualTo(13);
+        // Assert - there should be exactly 14 variable constants (including {camera})
+        await Assert.That(VariableFields.Length).IsEqualTo(14);
     }
 
     [Test]

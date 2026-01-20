@@ -3,6 +3,7 @@ using PhotoCopy.Commands;
 using PhotoCopy.Duplicates;
 using System;
 using System.IO;
+using System.Linq;
 
 namespace PhotoCopy.Configuration;
 
@@ -90,6 +91,9 @@ public static class ConfigurationLoader
             case ConfigOptions configOptions:
                 ApplyConfigOverrides(config, configOptions, diagnostics);
                 break;
+            case ValidateConfigOptions validateConfigOptions:
+                ApplyValidateConfigOverrides(config, validateConfigOptions, diagnostics);
+                break;
         }
     }
 
@@ -163,6 +167,19 @@ public static class ConfigurationLoader
             };
             diagnostics?.RecordSource("DuplicateHandling", config.DuplicateHandling.ToString(), ConfigSourceType.CommandLine, "--duplicate-handling");
         }
+
+        ApplyExcludePatterns(config, options.ExcludePatterns, diagnostics);
+        ApplyTimeOffset(config, options.TimeOffset, diagnostics);
+
+        // Checkpoint options
+        ApplyIfTrue(options.Resume, v => config.Resume = v, "Resume", "--resume", diagnostics);
+        ApplyIfTrue(options.FreshStart, v => config.FreshStart = v, "FreshStart", "--fresh", diagnostics);
+        ApplyIfNotEmpty(options.CheckpointDirectory, v => config.CheckpointDirectory = v, "CheckpointDirectory", "--checkpoint-dir", diagnostics);
+        if (options.NoCheckpoint)
+        {
+            config.EnableCheckpoint = false;
+            diagnostics?.RecordSource("EnableCheckpoint", "false", ConfigSourceType.CommandLine, "--no-checkpoint");
+        }
     }
 
     private static void ApplyScanOverrides(PhotoCopyConfig config, ScanOptions options, ConfigurationDiagnostics? diagnostics)
@@ -173,6 +190,7 @@ public static class ConfigurationLoader
         ApplyIfNotEmpty(options.GeonamesPath, v => config.GeonamesPath = v, "GeonamesPath", "--geonames-path", diagnostics);
         ApplyIfTrue(options.CalculateChecksums, v => config.CalculateChecksums = v, "CalculateChecksums", "--calculate-checksums", diagnostics);
         ApplyIfHasValue(options.MaxDepth, v => config.MaxDepth = v, "MaxDepth", "--max-depth", diagnostics);
+        ApplyExcludePatterns(config, options.ExcludePatterns, diagnostics);
     }
 
     private static void ApplyValidateOverrides(PhotoCopyConfig config, ValidateOptions options, ConfigurationDiagnostics? diagnostics)
@@ -182,12 +200,27 @@ public static class ConfigurationLoader
         ApplyIfHasValue(options.MaxDate, v => config.MaxDate = v, "MaxDate", "--max-date", diagnostics);
         ApplyIfNotEmpty(options.GeonamesPath, v => config.GeonamesPath = v, "GeonamesPath", "--geonames-path", diagnostics);
         ApplyIfHasValue(options.MaxDepth, v => config.MaxDepth = v, "MaxDepth", "--max-depth", diagnostics);
+        ApplyExcludePatterns(config, options.ExcludePatterns, diagnostics);
     }
 
     private static void ApplyConfigOverrides(PhotoCopyConfig config, ConfigOptions options, ConfigurationDiagnostics? diagnostics)
     {
         ApplyIfNotEmpty(options.Source, v => config.Source = v, "Source", "--source", diagnostics);
         ApplyIfNotEmpty(options.Destination, v => config.Destination = v, "Destination", "--destination", diagnostics);
+    }
+
+    private static void ApplyValidateConfigOverrides(PhotoCopyConfig config, ValidateConfigOptions options, ConfigurationDiagnostics? diagnostics)
+    {
+        ApplyIfNotEmpty(options.Source, v => config.Source = v, "Source", "--source", diagnostics);
+        ApplyIfNotEmpty(options.Destination, v => config.Destination = v, "Destination", "--destination", diagnostics);
+        ApplyIfTrue(options.SkipExisting, v => config.SkipExisting = v, "SkipExisting", "--skip-existing", diagnostics);
+        ApplyIfTrue(options.Overwrite, v => config.Overwrite = v, "Overwrite", "--overwrite", diagnostics);
+        ApplyIfHasValue(options.Parallelism, v => config.Parallelism = v, "Parallelism", "--parallelism", diagnostics);
+        ApplyIfHasValue(options.MaxDepth, v => config.MaxDepth = v, "MaxDepth", "--max-depth", diagnostics);
+        ApplyIfHasValue(options.MinDate, v => config.MinDate = v, "MinDate", "--min-date", diagnostics);
+        ApplyIfHasValue(options.MaxDate, v => config.MaxDate = v, "MaxDate", "--max-date", diagnostics);
+        ApplyIfNotEmpty(options.DuplicatesFormat, v => config.DuplicatesFormat = v, "DuplicatesFormat", "--duplicates-format", diagnostics);
+        ApplyExcludePatterns(config, options.ExcludePatterns, diagnostics);
     }
 
     private static void ApplyIfNotEmpty(string? value, Action<string> setter, string propertyName, string cliFlag, ConfigurationDiagnostics? diagnostics)
@@ -220,5 +253,38 @@ public static class ConfigurationLoader
             setter(true);
             diagnostics?.RecordSource(propertyName, "True", ConfigSourceType.CommandLine, cliFlag);
         }
+    }
+
+    /// <summary>
+    /// Applies exclude patterns from command line options.
+    /// Patterns are added to the existing list (allowing config file patterns to be extended).
+    /// </summary>
+    private static void ApplyExcludePatterns(PhotoCopyConfig config, System.Collections.Generic.IEnumerable<string>? patterns, ConfigurationDiagnostics? diagnostics)
+    {
+        if (patterns != null && patterns.Any())
+        {
+            var patternsList = patterns.ToList();
+            config.ExcludePatterns.AddRange(patternsList);
+            diagnostics?.RecordSource("ExcludePatterns", string.Join(", ", patternsList), ConfigSourceType.CommandLine, "--exclude");
+        }
+    }
+
+    /// <summary>
+    /// Applies time offset from command line options.
+    /// Parses the offset string and sets the TimeOffset property.
+    /// </summary>
+    private static void ApplyTimeOffset(PhotoCopyConfig config, string? offsetString, ConfigurationDiagnostics? diagnostics)
+    {
+        if (string.IsNullOrEmpty(offsetString))
+        {
+            return;
+        }
+
+        if (TimeOffsetParser.TryParse(offsetString, out var timeSpan, out _))
+        {
+            config.TimeOffset = timeSpan;
+            diagnostics?.RecordSource("TimeOffset", TimeOffsetParser.Format(timeSpan), ConfigSourceType.CommandLine, "--time-offset");
+        }
+        // Invalid format errors will be caught by validate-config command
     }
 }

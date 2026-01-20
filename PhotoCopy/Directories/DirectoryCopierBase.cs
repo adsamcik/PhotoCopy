@@ -119,6 +119,10 @@ public abstract class DirectoryCopierBase
         destPath = destPath.Replace(DestinationVariables.NameNoExtension, name);
         destPath = destPath.Replace(DestinationVariables.Extension, ext);
         destPath = destPath.Replace("{filename}", file.File.Name);
+        
+        // Handle {camera} variable - uses camera make/model from EXIF, falls back to "Unknown"
+        var cameraFallback = CasingFormatter.ApplyCasing(Config.UnknownCameraFallback ?? Config.UnknownLocationFallback, casing);
+        destPath = ReplaceVariableWithFallback(destPath, "camera", file.Camera, cameraFallback, casing, context, locationValues2);
 
         // Normalize path to clean up orphaned separators from empty variables
         destPath = NormalizeDestinationPath(destPath);

@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PhotoCopy.Abstractions;
+using PhotoCopy.Checkpoint;
 using PhotoCopy.Commands;
 using PhotoCopy.Configuration;
 using PhotoCopy.Directories;
@@ -59,6 +60,10 @@ public static class ServiceCollectionExtensions
         // Register commands that use pure DI (no runtime parameters)
         services.AddTransient<CopyCommand>();
         services.AddTransient<ValidateCommand>();
+        services.AddTransient<ValidateConfigCommand>();
+
+        // Register checkpoint services for resume support
+        services.AddPhotoCopyCheckpointServices(config);
 
         return services;
     }
@@ -144,6 +149,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IFileMetadataExtractor, FileMetadataExtractor>();
         services.AddTransient<IMetadataEnricher, MetadataEnricher>();
         services.AddTransient<IMetadataEnrichmentStep, DateTimeMetadataEnrichmentStep>();
+        services.AddTransient<IMetadataEnrichmentStep, TimeOffsetEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, SidecarMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, LocationMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, ChecksumMetadataEnrichmentStep>();
@@ -187,6 +193,34 @@ public static class ServiceCollectionExtensions
             }
             return NullProgressReporter.Instance;
         });
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds checkpoint and resume support services.
+    /// </summary>
+    public static IServiceCollection AddPhotoCopyCheckpointServices(this IServiceCollection services, PhotoCopyConfig config)
+    {
+        // System clock - singleton for testability
+        services.AddSingleton<ISystemClock>(SystemClock.Instance);
+
+        // Checkpoint store - handles file persistence
+        services.AddSingleton<ICheckpointStore>(sp =>
+        {
+            var clock = sp.GetRequiredService<ISystemClock>();
+            return new BinaryCheckpointStore(clock, config.CheckpointDirectory);
+        });
+
+        // Checkpoint validator - validates checkpoints for resume
+        services.AddSingleton<ICheckpointValidator>(sp =>
+        {
+            var clock = sp.GetRequiredService<ISystemClock>();
+            return new CheckpointValidator(clock);
+        });
+
+        // Resume orchestrator - coordinates the resume flow
+        services.AddTransient<ResumeOrchestrator>();
 
         return services;
     }

@@ -56,6 +56,18 @@ public class PhotoCopyConfig
     public bool EnableRollback { get; set; } = false;
     
     /// <summary>
+    /// Whether to automatically resume from the last checkpoint if one exists.
+    /// When true, skips the user prompt and resumes directly.
+    /// </summary>
+    public bool Resume { get; set; } = false;
+    
+    /// <summary>
+    /// Whether to start fresh and ignore any existing checkpoints.
+    /// When true, any previous checkpoint is discarded and a new operation starts.
+    /// </summary>
+    public bool FreshStart { get; set; } = false;
+    
+    /// <summary>
     /// Minimum population threshold for locations in reverse geocoding.
     /// Locations with population below this value will be filtered out.
     /// Null or 0 means no filtering (default).
@@ -77,6 +89,12 @@ public class PhotoCopyConfig
     /// Fallback text used when location data is unavailable.
     /// </summary>
     public string UnknownLocationFallback { get; set; } = "Unknown";
+    
+    /// <summary>
+    /// Fallback text used when camera make/model is unavailable.
+    /// If null, uses UnknownLocationFallback value.
+    /// </summary>
+    public string? UnknownCameraFallback { get; set; }
     
     /// <summary>
     /// The casing style to apply to destination path variable values.
@@ -138,6 +156,24 @@ public class PhotoCopyConfig
     /// How to prioritize metadata when both embedded file metadata and sidecar metadata exist.
     /// </summary>
     public SidecarMetadataPriority SidecarPriority { get; set; } = SidecarMetadataPriority.EmbeddedFirst;
+
+    /// <summary>
+    /// Time offset to apply to all file timestamps.
+    /// Used to correct camera clock errors.
+    /// Positive values move timestamps forward, negative values move them backward.
+    /// </summary>
+    public TimeSpan? TimeOffset { get; set; }
+
+    /// <summary>
+    /// Enable checkpoint persistence for resume support.
+    /// Checkpoints are saved automatically during copy operations.
+    /// </summary>
+    public bool EnableCheckpoint { get; set; } = true;
+
+    /// <summary>
+    /// Custom checkpoint directory. Default: {destination}/.photocopy/
+    /// </summary>
+    public string? CheckpointDirectory { get; set; }
 
     public HashSet<string> AllowedExtensions { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {

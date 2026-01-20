@@ -18,14 +18,15 @@ public class Program
     static async Task<int> Main(string[] args)
     {
         // Parse with verb-based options
-        var parseResult = Parser.Default.ParseArguments<CopyOptions, ScanOptions, ValidateOptions, ConfigOptions, RollbackOptions>(args);
+        var parseResult = Parser.Default.ParseArguments<CopyOptions, ScanOptions, ValidateOptions, ConfigOptions, RollbackOptions, ValidateConfigOptions>(args);
 
-        return await parseResult.MapResult<CopyOptions, ScanOptions, ValidateOptions, ConfigOptions, RollbackOptions, Task<int>>(
+        return await parseResult.MapResult<CopyOptions, ScanOptions, ValidateOptions, ConfigOptions, RollbackOptions, ValidateConfigOptions, Task<int>>(
             async copy => await RunCopyCommand(copy),
             async scan => await RunScanCommand(scan),
             async validate => await RunValidateCommand(validate),
             async config => await RunConfigCommand(config),
             async rollback => await RunRollbackCommand(rollback),
+            async validateConfig => await RunValidateConfigCommand(validateConfig),
             async errors => await Task.FromResult((int)ExitCode.Error));
     }
 
@@ -140,6 +141,15 @@ public class Program
             options.ListLogs,
             options.SkipConfirmation);
 
+        return await command.ExecuteAsync();
+    }
+
+    private static async Task<int> RunValidateConfigCommand(ValidateConfigOptions options)
+    {
+        var config = ConfigurationLoader.Load(options);
+        await using var serviceProvider = BuildServiceProvider(config);
+
+        var command = serviceProvider.GetRequiredService<ValidateConfigCommand>();
         return await command.ExecuteAsync();
     }
 

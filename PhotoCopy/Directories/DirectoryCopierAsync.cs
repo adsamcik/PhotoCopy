@@ -9,10 +9,13 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PhotoCopy.Abstractions;
+using PhotoCopy.Checkpoint;
+using PhotoCopy.Checkpoint.Models;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files;
 using PhotoCopy.Progress;
 using PhotoCopy.Rollback;
+using PhotoCopy.Statistics;
 using PhotoCopy.Validators;
 
 namespace PhotoCopy.Directories;
@@ -44,7 +47,17 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
     {
         ClearUnknownFilesReport();
         var files = FileSystem.EnumerateFiles(Config.Source).ToList();
-        return await Task.Run(() => BuildCopyPlan(files, validators), cancellationToken);
+        return await Task.Run(() => BuildCopyPlan(files, validators, null), cancellationToken);
+    }
+
+    private async Task<CopyPlan> BuildPlanAsync(
+        IReadOnlyCollection<IValidator> validators,
+        CopyStatistics statistics,
+        CancellationToken cancellationToken = default)
+    {
+        ClearUnknownFilesReport();
+        var files = FileSystem.EnumerateFiles(Config.Source).ToList();
+        return await Task.Run(() => BuildCopyPlan(files, validators, statistics), cancellationToken);
     }
 
     public async Task<CopyResult> CopyAsync(
@@ -52,7 +65,8 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         IProgressReporter progressReporter,
         CancellationToken cancellationToken = default)
     {
-        var plan = await BuildPlanAsync(validators, cancellationToken);
+        var statistics = new CopyStatistics();
+        var plan = await BuildPlanAsync(validators, statistics, cancellationToken);
 
         if (Config.DryRun)
         {
@@ -63,7 +77,8 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
                 FilesSkipped: plan.SkippedFiles.Count,
                 BytesProcessed: plan.TotalBytes,
                 Errors: Array.Empty<CopyError>(),
-                UnknownFilesReport: GetUnknownFilesReport());
+                UnknownFilesReport: GetUnknownFilesReport(),
+                Statistics: statistics.CreateSnapshot());
         }
 
         // Begin transaction logging if rollback is enabled
@@ -74,7 +89,7 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
 
         try
         {
-            var result = await ExecutePlanAsync(plan, progressReporter, cancellationToken);
+            var result = await ExecutePlanAsync(plan, progressReporter, statistics, cancellationToken);
             
             if (Config.EnableRollback)
             {
@@ -103,7 +118,86 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         }
     }
 
-    private CopyPlan BuildCopyPlan(IReadOnlyList<IFile> files, IReadOnlyCollection<IValidator> validators)
+    public async Task<CopyResult> CopyWithCheckpointAsync(
+        IReadOnlyCollection<IValidator> validators,
+        IProgressReporter progressReporter,
+        ICheckpointWriter checkpointWriter,
+        CheckpointState? resumeState,
+        CancellationToken cancellationToken = default)
+    {
+        var statistics = new CopyStatistics();
+        var plan = await BuildPlanAsync(validators, statistics, cancellationToken);
+
+        if (resumeState is not null)
+        {
+            var completedCount = resumeState.Completed.Cast<bool>().Count(b => b);
+            _logger.LogInformation(
+                "Resuming from checkpoint: {CompletedCount}/{TotalFiles} files already completed",
+                completedCount, resumeState.TotalFiles);
+        }
+
+        if (Config.DryRun)
+        {
+            LogDryRunSummary(plan);
+            return new CopyResult(
+                FilesProcessed: plan.Operations.Count,
+                FilesFailed: 0,
+                FilesSkipped: plan.SkippedFiles.Count,
+                BytesProcessed: plan.TotalBytes,
+                Errors: Array.Empty<CopyError>(),
+                UnknownFilesReport: GetUnknownFilesReport(),
+                Statistics: statistics.CreateSnapshot());
+        }
+
+        // Begin transaction logging if rollback is enabled
+        if (Config.EnableRollback)
+        {
+            TransactionLogger.BeginTransaction(Config.Source, Config.Destination, Config.DryRun);
+        }
+
+        try
+        {
+            var result = await ExecutePlanAsync(plan, progressReporter, statistics, cancellationToken, checkpointWriter);
+
+            if (Config.EnableRollback)
+            {
+                if (result.FilesFailed == 0)
+                {
+                    TransactionLogger.CompleteTransaction();
+                }
+                else
+                {
+                    TransactionLogger.FailTransaction($"{result.FilesFailed} file(s) failed to process");
+                }
+
+                await TransactionLogger.SaveAsync(cancellationToken);
+            }
+
+            if (result.FilesFailed == 0)
+            {
+                await checkpointWriter.CompleteAsync(cancellationToken);
+            }
+            else
+            {
+                await checkpointWriter.FailAsync($"{result.FilesFailed} file(s) failed to process", cancellationToken);
+            }
+
+            return result;
+        }
+        catch (Exception ex)
+        {
+            if (Config.EnableRollback)
+            {
+                TransactionLogger.FailTransaction(ex.Message);
+                await TransactionLogger.SaveAsync(cancellationToken);
+            }
+
+            await checkpointWriter.FailAsync(ex.Message, cancellationToken);
+            throw;
+        }
+    }
+
+    private CopyPlan BuildCopyPlan(IReadOnlyList<IFile> files, IReadOnlyCollection<IValidator> validators, CopyStatistics? statistics)
     {
         // Clear reserved paths from any previous operations
         _reservedPaths.Clear();
@@ -131,11 +225,16 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
             var resolvedPath = ResolveDuplicate(destinationPath);
             if (resolvedPath is null)
             {
+                // Track as existing skip for statistics
+                statistics?.RecordExistingSkipped();
                 continue;
             }
 
             RegisterDirectory(resolvedPath, directories);
             totalBytes += SafeFileLength(file);
+
+            // Record file stats for statistics tracking
+            statistics?.RecordFileStats(file);
 
             var relatedPlans = BuildRelatedPlans(file, resolvedPath, directories, ref totalBytes);
             operations.Add(new FileCopyPlan(file, resolvedPath, relatedPlans));
@@ -147,7 +246,9 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
     private async Task<CopyResult> ExecutePlanAsync(
         CopyPlan plan,
         IProgressReporter progressReporter,
-        CancellationToken cancellationToken)
+        CopyStatistics statistics,
+        CancellationToken cancellationToken,
+        ICheckpointWriter? checkpointWriter = null)
     {
         var errors = new ConcurrentBag<CopyError>();
         var stopwatch = Stopwatch.StartNew();
@@ -179,16 +280,46 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         };
 
         await Parallel.ForEachAsync(
-            plan.Operations,
+            plan.Operations.Select((op, index) => (Operation: op, FileIndex: index)),
             parallelOptions,
-            async (operation, ct) =>
+            async (item, ct) =>
             {
+                var (operation, fileIndex) = item;
+
+                // Skip if already completed on resume
+                if (checkpointWriter?.IsCompleted(fileIndex) == true)
+                {
+                    var skippedFileSize = SafeFileLength(operation.File);
+                    Interlocked.Add(ref processedBytes, skippedFileSize);
+                    var skippedCurrent = Interlocked.Increment(ref processedCount);
+
+                    // Count related files as processed too
+                    foreach (var related in operation.RelatedFiles)
+                    {
+                        var relatedSize = SafeFileLength(related.File);
+                        Interlocked.Add(ref processedBytes, relatedSize);
+                        Interlocked.Increment(ref processedCount);
+                    }
+
+                    progressReporter.Report(new CopyProgress(
+                        skippedCurrent,
+                        totalOperations,
+                        Interlocked.Read(ref processedBytes),
+                        plan.TotalBytes,
+                        operation.File.File.Name,
+                        stopwatch.Elapsed));
+                    return;
+                }
+
                 try
                 {
                     await ProcessOperationAsync(operation.File, operation.DestinationPath, ct);
                     var fileSize = SafeFileLength(operation.File);
                     Interlocked.Add(ref processedBytes, fileSize);
                     var current = Interlocked.Increment(ref processedCount);
+
+                    // Record in statistics (thread-safe)
+                    statistics.RecordFileProcessed(operation.File, fileSize);
 
                     progressReporter.Report(new CopyProgress(
                         current,
@@ -208,6 +339,9 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
                             Interlocked.Add(ref processedBytes, relatedSize);
                             current = Interlocked.Increment(ref processedCount);
 
+                            // Record related file in statistics
+                            statistics.RecordFileProcessed(related.File, relatedSize);
+
                             progressReporter.Report(new CopyProgress(
                                 current,
                                 totalOperations,
@@ -225,8 +359,12 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
                             // Attribute error to the related file, not the primary file
                             errors.Add(new CopyError(related.File, related.DestinationPath, ex.Message));
                             progressReporter.ReportError(related.File.File.Name, ex);
+                            statistics.RecordError();
                         }
                     }
+
+                    // Record completion for the primary file (covers related files too)
+                    checkpointWriter?.RecordCompletion(fileIndex, OperationResult.Completed, fileSize);
                 }
                 catch (OperationCanceledException)
                 {
@@ -234,10 +372,19 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
                 }
                 catch (Exception ex)
                 {
+                    var fileSize = SafeFileLength(operation.File);
                     errors.Add(new CopyError(operation.File, operation.DestinationPath, ex.Message));
                     progressReporter.ReportError(operation.File.File.Name, ex);
+                    statistics.RecordError();
+                    checkpointWriter?.RecordFailure(fileIndex, fileSize, ex.Message);
                 }
             });
+
+        // Flush checkpoint after all operations
+        if (checkpointWriter is not null)
+        {
+            await checkpointWriter.FlushAsync(cancellationToken);
+        }
 
         stopwatch.Stop();
 
@@ -259,7 +406,8 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
             FilesSkipped: plan.SkippedFiles.Count,
             BytesProcessed: processedBytes,
             Errors: errors.ToList(),
-            UnknownFilesReport: GetUnknownFilesReport());
+            UnknownFilesReport: GetUnknownFilesReport(),
+            Statistics: statistics.CreateSnapshot());
     }
 
     private Task ProcessOperationAsync(IFile file, string destinationPath, CancellationToken cancellationToken)

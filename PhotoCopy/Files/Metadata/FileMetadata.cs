@@ -20,6 +20,13 @@ public sealed class FileMetadata
     /// Set to <see cref="UnknownFileReason.None"/> if location data is available.
     /// </summary>
     public UnknownFileReason UnknownReason { get; set; } = UnknownFileReason.None;
+    
+    /// <summary>
+    /// Gets or sets the camera make and model extracted from EXIF metadata.
+    /// For example, "Apple iPhone 15 Pro" or "Canon EOS R5".
+    /// Null if camera information is not available.
+    /// </summary>
+    public string? Camera { get; set; }
 }
 
 public sealed class FileMetadataContext

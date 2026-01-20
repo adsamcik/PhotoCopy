@@ -144,4 +144,62 @@ __Advanced threshold examples:__
 ./PhotoCopy -i "/photos" -o "/sorted/{city?min=10|country?min=5|Misc}/{name}"
 ```
 
+---
+
+## Live Photo Support
+
+PhotoCopy automatically handles iPhone Live Photos, which consist of:
+- A `.heic` or `.jpg` image with full EXIF metadata (including GPS)
+- A companion `.mov` video that often lacks GPS metadata
+
+### Automatic Metadata Inheritance
+
+When `enableLivePhotoInheritance` is enabled (default: `true`), companion `.mov` videos automatically inherit GPS/location data from their paired photo file with the same base name.
+
+**Example:**
+```text
+Source files:
+  IMG_1234.heic  (has GPS: Tokyo, Japan)
+  IMG_1234.mov   (no GPS)
+
+Result:
+  IMG_1234.mov inherits GPS from IMG_1234.heic
+  Both files will be organized to the same location folder
+```
+
+### Configuration
+
+```yaml
+photoCopy:
+  # Enable/disable Live Photo metadata inheritance (default: true)
+  enableLivePhotoInheritance: true
+  
+  # Related files mode - ensures paired files stay together
+  relatedFileMode: Strict  # Strict, Loose, or None
+```
+
+### How It Works
+
+1. **Scanning Phase:** PhotoCopy scans all files in the source directory
+2. **Live Photo Pass:** Before organization, it identifies `.heic`/`.jpg` + `.mov` pairs by matching base names
+3. **Metadata Transfer:** Videos without GPS inherit location data from their paired photo
+4. **Organization:** Both files are organized to the same destination folder
+
+### Supported Formats
+
+| Photo Extension | Video Extension | Notes |
+|----------------|-----------------|-------|
+| `.heic` | `.mov` | Standard iPhone Live Photo format |
+| `.heif` | `.mov` | Alternative HEIF format |
+| `.jpg` / `.jpeg` | `.mov` | Some devices use JPEG for Live Photos |
+
+### Related File Handling
+
+For Live Photos to stay together, ensure `relatedFileMode` is set to `Strict` or `Loose`:
+
+```bash
+./PhotoCopy -i "/photos" -o "/sorted/{year}/{city}/{name}" --related-file-mode Strict
+```
+
+This ensures both the `.heic` and `.mov` files are copied together to the same destination.
 

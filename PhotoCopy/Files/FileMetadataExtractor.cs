@@ -201,4 +201,107 @@ public class FileMetadataExtractor : IFileMetadataExtractor
     {
         return _config.AllowedExtensions.Contains(extension);
     }
+    
+    /// <summary>
+    /// Extracts the camera make and model from EXIF metadata.
+    /// </summary>
+    /// <param name="file">The file to extract camera info from.</param>
+    /// <returns>Camera make and model combined (e.g., "Apple iPhone 15 Pro"), or null if not available.</returns>
+    public string? GetCamera(FileInfo file)
+    {
+        if (!IsImage(file.Extension))
+        {
+            return null;
+        }
+        
+        try
+        {
+            var directories = ImageMetadataReader.ReadMetadata(file.FullName);
+            var ifd0Directory = directories.OfType<ExifIfd0Directory>().FirstOrDefault();
+            
+            if (ifd0Directory == null)
+            {
+                return null;
+            }
+            
+            var make = ifd0Directory.GetString(ExifDirectoryBase.TagMake)?.Trim();
+            var model = ifd0Directory.GetString(ExifDirectoryBase.TagModel)?.Trim();
+            
+            if (string.IsNullOrWhiteSpace(make) && string.IsNullOrWhiteSpace(model))
+            {
+                return null;
+            }
+            
+            // Combine make and model, avoiding duplication if model already contains make
+            string camera;
+            if (!string.IsNullOrWhiteSpace(make) && !string.IsNullOrWhiteSpace(model))
+            {
+                // Check if model already starts with make (some cameras do this)
+                if (model.StartsWith(make, StringComparison.OrdinalIgnoreCase))
+                {
+                    camera = model;
+                }
+                else
+                {
+                    camera = $"{make} {model}";
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(model))
+            {
+                camera = model;
+            }
+            else
+            {
+                camera = make!;
+            }
+            
+            // Sanitize for filesystem (remove invalid chars)
+            return SanitizeCameraName(camera);
+        }
+        catch (Exception ex)
+        {
+            if (_config.LogLevel == OutputLevel.Verbose)
+            {
+                _logger.LogWarning("Error extracting camera from {FileName}: {Message}", file.Name, ex.Message);
+            }
+            return null;
+        }
+    }
+    
+    /// <summary>
+    /// Sanitizes a camera name for use in file paths by removing or replacing invalid characters.
+    /// </summary>
+    private static string SanitizeCameraName(string camera)
+    {
+        if (string.IsNullOrEmpty(camera))
+        {
+            return camera;
+        }
+        
+        // Remove invalid path characters
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var result = new System.Text.StringBuilder(camera.Length);
+        
+        foreach (var c in camera)
+        {
+            if (Array.IndexOf(invalidChars, c) < 0)
+            {
+                result.Append(c);
+            }
+            else
+            {
+                // Replace with space (will be normalized later)
+                result.Append(' ');
+            }
+        }
+        
+        // Normalize multiple spaces to single space and trim
+        var sanitized = result.ToString();
+        while (sanitized.Contains("  "))
+        {
+            sanitized = sanitized.Replace("  ", " ");
+        }
+        
+        return sanitized.Trim();
+    }
 }

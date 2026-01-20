@@ -22,6 +22,11 @@ public class FileWithMetadata : IFile
     /// </summary>
     public UnknownFileReason UnknownReason { get; set; } = UnknownFileReason.None;
     
+    /// <summary>
+    /// Gets or sets the camera make and model extracted from EXIF metadata.
+    /// </summary>
+    public string? Camera { get; set; }
+    
     public IReadOnlyCollection<IFile> RelatedFiles => _relatedFiles;
 
     public FileWithMetadata(FileInfo file, FileDateTime fileDateTime, ILogger logger)

@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using PhotoCopy.Configuration;
 
@@ -27,6 +28,14 @@ public class ValidatorFactory : IValidatorFactory
         {
             _logger.LogDebug("Creating MinDateValidator with date {MinDate}", config.MinDate.Value);
             validators.Add(new MinDateValidator(config.MinDate.Value));
+        }
+
+        if (config.ExcludePatterns.Count > 0)
+        {
+            _logger.LogDebug("Creating ExcludePatternMatcher with {Count} patterns: {Patterns}", 
+                config.ExcludePatterns.Count, 
+                string.Join(", ", config.ExcludePatterns));
+            validators.Add(new ExcludePatternMatcher(config.ExcludePatterns, config.Source));
         }
 
         return validators;

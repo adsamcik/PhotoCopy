@@ -57,6 +57,7 @@ public class TestBase : IDisposable
         
         // GPS location index for companion GPS fallback
         services.AddSingleton<IGpsLocationIndex, GpsLocationIndex>();
+        services.AddSingleton<ILivePhotoEnricher, LivePhotoEnricher>();
         services.AddSingleton<ICompanionGpsEnricher, CompanionGpsEnricher>();
 
         // Register services
@@ -65,6 +66,7 @@ public class TestBase : IDisposable
         services.AddTransient<IMetadataEnrichmentStep, DateTimeMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, LocationMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, ChecksumMetadataEnrichmentStep>();
+        services.AddTransient<IMetadataEnrichmentStep, CameraMetadataEnrichmentStep>();
         services.AddTransient<IFileFactory, FileFactory>();
         
         services.AddTransient<IDirectoryScanner, DirectoryScanner>();

@@ -8,6 +8,7 @@ using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files;
 using PhotoCopy.Rollback;
+using PhotoCopy.Statistics;
 using PhotoCopy.Validators;
 
 namespace PhotoCopy.Directories;
@@ -32,8 +33,9 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
     public CopyResult Copy(IReadOnlyCollection<IValidator> validators)
     {
         ClearUnknownFilesReport();
+        var statistics = new CopyStatistics();
         var files = FileSystem.EnumerateFiles(Config.Source);
-        var plan = BuildCopyPlan(files, validators);
+        var plan = BuildCopyPlan(files, validators, statistics);
 
         if (Config.DryRun)
         {
@@ -44,7 +46,8 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
                 plan.SkippedFiles.Count,
                 plan.TotalBytes,
                 Array.Empty<CopyError>(),
-                GetUnknownFilesReport());
+                GetUnknownFilesReport(),
+                statistics.CreateSnapshot());
         }
 
         // Begin transaction logging if rollback is enabled
@@ -55,7 +58,7 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
 
         try
         {
-            var (processed, failed, bytesProcessed, errors) = ExecutePlan(plan);
+            var (processed, failed, bytesProcessed, errors) = ExecutePlan(plan, statistics);
             
             if (Config.EnableRollback)
             {
@@ -71,13 +74,17 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
                 TransactionLogger.Save();
             }
             
+            // Record errors in statistics
+            statistics.RecordErrors(failed);
+            
             return new CopyResult(
                 processed,
                 failed,
                 plan.SkippedFiles.Count,
                 bytesProcessed,
                 errors,
-                GetUnknownFilesReport());
+                GetUnknownFilesReport(),
+                statistics.CreateSnapshot());
         }
         catch (Exception ex)
         {
@@ -90,7 +97,7 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
         }
     }
 
-    private CopyPlan BuildCopyPlan(IEnumerable<IFile> files, IReadOnlyCollection<IValidator> validators)
+    private CopyPlan BuildCopyPlan(IEnumerable<IFile> files, IReadOnlyCollection<IValidator> validators, CopyStatistics statistics)
     {
         var operations = new List<FileCopyPlan>();
         var skipped = new List<ValidationFailure>();
@@ -129,11 +136,16 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
             var resolvedPath = ResolveDuplicate(destinationPath);
             if (resolvedPath is null)
             {
+                // Track as existing skip for statistics
+                statistics.RecordExistingSkipped();
                 continue;
             }
 
             RegisterDirectory(resolvedPath, directories);
             totalBytes += SafeFileLength(file);
+
+            // Record file stats for statistics tracking
+            statistics.RecordFileStats(file);
 
             var relatedPlans = BuildRelatedPlans(file, resolvedPath, directories, ref totalBytes);
             operations.Add(new FileCopyPlan(file, resolvedPath, relatedPlans));
@@ -145,7 +157,7 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
         return new CopyPlan(operations, skipped, directories, totalBytes);
     }
 
-    private (int Processed, int Failed, long BytesProcessed, List<CopyError> Errors) ExecutePlan(CopyPlan plan)
+    private (int Processed, int Failed, long BytesProcessed, List<CopyError> Errors) ExecutePlan(CopyPlan plan, CopyStatistics statistics)
     {
         var processed = 0;
         var failed = 0;
@@ -158,8 +170,12 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
             {
                 EnsureDestinationDirectory(operation.DestinationPath);
                 PerformOperation(operation.File, operation.DestinationPath);
+                var fileSize = SafeFileLength(operation.File);
                 processed++;
-                bytesProcessed += SafeFileLength(operation.File);
+                bytesProcessed += fileSize;
+                
+                // Record successful file processing in statistics
+                statistics.RecordFileProcessed(operation.File, fileSize);
 
                 foreach (var related in operation.RelatedFiles)
                 {
@@ -167,8 +183,12 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
                     {
                         EnsureDestinationDirectory(related.DestinationPath);
                         PerformOperation(related.File, related.DestinationPath);
+                        var relatedSize = SafeFileLength(related.File);
                         processed++;
-                        bytesProcessed += SafeFileLength(related.File);
+                        bytesProcessed += relatedSize;
+                        
+                        // Record related file in statistics
+                        statistics.RecordFileProcessed(related.File, relatedSize);
                     }
                     catch (Exception ex)
                     {

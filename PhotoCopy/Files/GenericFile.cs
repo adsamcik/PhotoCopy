@@ -24,6 +24,11 @@ public class GenericFile : IFile, IDisposable
     public UnknownFileReason UnknownReason { get; init; } = UnknownFileReason.NoGpsData;
     
     /// <summary>
+    /// Gets the camera make and model. GenericFile always returns null as it doesn't support EXIF metadata.
+    /// </summary>
+    public string? Camera => null;
+    
+    /// <summary>
     /// Gets the file checksum. Returns an empty string if not calculated.
     /// Use <see cref="EnsureChecksum"/> or <see cref="CalculateChecksum"/> to compute the checksum.
     /// </summary>

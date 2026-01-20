@@ -26,4 +26,10 @@ public static class DestinationVariables
     public const string County = "{county}";
     public const string State = "{state}";
     public const string Country = "{country}";
+    
+    /// <summary>
+    /// The camera make and model extracted from EXIF metadata.
+    /// For example, "Apple iPhone 15 Pro" or "Canon EOS R5".
+    /// </summary>
+    public const string Camera = "{camera}";
 }

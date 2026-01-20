@@ -85,6 +85,21 @@ public class CopyOptions : CommonOptions
 
     [Option("sidecar-metadata", Required = false, HelpText = "Enable reading metadata from sidecar files (XMP/JSON)")]
     public bool? SidecarMetadataFallback { get; set; }
+
+    [Option("time-offset", Required = false, HelpText = "Time offset to apply to file timestamps (e.g., +2:00, -1:30, +1d, +1d2:30)")]
+    public string? TimeOffset { get; set; }
+
+    [Option("resume", Required = false, HelpText = "Resume from previous checkpoint (skips confirmation)")]
+    public bool Resume { get; set; }
+
+    [Option("fresh", Required = false, HelpText = "Start fresh, ignoring any existing checkpoint")]
+    public bool FreshStart { get; set; }
+
+    [Option("checkpoint-dir", Required = false, HelpText = "Custom directory for checkpoint files")]
+    public string? CheckpointDirectory { get; set; }
+
+    [Option("no-checkpoint", Required = false, HelpText = "Disable checkpoint persistence")]
+    public bool NoCheckpoint { get; set; }
 }
 
 /// <summary>
@@ -148,6 +163,9 @@ public class ScanOptions : CommonOptions
 
     [Option('x', "exclude", Required = false, Separator = ',', HelpText = "Glob patterns for files to exclude (can be specified multiple times, e.g., --exclude *.aae --exclude *_thumb*)")]
     public IEnumerable<string>? ExcludePatterns { get; set; }
+
+    [Option("time-offset", Required = false, HelpText = "Time offset to apply to file timestamps (e.g., +2:00, -1:30, +1d, +1d2:30)")]
+    public string? TimeOffset { get; set; }
 }
 
 /// <summary>
@@ -211,4 +229,41 @@ public class RollbackOptions : CommonOptions
 
     [Option('y', "yes", Required = false, HelpText = "Skip confirmation prompt")]
     public bool SkipConfirmation { get; set; }
+}
+
+/// <summary>
+/// Options for the validate-config command.
+/// </summary>
+[Verb("validate-config", HelpText = "Validate configuration settings before running operations")]
+public class ValidateConfigOptions : CommonOptions
+{
+    [Option('s', "source", Required = false, HelpText = "Source folder to validate")]
+    public string? Source { get; set; }
+
+    [Option('d', "destination", Required = false, HelpText = "Destination pattern to validate")]
+    public string? Destination { get; set; }
+
+    [Option('e', "skip-existing", Required = false, HelpText = "Skip files that already exist")]
+    public bool SkipExisting { get; set; }
+
+    [Option('o', "overwrite", Required = false, HelpText = "Overwrite existing files")]
+    public bool Overwrite { get; set; }
+
+    [Option('p', "parallel", Required = false, HelpText = "Number of parallel operations")]
+    public int? Parallelism { get; set; }
+
+    [Option("max-depth", Required = false, HelpText = "Maximum directory recursion depth")]
+    public int? MaxDepth { get; set; }
+
+    [Option("min-date", Required = false, HelpText = "Minimum date for files to process")]
+    public DateTime? MinDate { get; set; }
+
+    [Option("max-date", Required = false, HelpText = "Maximum date for files to process")]
+    public DateTime? MaxDate { get; set; }
+
+    [Option('x', "exclude", Required = false, Separator = ',', HelpText = "Glob patterns for files to exclude")]
+    public IEnumerable<string>? ExcludePatterns { get; set; }
+
+    [Option('f', "duplicates-format", Required = false, HelpText = "Format for duplicate files")]
+    public string? DuplicatesFormat { get; set; }
 }

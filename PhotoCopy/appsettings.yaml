@@ -42,3 +42,14 @@ photoCopy:
   # How to handle when both embedded and sidecar metadata exist
   # Options: EmbeddedFirst, SidecarFirst, MergePreferEmbedded
   # sidecarPriority: EmbeddedFirst
+  
+  # Live Photo Handling
+  # -------------------
+  # iPhone Live Photos consist of a .heic image and a companion .mov video.
+  # The video often lacks GPS metadata. When enabled, companion .mov videos
+  # will inherit GPS/location data from their paired .heic/.jpg photo with
+  # the same base name.
+  #
+  # Example: IMG_1234.heic (has GPS) + IMG_1234.mov (no GPS)
+  #          → IMG_1234.mov inherits GPS from IMG_1234.heic
+  enableLivePhotoInheritance: true
