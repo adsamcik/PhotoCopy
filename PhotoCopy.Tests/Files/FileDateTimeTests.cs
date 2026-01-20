@@ -287,12 +287,13 @@ public class FileDateTimeTests : TestBase
     public void DateTimeSource_HasAllExpectedValues()
     {
         // Assert
-        Enum.GetValues<DateTimeSource>().Should().HaveCount(5);
+        Enum.GetValues<DateTimeSource>().Should().HaveCount(6);
         Enum.IsDefined(DateTimeSource.FileCreation).Should().BeTrue();
         Enum.IsDefined(DateTimeSource.FileModification).Should().BeTrue();
         Enum.IsDefined(DateTimeSource.ExifDateTime).Should().BeTrue();
         Enum.IsDefined(DateTimeSource.ExifDateTimeOriginal).Should().BeTrue();
         Enum.IsDefined(DateTimeSource.ExifDateTimeDigitized).Should().BeTrue();
+        Enum.IsDefined(DateTimeSource.Sidecar).Should().BeTrue();
     }
 
     #endregion

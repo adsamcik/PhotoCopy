@@ -10,6 +10,7 @@ using PhotoCopy.Files;
 using PhotoCopy.Files.Geo;
 using PhotoCopy.Files.Geo.Boundaries;
 using PhotoCopy.Files.Metadata;
+using PhotoCopy.Files.Sidecar;
 using PhotoCopy.Progress;
 using PhotoCopy.Rollback;
 using PhotoCopy.Validators;
@@ -128,15 +129,25 @@ public static class ServiceCollectionExtensions
         // GPS location index - singleton for companion GPS fallback (shared across all file processing)
         services.AddSingleton<IGpsLocationIndex, GpsLocationIndex>();
         
+        // Live Photo enricher - singleton for pairing .heic photos with companion .mov videos
+        services.AddSingleton<ILivePhotoEnricher, LivePhotoEnricher>();
+        
         // Companion GPS enricher - singleton for second-pass GPS enrichment
         services.AddSingleton<ICompanionGpsEnricher, CompanionGpsEnricher>();
+        
+        // Sidecar parsing services
+        services.AddSingleton<ISidecarParser, GoogleTakeoutJsonParser>();
+        services.AddSingleton<ISidecarParser, XmpSidecarParser>();
+        services.AddSingleton<ISidecarMetadataService, SidecarMetadataService>();
         
         // Metadata extraction pipeline
         services.AddTransient<IFileMetadataExtractor, FileMetadataExtractor>();
         services.AddTransient<IMetadataEnricher, MetadataEnricher>();
         services.AddTransient<IMetadataEnrichmentStep, DateTimeMetadataEnrichmentStep>();
+        services.AddTransient<IMetadataEnrichmentStep, SidecarMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, LocationMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, ChecksumMetadataEnrichmentStep>();
+        services.AddTransient<IMetadataEnrichmentStep, CameraMetadataEnrichmentStep>();
         
         // File system services
         services.AddTransient<IFileFactory, FileFactory>();

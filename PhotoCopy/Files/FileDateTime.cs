@@ -51,5 +51,6 @@ public enum DateTimeSource
     FileModification,
     ExifDateTime,
     ExifDateTimeOriginal,
-    ExifDateTimeDigitized
+    ExifDateTimeDigitized,
+    Sidecar
 }
