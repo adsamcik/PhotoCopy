@@ -54,6 +54,10 @@ public class TestBase : IDisposable
         services.AddSingleton(Substitute.For<IReverseGeocodingService>());
 
         services.AddSingleton<IChecksumCalculator, Sha256ChecksumCalculator>();
+        
+        // GPS location index for companion GPS fallback
+        services.AddSingleton<IGpsLocationIndex, GpsLocationIndex>();
+        services.AddSingleton<ICompanionGpsEnricher, CompanionGpsEnricher>();
 
         // Register services
         services.AddTransient<IFileMetadataExtractor, FileMetadataExtractor>();

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using AwesomeAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using PhotoCopy.Abstractions;
@@ -573,6 +574,342 @@ public class EnrichmentStepsTests
     }
 
     #endregion
+
+    #region LocationMetadataEnrichmentStep GpsIndex Population Tests
+
+    [Test]
+    public void LocationEnrichmentStep_WithGpsIndex_AddsLocationToIndex()
+    {
+        // Arrange
+        var latitude = 40.7128;
+        var longitude = -74.0060;
+        var expectedLocation = new LocationData("New York", "New York", null, "NY", "USA");
+        var gpsIndex = new GpsLocationIndex();
+
+        var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
+        metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
+            .Returns((latitude, longitude));
+
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+        reverseGeocodingService.ReverseGeocode(latitude, longitude)
+            .Returns(expectedLocation);
+
+        var step = new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService, gpsIndex);
+        var tempFile = CreateTempFile("gps_index_test.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            gpsIndex.Count.Should().Be(1);
+            var result = gpsIndex.FindNearest(context.Metadata.DateTime.DateTime, TimeSpan.FromMinutes(1));
+            result.Should().NotBeNull();
+            result!.Value.Latitude.Should().BeApproximately(latitude, 0.0001);
+            result!.Value.Longitude.Should().BeApproximately(longitude, 0.0001);
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void LocationEnrichmentStep_WithNoGps_DoesNotAddToIndex()
+    {
+        // Arrange
+        var gpsIndex = new GpsLocationIndex();
+
+        var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
+        metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
+            .Returns((ValueTuple<double, double>?)null);
+
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+
+        var step = new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService, gpsIndex);
+        var tempFile = CreateTempFile("no_gps_index.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            gpsIndex.Count.Should().Be(0);
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void LocationEnrichmentStep_StoresCoordinatesInContext()
+    {
+        // Arrange
+        var latitude = 48.8566;
+        var longitude = 2.3522;
+        var expectedLocation = new LocationData("Paris", "Paris", null, "Île-de-France", "FR");
+
+        var metadataExtractor = Substitute.For<IFileMetadataExtractor>();
+        metadataExtractor.GetCoordinates(Arg.Any<FileInfo>())
+            .Returns((latitude, longitude));
+
+        var reverseGeocodingService = Substitute.For<IReverseGeocodingService>();
+        reverseGeocodingService.ReverseGeocode(latitude, longitude)
+            .Returns(expectedLocation);
+
+        var step = new LocationMetadataEnrichmentStep(metadataExtractor, reverseGeocodingService);
+        var tempFile = CreateTempFile("coords_in_context.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Coordinates.Should().NotBeNull();
+            context.Coordinates!.Value.Latitude.Should().BeApproximately(latitude, 0.0001);
+            context.Coordinates!.Value.Longitude.Should().BeApproximately(longitude, 0.0001);
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    #endregion
+
+    #region CompanionGpsEnrichmentStep Tests
+
+    [Test]
+    public void CompanionGpsEnrichmentStep_WhenDisabled_DoesNotEnrich()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig { GpsProximityWindowMinutes = null };
+        var options = Microsoft.Extensions.Options.Options.Create(config);
+        var gpsIndex = new GpsLocationIndex();
+        gpsIndex.AddLocation(new DateTime(2024, 7, 20, 10, 0, 0), 48.8566, 2.3522);
+        
+        var geocodingService = Substitute.For<IReverseGeocodingService>();
+        var logger = Substitute.For<ILogger<CompanionGpsEnrichmentStep>>();
+        
+        var step = new CompanionGpsEnrichmentStep(gpsIndex, geocodingService, options, logger);
+        var tempFile = CreateTempFile("disabled_companion.mp4");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+            context.Metadata.UnknownReason = UnknownFileReason.NoGpsData;
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().BeNull();
+            geocodingService.DidNotReceive().ReverseGeocode(Arg.Any<double>(), Arg.Any<double>());
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void CompanionGpsEnrichmentStep_FileWithLocation_SkipsFile()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig { GpsProximityWindowMinutes = 5 };
+        var options = Microsoft.Extensions.Options.Options.Create(config);
+        var gpsIndex = new GpsLocationIndex();
+        gpsIndex.AddLocation(new DateTime(2024, 7, 20, 10, 0, 0), 48.8566, 2.3522);
+        
+        var geocodingService = Substitute.For<IReverseGeocodingService>();
+        var logger = Substitute.For<ILogger<CompanionGpsEnrichmentStep>>();
+        
+        var step = new CompanionGpsEnrichmentStep(gpsIndex, geocodingService, options, logger);
+        var tempFile = CreateTempFile("has_location.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+            context.Metadata.Location = new LocationData("Existing", "Existing", null, null, "US");
+            context.Metadata.UnknownReason = UnknownFileReason.None;
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location!.City.Should().Be("Existing");
+            geocodingService.DidNotReceive().ReverseGeocode(Arg.Any<double>(), Arg.Any<double>());
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void CompanionGpsEnrichmentStep_FileWithCoordinates_SkipsFile()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig { GpsProximityWindowMinutes = 5 };
+        var options = Microsoft.Extensions.Options.Options.Create(config);
+        var gpsIndex = new GpsLocationIndex();
+        gpsIndex.AddLocation(new DateTime(2024, 7, 20, 10, 0, 0), 48.8566, 2.3522);
+        
+        var geocodingService = Substitute.For<IReverseGeocodingService>();
+        var logger = Substitute.For<ILogger<CompanionGpsEnrichmentStep>>();
+        
+        var step = new CompanionGpsEnrichmentStep(gpsIndex, geocodingService, options, logger);
+        var tempFile = CreateTempFile("has_coords.jpg");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+            context.Coordinates = (51.5074, -0.1278); // Already has coordinates
+            context.Metadata.UnknownReason = UnknownFileReason.GeocodingFailed;
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().BeNull();
+            geocodingService.DidNotReceive().ReverseGeocode(Arg.Any<double>(), Arg.Any<double>());
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void CompanionGpsEnrichmentStep_FileWithNoGpsData_UsesCompanionGps()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig { GpsProximityWindowMinutes = 5 };
+        var options = Microsoft.Extensions.Options.Options.Create(config);
+        var gpsIndex = new GpsLocationIndex();
+        var targetTime = new DateTime(2024, 7, 20, 10, 0, 0);
+        gpsIndex.AddLocation(targetTime, 48.8566, 2.3522);
+        
+        var locationData = new LocationData("Paris", "Paris", null, "Île-de-France", "FR");
+        var geocodingService = Substitute.For<IReverseGeocodingService>();
+        geocodingService.ReverseGeocode(Arg.Any<double>(), Arg.Any<double>()).Returns(locationData);
+        
+        var logger = Substitute.For<ILogger<CompanionGpsEnrichmentStep>>();
+        
+        var step = new CompanionGpsEnrichmentStep(gpsIndex, geocodingService, options, logger);
+        var tempFile = CreateTempFile("no_gps_companion.mp4");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+            // Set file time to be within the window
+            context.Metadata.DateTime = new FileDateTime(targetTime.AddMinutes(2), DateTimeSource.ExifDateTimeOriginal);
+            context.Metadata.UnknownReason = UnknownFileReason.NoGpsData;
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().NotBeNull();
+            context.Metadata.Location!.City.Should().Be("Paris");
+            context.Metadata.UnknownReason.Should().Be(UnknownFileReason.None);
+            context.Coordinates.Should().NotBeNull();
+            
+            geocodingService.Received(1).ReverseGeocode(
+                Arg.Is<double>(lat => Math.Abs(lat - 48.8566) < 0.0001),
+                Arg.Is<double>(lon => Math.Abs(lon - 2.3522) < 0.0001));
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void CompanionGpsEnrichmentStep_NoNearbyGps_LeavesFileUnchanged()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig { GpsProximityWindowMinutes = 5 };
+        var options = Microsoft.Extensions.Options.Options.Create(config);
+        var gpsIndex = new GpsLocationIndex();
+        gpsIndex.AddLocation(new DateTime(2024, 7, 20, 10, 0, 0), 48.8566, 2.3522);
+        
+        var geocodingService = Substitute.For<IReverseGeocodingService>();
+        var logger = Substitute.For<ILogger<CompanionGpsEnrichmentStep>>();
+        
+        var step = new CompanionGpsEnrichmentStep(gpsIndex, geocodingService, options, logger);
+        var tempFile = CreateTempFile("far_from_gps.mp4");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+            // 20 minutes away - outside the 5 minute window
+            context.Metadata.DateTime = new FileDateTime(new DateTime(2024, 7, 20, 10, 20, 0), DateTimeSource.ExifDateTimeOriginal);
+            context.Metadata.UnknownReason = UnknownFileReason.NoGpsData;
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().BeNull();
+            context.Metadata.UnknownReason.Should().Be(UnknownFileReason.NoGpsData);
+            geocodingService.DidNotReceive().ReverseGeocode(Arg.Any<double>(), Arg.Any<double>());
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    [Test]
+    public void CompanionGpsEnrichmentStep_GeocodingFails_SetsGeocodingFailedReason()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig { GpsProximityWindowMinutes = 5 };
+        var options = Microsoft.Extensions.Options.Options.Create(config);
+        var gpsIndex = new GpsLocationIndex();
+        var targetTime = new DateTime(2024, 7, 20, 10, 0, 0);
+        gpsIndex.AddLocation(targetTime, 48.8566, 2.3522);
+        
+        var geocodingService = Substitute.For<IReverseGeocodingService>();
+        geocodingService.ReverseGeocode(Arg.Any<double>(), Arg.Any<double>()).Returns((LocationData?)null);
+        
+        var logger = Substitute.For<ILogger<CompanionGpsEnrichmentStep>>();
+        
+        var step = new CompanionGpsEnrichmentStep(gpsIndex, geocodingService, options, logger);
+        var tempFile = CreateTempFile("geocoding_failed.mp4");
+
+        try
+        {
+            var context = new FileMetadataContext(new FileInfo(tempFile));
+            context.Metadata.DateTime = new FileDateTime(targetTime.AddMinutes(2), DateTimeSource.ExifDateTimeOriginal);
+            context.Metadata.UnknownReason = UnknownFileReason.NoGpsData;
+
+            // Act
+            step.Enrich(context);
+
+            // Assert
+            context.Metadata.Location.Should().BeNull();
+            context.Metadata.UnknownReason.Should().Be(UnknownFileReason.GeocodingFailed);
+        }
+        finally
+        {
+            CleanupFile(tempFile);
+        }
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static string CreateTempFile(string fileName)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using AwesomeAssertions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,31 +14,33 @@ namespace PhotoCopy.Tests.Files;
 
 public class CompanionGpsEnricherTests
 {
-    private static readonly string TempDir = Path.Combine(Path.GetTempPath(), "PhotoCopyTests");
-
-    [OneTimeSetUp]
-    public void SetUp()
-    {
-        if (!Directory.Exists(TempDir))
-        {
-            Directory.CreateDirectory(TempDir);
-        }
-    }
-
-    [OneTimeTearDown]
-    public void TearDown()
-    {
-        if (Directory.Exists(TempDir))
-        {
-            Directory.Delete(TempDir, true);
-        }
-    }
-
     private string CreateTempFile(string fileName)
     {
-        var path = Path.Combine(TempDir, fileName);
+        var tempDir = Path.Combine(Path.GetTempPath(), "PhotoCopyTests_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(tempDir);
+        var path = Path.Combine(tempDir, fileName);
         File.WriteAllText(path, "test content");
         return path;
+    }
+
+    private static void CleanupFile(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            var dir = Path.GetDirectoryName(path);
+            if (dir != null && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+            {
+                Directory.Delete(dir);
+            }
+        }
+        catch
+        {
+            // Ignore cleanup errors
+        }
     }
 
     #region IsEnabled Tests

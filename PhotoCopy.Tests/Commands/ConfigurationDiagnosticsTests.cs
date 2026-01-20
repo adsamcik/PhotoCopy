@@ -339,7 +339,7 @@ public class ConfigurationDiagnosticsTests
             "GeonamesPath", "CalculateChecksums", "Parallelism", "ShowProgress", "UseAsync",
             "DuplicateHandling", "EnableRollback", "MaxDepth", "AllowedExtensions",
             "MinimumPopulation", "LocationGranularity", "UseFullCountryNames", "UnknownLocationFallback",
-            "PathCasing", "UnknownReport"
+            "PathCasing", "UnknownReport", "GpsProximityWindowMinutes"
         };
 
         // Act

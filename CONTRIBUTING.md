@@ -44,6 +44,22 @@ dotnet test
 * Ensure all new code is covered by unit tests.
 * Keep code clean and readable.
 
+## Documentation
+
+PhotoCopy has documentation in multiple places:
+
+* **README.md** - User-facing documentation with quick start and examples
+* **docs/destination-variables.md** - Complete reference for destination path variables and fallback syntax
+* **docs/design/** - Technical design documents for complex features:
+  * `conditional-variables.md` - Design spec for threshold-based variables
+  * `two-pass-architecture.md` - Statistics collection architecture
+
+When adding new features:
+
+* Update README.md with user-facing documentation
+* Add or update relevant docs/ files for detailed reference
+* For complex features, add a design document in docs/design/
+
 ## Submitting a Pull Request
 
 1. Create a new branch for your feature or bug fix:

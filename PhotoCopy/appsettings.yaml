@@ -13,4 +13,18 @@ photoCopy:
   minimumPopulation: null  # Minimum population for locations (null = no filter)
   locationGranularity: City  # City, County, State, or Country
   useFullCountryNames: false  # Use "United States" instead of "US"
-  unknownLocationFallback: "Unknown"  # Fallback text when location unavailable
+  
+  # Unknown Location Fallback
+  # ---------------------------
+  # This is the default text used when a photo lacks GPS data or location cannot be determined.
+  # This setting is overridden by inline fallbacks in destination patterns.
+  #
+  # Examples of inline fallback syntax in destination patterns:
+  #   {city|NoLocation}         - Use "NoLocation" instead of this global fallback
+  #   {city|country}            - Try city, then country (variable chain)
+  #   {city|country|Unknown}    - Chain ending with literal fallback
+  #   {city|}                   - Omit folder entirely if city unavailable
+  #   {city?min=10|country}     - Use city only if ≥10 photos, else use country
+  #
+  # See README.md for full documentation on fallback syntax.
+  unknownLocationFallback: "Unknown"
