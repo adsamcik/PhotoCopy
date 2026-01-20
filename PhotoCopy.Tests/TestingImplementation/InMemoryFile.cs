@@ -14,6 +14,7 @@ public class InMemoryFile : IFile
     public string Checksum { get; private set; }
     public UnknownFileReason UnknownReason { get; set; } = UnknownFileReason.None;
     public string? Camera { get; private set; }
+    public string? Album { get; private set; }
 
     /// <summary>
     /// Creates an InMemoryFile with all metadata values specified.

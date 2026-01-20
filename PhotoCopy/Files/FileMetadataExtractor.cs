@@ -304,4 +304,141 @@ public class FileMetadataExtractor : IFileMetadataExtractor
         
         return sanitized.Trim();
     }
+    
+    /// <summary>
+    /// Extracts the album name from EXIF/XMP/IPTC metadata.
+    /// </summary>
+    /// <param name="file">The file to extract album info from.</param>
+    /// <returns>Album name, or null if not available.</returns>
+    public string? GetAlbum(FileInfo file)
+    {
+        if (!IsImage(file.Extension))
+        {
+            return null;
+        }
+        
+        try
+        {
+            var directories = ImageMetadataReader.ReadMetadata(file.FullName);
+            
+            // Try XMP Album first (most specific)
+            var xmpDirectory = directories.OfType<MetadataExtractor.Formats.Xmp.XmpDirectory>().FirstOrDefault();
+            if (xmpDirectory != null)
+            {
+                var xmpMeta = xmpDirectory.XmpMeta;
+                if (xmpMeta != null)
+                {
+                    // Try common XMP album properties
+                    var albumValue = TryGetXmpProperty(xmpMeta, "http://ns.adobe.com/xap/1.0/", "xap:Album")
+                        ?? TryGetXmpProperty(xmpMeta, "http://ns.adobe.com/photoshop/1.0/", "photoshop:Album")
+                        ?? TryGetXmpProperty(xmpMeta, "http://purl.org/dc/elements/1.1/", "dc:album");
+                    
+                    if (!string.IsNullOrWhiteSpace(albumValue))
+                    {
+                        return SanitizeAlbumName(albumValue);
+                    }
+                }
+            }
+            
+            // Try IPTC SupplementalCategories
+            var iptcDirectory = directories.OfType<MetadataExtractor.Formats.Iptc.IptcDirectory>().FirstOrDefault();
+            if (iptcDirectory != null)
+            {
+                var supplementalCategories = iptcDirectory.GetString(MetadataExtractor.Formats.Iptc.IptcDirectory.TagSupplementalCategories);
+                if (!string.IsNullOrWhiteSpace(supplementalCategories))
+                {
+                    return SanitizeAlbumName(supplementalCategories);
+                }
+            }
+            
+            // Try Windows XP Subject (commonly used for albums in Windows)
+            var ifd0Directory = directories.OfType<ExifIfd0Directory>().FirstOrDefault();
+            if (ifd0Directory != null)
+            {
+                var xpSubject = ifd0Directory.GetString(ExifDirectoryBase.TagWinSubject);
+                if (!string.IsNullOrWhiteSpace(xpSubject))
+                {
+                    return SanitizeAlbumName(xpSubject);
+                }
+            }
+            
+            // Try ImageDescription containing "Album:" prefix
+            if (ifd0Directory != null)
+            {
+                var imageDescription = ifd0Directory.GetString(ExifDirectoryBase.TagImageDescription);
+                if (!string.IsNullOrWhiteSpace(imageDescription) && 
+                    imageDescription.StartsWith("Album:", StringComparison.OrdinalIgnoreCase))
+                {
+                    var albumPart = imageDescription.Substring(6).Trim();
+                    if (!string.IsNullOrWhiteSpace(albumPart))
+                    {
+                        return SanitizeAlbumName(albumPart);
+                    }
+                }
+            }
+            
+            return null;
+        }
+        catch (Exception ex)
+        {
+            if (_config.LogLevel == OutputLevel.Verbose)
+            {
+                _logger.LogWarning("Error extracting album from {FileName}: {Message}", file.Name, ex.Message);
+            }
+            return null;
+        }
+    }
+    
+    /// <summary>
+    /// Attempts to get a property value from XMP metadata.
+    /// </summary>
+    private static string? TryGetXmpProperty(XmpCore.IXmpMeta xmpMeta, string namespaceUri, string propertyName)
+    {
+        try
+        {
+            var property = xmpMeta.GetProperty(namespaceUri, propertyName);
+            return property?.Value;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+    
+    /// <summary>
+    /// Sanitizes an album name for use in file paths by removing or replacing invalid characters.
+    /// </summary>
+    private static string SanitizeAlbumName(string album)
+    {
+        if (string.IsNullOrEmpty(album))
+        {
+            return album;
+        }
+        
+        // Remove invalid path characters
+        var invalidChars = Path.GetInvalidFileNameChars();
+        var result = new System.Text.StringBuilder(album.Length);
+        
+        foreach (var c in album)
+        {
+            if (Array.IndexOf(invalidChars, c) < 0)
+            {
+                result.Append(c);
+            }
+            else
+            {
+                // Replace with space (will be normalized later)
+                result.Append(' ');
+            }
+        }
+        
+        // Normalize multiple spaces to single space and trim
+        var sanitized = result.ToString();
+        while (sanitized.Contains("  "))
+        {
+            sanitized = sanitized.Replace("  ", " ");
+        }
+        
+        return sanitized.Trim();
+    }
 }

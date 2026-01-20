@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Checkpoint;
@@ -12,6 +13,7 @@ using PhotoCopy.Files.Geo;
 using PhotoCopy.Files.Geo.Boundaries;
 using PhotoCopy.Files.Metadata;
 using PhotoCopy.Files.Sidecar;
+using PhotoCopy.Logging;
 using PhotoCopy.Progress;
 using PhotoCopy.Rollback;
 using PhotoCopy.Validators;
@@ -75,11 +77,30 @@ public static class ServiceCollectionExtensions
     {
         services.AddLogging(builder =>
         {
-            builder.AddSimpleConsole(options =>
+            // Configure console logging based on format
+            if (config.LogFormat == LogFormat.Json)
             {
-                options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss.fff] ";
-                options.SingleLine = true;
-            });
+                builder.AddConsoleFormatter<JsonConsoleFormatter, PhotoCopyJsonFormatterOptions>();
+                builder.AddConsole(options =>
+                {
+                    options.FormatterName = JsonConsoleFormatter.FormatterName;
+                });
+            }
+            else
+            {
+                builder.AddSimpleConsole(options =>
+                {
+                    options.TimestampFormat = "[yyyy-MM-dd HH:mm:ss.fff] ";
+                    options.SingleLine = true;
+                });
+            }
+
+            // Add file logging if configured
+            if (!string.IsNullOrEmpty(config.LogFilePath))
+            {
+                builder.AddProvider(new FileLoggerProvider(config.LogFilePath, config.LogFormat));
+            }
+
             var minLevel = config.LogLevel switch
             {
                 OutputLevel.Verbose => LogLevel.Trace,
@@ -150,10 +171,12 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IMetadataEnricher, MetadataEnricher>();
         services.AddTransient<IMetadataEnrichmentStep, DateTimeMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, TimeOffsetEnrichmentStep>();
+        services.AddTransient<IMetadataEnrichmentStep, TimezoneEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, SidecarMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, LocationMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, ChecksumMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, CameraMetadataEnrichmentStep>();
+        services.AddTransient<IMetadataEnrichmentStep, AlbumMetadataEnrichmentStep>();
         
         // File system services
         services.AddTransient<IFileFactory, FileFactory>();

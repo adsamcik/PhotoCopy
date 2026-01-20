@@ -123,6 +123,10 @@ public abstract class DirectoryCopierBase
         // Handle {camera} variable - uses camera make/model from EXIF, falls back to "Unknown"
         var cameraFallback = CasingFormatter.ApplyCasing(Config.UnknownCameraFallback ?? Config.UnknownLocationFallback, casing);
         destPath = ReplaceVariableWithFallback(destPath, "camera", file.Camera, cameraFallback, casing, context, locationValues2);
+        
+        // Handle {album} variable - uses album name from EXIF/XMP/IPTC, falls back to "Unknown"
+        var albumFallback = CasingFormatter.ApplyCasing(Config.UnknownAlbumFallback ?? Config.UnknownLocationFallback, casing);
+        destPath = ReplaceVariableWithFallback(destPath, "album", file.Album, albumFallback, casing, context, locationValues2);
 
         // Normalize path to clean up orphaned separators from empty variables
         destPath = NormalizeDestinationPath(destPath);

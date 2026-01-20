@@ -101,3 +101,26 @@ public enum SidecarMetadataPriority
     /// </summary>
     MergePreferEmbedded
 }
+
+/// <summary>
+/// Specifies how to handle timezone information for photo timestamps.
+/// </summary>
+public enum TimezoneHandling
+{
+    /// <summary>
+    /// Keep the original timezone from EXIF metadata.
+    /// No timezone conversion is applied.
+    /// </summary>
+    Original,
+    
+    /// <summary>
+    /// Convert timestamps to the local system timezone.
+    /// </summary>
+    Local,
+    
+    /// <summary>
+    /// Derive timezone from GPS coordinates using longitude-based approximation.
+    /// Timezone offset = longitude / 15 hours (each 15° of longitude = 1 hour).
+    /// </summary>
+    GpsDerived
+}

@@ -27,6 +27,13 @@ public sealed class FileMetadata
     /// Null if camera information is not available.
     /// </summary>
     public string? Camera { get; set; }
+    
+    /// <summary>
+    /// Gets or sets the album name extracted from EXIF metadata.
+    /// Sources include XMP:Album, IPTC:SupplementalCategories, Windows XP Subject.
+    /// Null if album information is not available.
+    /// </summary>
+    public string? Album { get; set; }
 }
 
 public sealed class FileMetadataContext

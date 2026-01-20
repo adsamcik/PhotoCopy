@@ -9,19 +9,44 @@ using PhotoCopy.Checkpoint.Models;
 using PhotoCopy.Configuration;
 using PhotoCopy.Files;
 using PhotoCopy.Tests.Checkpoint.Fakes;
+using PhotoCopy.Tests.TestingImplementation;
 
 namespace PhotoCopy.Tests.Checkpoint;
 
-public class CheckpointValidatorTests
+public class CheckpointValidatorTests : IDisposable
 {
-    private FakeClock _clock = null!;
+    private Fakes.FakeClock _clock = null!;
     private CheckpointValidator _validator = null!;
+    private string _testDirectory = null!;
 
     [Before(Test)]
     public void Setup()
     {
-        _clock = new FakeClock(new DateTime(2026, 1, 20, 12, 0, 0, DateTimeKind.Utc));
+        _clock = new Fakes.FakeClock(new DateTime(2026, 1, 20, 12, 0, 0, DateTimeKind.Utc));
         _validator = new CheckpointValidator(_clock);
+        _testDirectory = Path.Combine(Path.GetTempPath(), "CheckpointValidatorTests_" + Guid.NewGuid().ToString("N")[..8]);
+        Directory.CreateDirectory(_testDirectory);
+    }
+
+    [After(Test)]
+    public void Cleanup()
+    {
+        if (Directory.Exists(_testDirectory))
+        {
+            try
+            {
+                Directory.Delete(_testDirectory, recursive: true);
+            }
+            catch
+            {
+                // Ignore cleanup errors
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        Cleanup();
     }
 
     #region ComputeConfigHash Tests
@@ -140,9 +165,9 @@ public class CheckpointValidatorTests
         // Arrange
         var files = CreateMockFileList(new[]
         {
-            (@"C:\Photos\photo1.jpg", 1024L),
-            (@"C:\Photos\photo2.jpg", 2048L),
-            (@"C:\Photos\photo3.jpg", 512L)
+            ("photo1.jpg", 1024L),
+            ("photo2.jpg", 2048L),
+            ("photo3.jpg", 512L)
         });
 
         // Act
@@ -159,14 +184,14 @@ public class CheckpointValidatorTests
         // Arrange
         var files1 = CreateMockFileList(new[]
         {
-            (@"C:\Photos\photo1.jpg", 1024L),
-            (@"C:\Photos\photo2.jpg", 2048L)
+            ("photo1.jpg", 1024L),
+            ("photo2.jpg", 2048L)
         });
 
         var files2 = CreateMockFileList(new[]
         {
-            (@"C:\Photos\photo1.jpg", 1024L),
-            (@"C:\Photos\photo3.jpg", 2048L)
+            ("photo1.jpg", 1024L),
+            ("photo3.jpg", 2048L)
         });
 
         // Act
@@ -180,15 +205,15 @@ public class CheckpointValidatorTests
     [Test]
     public async Task ComputePlanHash_ReturnsDifferentHash_WhenFileSizeDiffers()
     {
-        // Arrange
+        // Arrange - use different subdirectories to avoid file conflicts
         var files1 = CreateMockFileList(new[]
         {
-            (@"C:\Photos\photo1.jpg", 1024L)
+            ("subdir1/photo1.jpg", 1024L)
         });
 
         var files2 = CreateMockFileList(new[]
         {
-            (@"C:\Photos\photo1.jpg", 2048L)
+            ("subdir2/photo1.jpg", 2048L)
         });
 
         // Act
@@ -507,22 +532,34 @@ public class CheckpointValidatorTests
         };
     }
 
-    private static IReadOnlyList<IFile> CreateMockFileList(
-        IEnumerable<(string FullName, long Length)> fileSpecs)
+    private IReadOnlyList<IFile> CreateMockFileList(
+        IEnumerable<(string FileName, long Length)> fileSpecs)
     {
         var files = new List<IFile>();
+        var baseDate = new DateTime(2026, 1, 15, 10, 0, 0, DateTimeKind.Utc);
 
-        foreach (var (fullName, length) in fileSpecs)
+        foreach (var (fileName, length) in fileSpecs)
         {
-            var mockFile = Substitute.For<IFile>();
-            var fileInfo = Substitute.For<FileInfo>(fullName);
+            // Create a real temp file with the specified size
+            var filePath = Path.Combine(_testDirectory, fileName);
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
             
-            // Mock FileInfo properties
-            mockFile.File.Returns(fileInfo);
-            mockFile.File.FullName.Returns(fullName);
-            mockFile.File.Length.Returns(length);
+            // Create file with specified length
+            using (var fs = System.IO.File.Create(filePath))
+            {
+                if (length > 0)
+                {
+                    fs.SetLength(length);
+                }
+            }
 
-            files.Add(mockFile);
+            // Create an InMemoryFile with the real file path
+            var inMemoryFile = new InMemoryFile(filePath, baseDate);
+            files.Add(inMemoryFile);
         }
 
         return files;

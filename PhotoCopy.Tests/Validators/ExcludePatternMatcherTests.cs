@@ -32,6 +32,7 @@ public class ExcludePatternMatcherTests
         public string Checksum => string.Empty;
         public UnknownFileReason UnknownReason => UnknownFileReason.None;
         public string? Camera => null;
+        public string? Album => null;
     }
 
     private IFile CreateMockFile(string relativePath)

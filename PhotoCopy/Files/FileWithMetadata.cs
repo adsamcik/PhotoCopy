@@ -27,6 +27,11 @@ public class FileWithMetadata : IFile
     /// </summary>
     public string? Camera { get; set; }
     
+    /// <summary>
+    /// Gets or sets the album name extracted from EXIF metadata.
+    /// </summary>
+    public string? Album { get; set; }
+    
     public IReadOnlyCollection<IFile> RelatedFiles => _relatedFiles;
 
     public FileWithMetadata(FileInfo file, FileDateTime fileDateTime, ILogger logger)

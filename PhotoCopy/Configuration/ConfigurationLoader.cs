@@ -64,6 +64,16 @@ public static class ConfigurationLoader
             config.LogLevel = options.LogLevel.Value;
             diagnostics.RecordSource("LogLevel", options.LogLevel.Value.ToString(), ConfigSourceType.CommandLine, "--log-level");
         }
+        if (options.LogFormat.HasValue)
+        {
+            config.LogFormat = options.LogFormat.Value;
+            diagnostics.RecordSource("LogFormat", options.LogFormat.Value.ToString(), ConfigSourceType.CommandLine, "--log-format");
+        }
+        if (!string.IsNullOrEmpty(options.LogFilePath))
+        {
+            config.LogFilePath = options.LogFilePath;
+            diagnostics.RecordSource("LogFilePath", options.LogFilePath, ConfigSourceType.CommandLine, "--log-file");
+        }
 
         return (config, diagnostics);
     }
@@ -105,6 +115,8 @@ public static class ConfigurationLoader
 
         // Apply common overrides
         if (options.LogLevel.HasValue) config.LogLevel = options.LogLevel.Value;
+        if (options.LogFormat.HasValue) config.LogFormat = options.LogFormat.Value;
+        if (!string.IsNullOrEmpty(options.LogFilePath)) config.LogFilePath = options.LogFilePath;
 
         return config;
     }
@@ -170,6 +182,7 @@ public static class ConfigurationLoader
 
         ApplyExcludePatterns(config, options.ExcludePatterns, diagnostics);
         ApplyTimeOffset(config, options.TimeOffset, diagnostics);
+        ApplyTimezoneHandling(config, options.Timezone, diagnostics);
 
         // Checkpoint options
         ApplyIfTrue(options.Resume, v => config.Resume = v, "Resume", "--resume", diagnostics);
@@ -284,6 +297,33 @@ public static class ConfigurationLoader
         {
             config.TimeOffset = timeSpan;
             diagnostics?.RecordSource("TimeOffset", TimeOffsetParser.Format(timeSpan), ConfigSourceType.CommandLine, "--time-offset");
+        }
+        // Invalid format errors will be caught by validate-config command
+    }
+
+    /// <summary>
+    /// Applies timezone handling mode from command line options.
+    /// Parses the timezone string and sets the TimezoneHandling property.
+    /// </summary>
+    private static void ApplyTimezoneHandling(PhotoCopyConfig config, string? timezoneString, ConfigurationDiagnostics? diagnostics)
+    {
+        if (string.IsNullOrEmpty(timezoneString))
+        {
+            return;
+        }
+
+        var handling = timezoneString.ToLowerInvariant() switch
+        {
+            "original" => TimezoneHandling.Original,
+            "local" => TimezoneHandling.Local,
+            "gps" => TimezoneHandling.GpsDerived,
+            _ => (TimezoneHandling?)null
+        };
+
+        if (handling.HasValue)
+        {
+            config.TimezoneHandling = handling.Value;
+            diagnostics?.RecordSource("TimezoneHandling", handling.Value.ToString(), ConfigSourceType.CommandLine, "--timezone");
         }
         // Invalid format errors will be caught by validate-config command
     }

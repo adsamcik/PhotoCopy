@@ -37,7 +37,8 @@ public class FileFactory : IFileFactory
             {
                 Location = metadata.Location,
                 UnknownReason = metadata.UnknownReason,
-                Camera = metadata.Camera
+                Camera = metadata.Camera,
+                Album = metadata.Album
             };
 
             if (!string.IsNullOrWhiteSpace(metadata.Checksum))

@@ -15,6 +15,18 @@ public class PhotoCopyConfig
     public bool NoDuplicateSkip { get; set; }
     public OperationMode Mode { get; set; } = OperationMode.Copy;
     public OutputLevel LogLevel { get; set; } = OutputLevel.Important;
+    
+    /// <summary>
+    /// The output format for log messages.
+    /// </summary>
+    public LogFormat LogFormat { get; set; } = LogFormat.Text;
+    
+    /// <summary>
+    /// Optional file path for writing log output.
+    /// When set, log messages are written to this file in addition to the console.
+    /// </summary>
+    public string? LogFilePath { get; set; }
+    
     public RelatedFileLookup RelatedFileMode { get; set; } = RelatedFileLookup.None;
     public string DuplicatesFormat { get; set; } = "-{number}";
     public DateTime? MinDate { get; set; }
@@ -97,6 +109,12 @@ public class PhotoCopyConfig
     public string? UnknownCameraFallback { get; set; }
     
     /// <summary>
+    /// Fallback text used when album name is unavailable.
+    /// If null, uses UnknownLocationFallback value.
+    /// </summary>
+    public string? UnknownAlbumFallback { get; set; }
+    
+    /// <summary>
     /// The casing style to apply to destination path variable values.
     /// Affects location-based variables like {city}, {country}, {state}, etc.
     /// </summary>
@@ -163,6 +181,14 @@ public class PhotoCopyConfig
     /// Positive values move timestamps forward, negative values move them backward.
     /// </summary>
     public TimeSpan? TimeOffset { get; set; }
+
+    /// <summary>
+    /// Specifies how to handle timezone information for photo timestamps.
+    /// Original: Keep original timezone from EXIF.
+    /// Local: Convert to local system timezone.
+    /// GpsDerived: Use GPS coordinates to derive timezone (longitude / 15 hours).
+    /// </summary>
+    public TimezoneHandling TimezoneHandling { get; set; } = TimezoneHandling.Original;
 
     /// <summary>
     /// Enable checkpoint persistence for resume support.

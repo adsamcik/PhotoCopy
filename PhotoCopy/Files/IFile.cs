@@ -21,4 +21,10 @@ public interface IFile
     /// Returns null if camera information is not available.
     /// </summary>
     string? Camera { get; }
+    
+    /// <summary>
+    /// Gets the album name extracted from EXIF metadata.
+    /// Returns null if album information is not available.
+    /// </summary>
+    string? Album { get; }
 }

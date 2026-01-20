@@ -335,13 +335,13 @@ public class ConfigurationDiagnosticsTests
         var expectedProperties = new List<string>
         {
             "Source", "Destination", "DryRun", "SkipExisting", "Overwrite", "NoDuplicateSkip",
-            "Mode", "LogLevel", "RelatedFileMode", "DuplicatesFormat", "MinDate", "MaxDate",
+            "Mode", "LogLevel", "LogFormat", "LogFilePath", "RelatedFileMode", "DuplicatesFormat", "MinDate", "MaxDate",
             "GeonamesPath", "CalculateChecksums", "Parallelism", "ShowProgress", "UseAsync",
             "DuplicateHandling", "EnableRollback", "MaxDepth", "AllowedExtensions", "Resume", "FreshStart",
             "MinimumPopulation", "LocationGranularity", "UseFullCountryNames", "UnknownLocationFallback",
-            "UnknownCameraFallback", "PathCasing", "UnknownReport", "GpsProximityWindowMinutes", 
+            "UnknownCameraFallback", "UnknownAlbumFallback", "PathCasing", "UnknownReport", "GpsProximityWindowMinutes", 
             "EnableLivePhotoInheritance", "ExcludePatterns", "SidecarMetadataFallback", "SidecarExtensions", 
-            "GoogleTakeoutSupport", "SidecarPriority", "TimeOffset", "EnableCheckpoint", "CheckpointDirectory"
+            "GoogleTakeoutSupport", "SidecarPriority", "TimeOffset", "TimezoneHandling", "EnableCheckpoint", "CheckpointDirectory"
         };
 
         // Act

@@ -15,6 +15,12 @@ public abstract class CommonOptions
 
     [Option('l', "log-level", Required = false, HelpText = "Log level (verbose/important/errorsOnly)")]
     public OutputLevel? LogLevel { get; set; }
+
+    [Option("log-format", Required = false, HelpText = "Log output format (text/json)")]
+    public LogFormat? LogFormat { get; set; }
+
+    [Option("log-file", Required = false, HelpText = "Path to write log output to a file")]
+    public string? LogFilePath { get; set; }
 }
 
 /// <summary>
@@ -88,6 +94,9 @@ public class CopyOptions : CommonOptions
 
     [Option("time-offset", Required = false, HelpText = "Time offset to apply to file timestamps (e.g., +2:00, -1:30, +1d, +1d2:30)")]
     public string? TimeOffset { get; set; }
+
+    [Option("timezone", Required = false, HelpText = "Timezone handling mode: original (keep EXIF), local (convert to local), gps (derive from GPS coordinates)")]
+    public string? Timezone { get; set; }
 
     [Option("resume", Required = false, HelpText = "Resume from previous checkpoint (skips confirmation)")]
     public bool Resume { get; set; }

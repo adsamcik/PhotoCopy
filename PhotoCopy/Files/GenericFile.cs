@@ -29,6 +29,11 @@ public class GenericFile : IFile, IDisposable
     public string? Camera => null;
     
     /// <summary>
+    /// Gets the album name. GenericFile always returns null as it doesn't support EXIF metadata.
+    /// </summary>
+    public string? Album => null;
+    
+    /// <summary>
     /// Gets the file checksum. Returns an empty string if not calculated.
     /// Use <see cref="EnsureChecksum"/> or <see cref="CalculateChecksum"/> to compute the checksum.
     /// </summary>

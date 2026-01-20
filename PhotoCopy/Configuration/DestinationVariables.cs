@@ -32,4 +32,10 @@ public static class DestinationVariables
     /// For example, "Apple iPhone 15 Pro" or "Canon EOS R5".
     /// </summary>
     public const string Camera = "{camera}";
+    
+    /// <summary>
+    /// The album name extracted from EXIF metadata.
+    /// Sources include XMP:Album, IPTC:SupplementalCategories, Windows XP Subject.
+    /// </summary>
+    public const string Album = "{album}";
 }
