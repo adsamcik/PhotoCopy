@@ -28,3 +28,17 @@ photoCopy:
   #
   # See README.md for full documentation on fallback syntax.
   unknownLocationFallback: "Unknown"
+
+  # Sidecar Metadata Support
+  # Whether to read metadata from sidecar files (.xmp, .json) when main file lacks metadata
+  # sidecarMetadataFallback: false
+
+  # Extensions recognized as sidecar metadata files
+  # sidecarExtensions: [".xmp", ".json"]
+
+  # Parse Google Takeout JSON format for metadata (photoTakenTime, geoData fields)
+  # googleTakeoutSupport: true
+
+  # How to handle when both embedded and sidecar metadata exist
+  # Options: EmbeddedFirst, SidecarFirst, MergePreferEmbedded
+  # sidecarPriority: EmbeddedFirst

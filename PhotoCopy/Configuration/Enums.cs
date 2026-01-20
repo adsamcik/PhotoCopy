@@ -80,3 +80,24 @@ public enum PathCasing
     /// </summary>
     ScreamingSnakeCase
 }
+
+/// <summary>
+/// Specifies how to handle metadata when both embedded and sidecar metadata exist.
+/// </summary>
+public enum SidecarMetadataPriority
+{
+    /// <summary>
+    /// Use embedded metadata first, fall back to sidecar only if missing.
+    /// </summary>
+    EmbeddedFirst,
+    
+    /// <summary>
+    /// Use sidecar metadata first (user edits override camera data).
+    /// </summary>
+    SidecarFirst,
+    
+    /// <summary>
+    /// Merge: use sidecar only for fields missing in embedded metadata.
+    /// </summary>
+    MergePreferEmbedded
+}

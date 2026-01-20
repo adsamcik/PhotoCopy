@@ -97,6 +97,48 @@ public class PhotoCopyConfig
     /// </summary>
     public int? GpsProximityWindowMinutes { get; set; }
     
+    /// <summary>
+    /// Whether to enable Live Photo metadata inheritance.
+    /// When enabled, companion .mov videos from iPhone Live Photos will inherit
+    /// GPS and date metadata from their paired .heic/.jpg photos with the same base name.
+    /// This is particularly useful for iPhone Live Photos where the video lacks GPS data.
+    /// Default is true.
+    /// </summary>
+    public bool EnableLivePhotoInheritance { get; set; } = true;
+    
+    /// <summary>
+    /// Glob patterns for files to exclude from processing.
+    /// Supports patterns like "*.aae", "*_thumb*", ".trashed-*".
+    /// Patterns are matched against relative file paths from the source root.
+    /// </summary>
+    public List<string> ExcludePatterns { get; set; } = new();
+    
+    /// <summary>
+    /// Whether to read metadata from sidecar files (XMP, JSON) when the main file lacks metadata.
+    /// When enabled, PhotoCopy will look for .xmp or .json sidecar files and extract GPS/date information.
+    /// </summary>
+    public bool SidecarMetadataFallback { get; set; } = false;
+
+    /// <summary>
+    /// Extensions to recognize as sidecar metadata files.
+    /// These files will be checked for metadata when SidecarMetadataFallback is enabled.
+    /// </summary>
+    public HashSet<string> SidecarExtensions { get; set; } = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".xmp", ".json"
+    };
+
+    /// <summary>
+    /// Whether to parse Google Takeout JSON format for metadata extraction.
+    /// Google Photos exports metadata in separate .json files with photoTakenTime and geoData fields.
+    /// </summary>
+    public bool GoogleTakeoutSupport { get; set; } = true;
+
+    /// <summary>
+    /// How to prioritize metadata when both embedded file metadata and sidecar metadata exist.
+    /// </summary>
+    public SidecarMetadataPriority SidecarPriority { get; set; } = SidecarMetadataPriority.EmbeddedFirst;
+
     public HashSet<string> AllowedExtensions { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
         ".jpg", ".jpeg", ".png", ".heic", ".mov", ".mp4", ".avi", ".cr2", ".raf", ".nef", ".arw", ".dng"

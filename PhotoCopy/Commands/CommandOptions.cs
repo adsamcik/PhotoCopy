@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using CommandLine;
 using PhotoCopy.Configuration;
 
@@ -78,6 +79,12 @@ public class CopyOptions : CommonOptions
 
     [Option("unknown-report", Required = false, HelpText = "Show a report of files that went to Unknown folder (none/summary/detailed)")]
     public UnknownReportLevel? UnknownReport { get; set; }
+
+    [Option('x', "exclude", Required = false, Separator = ',', HelpText = "Glob patterns for files to exclude (can be specified multiple times, e.g., --exclude *.aae --exclude *_thumb*)")]
+    public IEnumerable<string>? ExcludePatterns { get; set; }
+
+    [Option("sidecar-metadata", Required = false, HelpText = "Enable reading metadata from sidecar files (XMP/JSON)")]
+    public bool? SidecarMetadataFallback { get; set; }
 }
 
 /// <summary>
@@ -138,6 +145,9 @@ public class ScanOptions : CommonOptions
 
     [Option("json", Required = false, HelpText = "Output results as JSON")]
     public bool OutputJson { get; set; }
+
+    [Option('x', "exclude", Required = false, Separator = ',', HelpText = "Glob patterns for files to exclude (can be specified multiple times, e.g., --exclude *.aae --exclude *_thumb*)")]
+    public IEnumerable<string>? ExcludePatterns { get; set; }
 }
 
 /// <summary>
@@ -148,6 +158,9 @@ public class ValidateOptions : CommonOptions
 {
     [Option('s', "source", Required = false, HelpText = "Source folder to scan for files")]
     public string? Source { get; set; }
+
+    [Option('x', "exclude", Required = false, Separator = ',', HelpText = "Glob patterns for files to exclude (can be specified multiple times, e.g., --exclude *.aae --exclude *_thumb*)")]
+    public IEnumerable<string>? ExcludePatterns { get; set; }
 
     [Option("min-date", Required = false, HelpText = "Minimum date for files to process")]
     public DateTime? MinDate { get; set; }
