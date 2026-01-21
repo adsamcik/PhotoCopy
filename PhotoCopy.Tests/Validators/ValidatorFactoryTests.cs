@@ -99,4 +99,94 @@ public class ValidatorFactoryTests
         // Assert
         await Assert.That(validators).IsEmpty();
     }
+
+    #region ExcludePatternMatcher Tests
+
+    [Test]
+    public async Task Create_ReturnsExcludePatternMatcher_WhenExcludePatternsProvided()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig
+        {
+            Source = "C:\\Photos",
+            Destination = "C:\\Output",
+            ExcludePatterns = new List<string> { "*.aae", "*_thumb*" }
+        };
+        
+        var logger = Substitute.For<ILogger<ValidatorFactory>>();
+
+        // Act
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
+
+        // Assert
+        await Assert.That(validators.Count).IsEqualTo(1);
+        await Assert.That(validators.Any(v => v is ExcludePatternMatcher)).IsTrue();
+    }
+
+    [Test]
+    public async Task Create_DoesNotReturnExcludePatternMatcher_WhenExcludePatternsEmpty()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig
+        {
+            Source = "C:\\Photos",
+            Destination = "C:\\Output",
+            ExcludePatterns = new List<string>()
+        };
+        
+        var logger = Substitute.For<ILogger<ValidatorFactory>>();
+
+        // Act
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
+
+        // Assert
+        await Assert.That(validators.Any(v => v is ExcludePatternMatcher)).IsFalse();
+    }
+
+    [Test]
+    public async Task Create_ReturnsExcludePatternMatcher_WithDateValidators()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig
+        {
+            Source = "C:\\Photos",
+            Destination = "C:\\Output",
+            ExcludePatterns = new List<string> { "*.aae" },
+            MinDate = new DateTime(2023, 1, 1),
+            MaxDate = new DateTime(2023, 12, 31)
+        };
+        
+        var logger = Substitute.For<ILogger<ValidatorFactory>>();
+
+        // Act
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
+
+        // Assert
+        await Assert.That(validators.Count).IsEqualTo(3);
+        await Assert.That(validators.Any(v => v is ExcludePatternMatcher)).IsTrue();
+        await Assert.That(validators.Any(v => v is MinDateValidator)).IsTrue();
+        await Assert.That(validators.Any(v => v is MaxDateValidator)).IsTrue();
+    }
+
+    [Test]
+    public async Task Create_DoesNotReturnExcludePatternMatcher_WhenExcludePatternsNull()
+    {
+        // Arrange
+        var config = new PhotoCopyConfig
+        {
+            Source = "C:\\Photos",
+            Destination = "C:\\Output"
+        };
+        // ExcludePatterns defaults to empty list
+        
+        var logger = Substitute.For<ILogger<ValidatorFactory>>();
+
+        // Act
+        IReadOnlyCollection<IValidator> validators = new ValidatorFactory(logger).Create(config);
+
+        // Assert
+        await Assert.That(validators.Any(v => v is ExcludePatternMatcher)).IsFalse();
+    }
+
+    #endregion
 }

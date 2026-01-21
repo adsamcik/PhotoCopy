@@ -17,7 +17,7 @@ __-i, --input__            Required. Path to a source directory, which will be s
 
 __-o, --output__          Required. Destination path for the operation. Determines the final path files have. Supported
                          variables (case-sensitive): {year}, {month}, {day}, {dayOfYear}, {directory}, {name},
-                         {nameNoExtension}, {extension}
+                         {nameNoExtension}, {extension}, {camera}, {album}
 
 * {year} -  year extracted from file creation date or exif
 * {month} - month extracted from file creation date or exif
@@ -27,6 +27,8 @@ __-o, --output__          Required. Destination path for the operation. Determin
 * {name} - file name with extension
 * {nameNoExtension} - file name without extension
 * {extension} - file extension
+* {camera} - camera make/model from EXIF metadata (e.g., "Canon EOS R5")
+* {album} - album name from EXIF/XMP/IPTC metadata
 
 __-d, --dry__              Only prints what will happen without actually doing it. It is recommended to combine it with
                          log level verbose.
