@@ -303,47 +303,49 @@ public sealed class BinaryCheckpointStore : ICheckpointStore
         var recordsOffset = AlignTo8(stringsEnd);
         header.RecordsOffset = recordsOffset;
 
-        // Write initial file
-        await using var stream = new FileStream(
-            filePath,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            bufferSize: 4096,
-            FileOptions.Asynchronous | FileOptions.WriteThrough);
-
-        // Write header
-        var headerBuffer = ArrayPool<byte>.Shared.Rent(CheckpointHeader.HeaderSize);
-        try
+        // Write initial file - use explicit block to ensure stream is closed before creating writer
         {
-            header.WriteTo(headerBuffer.AsSpan(0, CheckpointHeader.HeaderSize));
-            await stream.WriteAsync(headerBuffer.AsMemory(0, CheckpointHeader.HeaderSize), ct).ConfigureAwait(false);
+            await using var stream = new FileStream(
+                filePath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize: 4096,
+                FileOptions.Asynchronous | FileOptions.WriteThrough);
+
+            // Write header
+            var headerBuffer = ArrayPool<byte>.Shared.Rent(CheckpointHeader.HeaderSize);
+            try
+            {
+                header.WriteTo(headerBuffer.AsSpan(0, CheckpointHeader.HeaderSize));
+                await stream.WriteAsync(headerBuffer.AsMemory(0, CheckpointHeader.HeaderSize), ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(headerBuffer);
+            }
+
+            // Write source directory
+            await stream.WriteAsync(sourceBytes, ct).ConfigureAwait(false);
+
+            // Write destination pattern
+            await stream.WriteAsync(destBytes, ct).ConfigureAwait(false);
+
+            // Write padding to align to 8 bytes
+            var paddingSize = recordsOffset - stringsEnd;
+            if (paddingSize > 0)
+            {
+                var padding = new byte[paddingSize];
+                await stream.WriteAsync(padding, ct).ConfigureAwait(false);
+            }
+
+            await stream.FlushAsync(ct).ConfigureAwait(false);
         }
-        finally
-        {
-            ArrayPool<byte>.Shared.Return(headerBuffer);
-        }
-
-        // Write source directory
-        await stream.WriteAsync(sourceBytes, ct).ConfigureAwait(false);
-
-        // Write destination pattern
-        await stream.WriteAsync(destBytes, ct).ConfigureAwait(false);
-
-        // Write padding to align to 8 bytes
-        var paddingSize = recordsOffset - stringsEnd;
-        if (paddingSize > 0)
-        {
-            var padding = new byte[paddingSize];
-            await stream.WriteAsync(padding, ct).ConfigureAwait(false);
-        }
-
-        await stream.FlushAsync(ct).ConfigureAwait(false);
 
         // Update state with file path
         state.FilePath = filePath;
 
-        // Create and return the writer
+        // Create and return the writer - stream is now closed
         return new AsyncCheckpointWriter(
             filePath,
             state.TotalFiles,

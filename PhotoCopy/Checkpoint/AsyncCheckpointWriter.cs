@@ -173,9 +173,18 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
         // Write to channel (non-blocking unless full)
         if (!_writer.TryWrite(record))
         {
-            // Channel is full, block until space is available
-            // This provides backpressure to prevent memory issues
-            _writer.WriteAsync(record).AsTask().GetAwaiter().GetResult();
+            // Channel is full - use SpinWait to avoid thread pool starvation
+            // This is preferable to .GetAwaiter().GetResult() which can cause deadlocks
+            var spinWait = new SpinWait();
+            while (!_writer.TryWrite(record))
+            {
+                if (_disposed || _cts.IsCancellationRequested)
+                {
+                    // Don't block forever if we're disposing
+                    return;
+                }
+                spinWait.SpinOnce();
+            }
         }
     }
 

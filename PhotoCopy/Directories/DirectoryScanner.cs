@@ -54,7 +54,8 @@ public class DirectoryScanner : IDirectoryScanner
         IEnumerable<string> filePaths;
         if (isUnlimited)
         {
-            filePaths = Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories);
+            // Use safe enumeration that handles UnauthorizedAccessException for inaccessible directories
+            filePaths = EnumerateFilesRecursiveSafe(path, cancellationToken);
         }
         else
         {
@@ -179,6 +180,59 @@ public class DirectoryScanner : IDirectoryScanner
                 {
                     directoriesToProcess.Enqueue((subdir, currentDepth + 1));
                 }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Enumerates files recursively with no depth limit, handling UnauthorizedAccessException gracefully.
+    /// </summary>
+    /// <param name="rootPath">The root directory to start enumeration from.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Enumerable of file paths.</returns>
+    private IEnumerable<string> EnumerateFilesRecursiveSafe(string rootPath, CancellationToken cancellationToken)
+    {
+        var directoriesToProcess = new Queue<string>();
+        directoriesToProcess.Enqueue(rootPath);
+
+        while (directoriesToProcess.Count > 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var currentPath = directoriesToProcess.Dequeue();
+
+            // Enumerate files in current directory
+            IEnumerable<string> files;
+            try
+            {
+                files = Directory.EnumerateFiles(currentPath, "*.*", SearchOption.TopDirectoryOnly);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning("Access denied to directory {Path}: {Message}", currentPath, ex.Message);
+                continue;
+            }
+
+            foreach (var file in files)
+            {
+                yield return file;
+            }
+
+            // Enumerate subdirectories for recursive processing
+            IEnumerable<string> subdirectories;
+            try
+            {
+                subdirectories = Directory.EnumerateDirectories(currentPath);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                _logger.LogWarning("Access denied to enumerate subdirectories of {Path}: {Message}", currentPath, ex.Message);
+                continue;
+            }
+
+            foreach (var subdir in subdirectories)
+            {
+                directoriesToProcess.Enqueue(subdir);
             }
         }
     }
