@@ -54,6 +54,10 @@ public class ValidateConfigCommand : ICommand
         IOptions<PhotoCopyConfig> options,
         IFileSystem fileSystem)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
         _logger = logger;
         _config = options.Value;
         _fileSystem = fileSystem;
@@ -79,7 +83,7 @@ public class ValidateConfigCommand : ICommand
         // Return appropriate exit code
         if (_errors.Count > 0)
         {
-            return Task.FromResult((int)ExitCode.Error);
+            return Task.FromResult((int)ExitCode.ConfigurationError);
         }
 
         return Task.FromResult((int)ExitCode.Success);

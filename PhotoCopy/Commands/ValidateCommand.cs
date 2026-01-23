@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -30,6 +31,12 @@ public class ValidateCommand : ICommand
         IFileValidationService fileValidationService,
         IFileSystem fileSystem)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(validatorFactory);
+        ArgumentNullException.ThrowIfNull(fileValidationService);
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
         _logger = logger;
         _config = options.Value;
         _validatorFactory = validatorFactory;
@@ -98,12 +105,22 @@ public class ValidateCommand : ICommand
                 }
             }
 
-            return stats.InvalidFiles > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
+            return stats.InvalidFiles > 0 ? (int)ExitCode.ValidationError : (int)ExitCode.Success;
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Validation was cancelled");
             return (int)ExitCode.Cancelled;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Validation failed due to permission error");
+            return (int)ExitCode.IOError;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Validation failed due to I/O error");
+            return (int)ExitCode.IOError;
         }
         catch (Exception ex)
         {

@@ -26,6 +26,10 @@ public class ConfigCommand : ICommand
         ConfigurationDiagnostics diagnostics,
         bool outputJson = false)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(diagnostics);
+
         _logger = logger;
         _config = options.Value;
         _diagnostics = diagnostics;

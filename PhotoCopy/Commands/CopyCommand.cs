@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -33,6 +34,13 @@ public class CopyCommand : ICommand
         IValidatorFactory validatorFactory,
         IProgressReporter progressReporter)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(directoryCopier);
+        ArgumentNullException.ThrowIfNull(directoryCopierAsync);
+        ArgumentNullException.ThrowIfNull(validatorFactory);
+        ArgumentNullException.ThrowIfNull(progressReporter);
+
         _logger = logger;
         _config = options.Value;
         _directoryCopier = directoryCopier;
@@ -67,12 +75,34 @@ public class CopyCommand : ICommand
             OutputStatisticsSummary(result);
             OutputUnknownFilesReport(result);
             
-            return result.FilesFailed > 0 ? (int)ExitCode.Error : (int)ExitCode.Success;
+            // Return appropriate exit code based on results
+            if (result.FilesFailed > 0 && result.FilesProcessed > 0)
+            {
+                // Some files succeeded, some failed
+                return (int)ExitCode.PartialSuccess;
+            }
+            else if (result.FilesFailed > 0)
+            {
+                // All files failed
+                return (int)ExitCode.Error;
+            }
+            
+            return (int)ExitCode.Success;
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Operation was cancelled");
             return (int)ExitCode.Cancelled;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Copy operation failed due to permission error");
+            return (int)ExitCode.IOError;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Copy operation failed due to I/O error");
+            return (int)ExitCode.IOError;
         }
         catch (Exception ex)
         {

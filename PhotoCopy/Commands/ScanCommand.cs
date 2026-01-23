@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -37,6 +38,14 @@ public class ScanCommand : ICommand
         IFileSystem fileSystem,
         bool outputJson = false)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(options);
+        ArgumentNullException.ThrowIfNull(directoryScanner);
+        ArgumentNullException.ThrowIfNull(validatorFactory);
+        ArgumentNullException.ThrowIfNull(fileValidationService);
+        ArgumentNullException.ThrowIfNull(fileFactory);
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
         _logger = logger;
         _config = options.Value;
         _directoryScanner = directoryScanner;
@@ -120,6 +129,16 @@ public class ScanCommand : ICommand
         {
             _logger.LogWarning("Scan was cancelled");
             return (int)ExitCode.Cancelled;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Scan failed due to permission error");
+            return (int)ExitCode.IOError;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Scan failed due to I/O error");
+            return (int)ExitCode.IOError;
         }
         catch (Exception ex)
         {

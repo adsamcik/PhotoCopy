@@ -32,6 +32,10 @@ public class RollbackCommand : ICommand
         bool listLogs = false,
         bool skipConfirmation = false)
     {
+        ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(rollbackService);
+        ArgumentNullException.ThrowIfNull(fileSystem);
+
         _logger = logger;
         _rollbackService = rollbackService;
         _fileSystem = fileSystem;
@@ -53,13 +57,13 @@ public class RollbackCommand : ICommand
             if (string.IsNullOrEmpty(_transactionLogPath))
             {
                 _logger.LogError("Transaction log path is required. Use --file to specify, or --list to see available logs.");
-                return (int)ExitCode.Error;
+                return (int)ExitCode.InvalidArguments;
             }
 
             if (!_fileSystem.FileExists(_transactionLogPath))
             {
                 _logger.LogError("Transaction log not found: {Path}", _transactionLogPath);
-                return (int)ExitCode.Error;
+                return (int)ExitCode.IOError;
             }
 
             Console.WriteLine($"About to rollback transaction from: {_transactionLogPath}");
@@ -104,6 +108,12 @@ public class RollbackCommand : ICommand
                     _logger.LogError("  {Error}", error);
                 }
 
+                // Some files were restored, some failed = partial success
+                if (result.FilesRestored > 0)
+                {
+                    return (int)ExitCode.PartialSuccess;
+                }
+                
                 return (int)ExitCode.Error;
             }
         }
@@ -111,6 +121,16 @@ public class RollbackCommand : ICommand
         {
             _logger.LogWarning("Rollback cancelled.");
             return (int)ExitCode.Cancelled;
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            _logger.LogError(ex, "Rollback failed due to permission error");
+            return (int)ExitCode.IOError;
+        }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Rollback failed due to I/O error");
+            return (int)ExitCode.IOError;
         }
         catch (Exception ex)
         {
