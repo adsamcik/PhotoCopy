@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
@@ -19,6 +20,7 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
     private const int ChannelCapacity = 10_000;
     private const int BatchSize = 170; // ~4KB batches (170 * 24 bytes = 4080 bytes)
     private const int WriteBufferSize = BatchSize * OperationRecord.RecordSize;
+    private const int BitsPerWord = 64;
 
     private readonly string _checkpointPath;
     private readonly int _totalFiles;
@@ -30,9 +32,10 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
     private readonly ChannelWriter<OperationRecord> _writer;
     private readonly ChannelReader<OperationRecord> _reader;
 
-    // O(1) completion tracking - 125KB for 1M files
-    private readonly BitArray _completed;
-    private readonly object _completedLock = new();
+    // Lock-free O(1) completion tracking using atomic bit operations
+    // Uses long[] with Interlocked.Or for thread-safe bit setting
+    // Memory: ~125KB for 1M files (1M / 8 = 125KB)
+    private readonly long[] _completedBits;
 
     // Error tracking for failed files
     private readonly ConcurrentDictionary<int, string> _errors = new();
@@ -72,8 +75,10 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
         _clock = clock ?? SystemClock.Instance;
         _lastUpdatedUtc = _clock.UtcNow;
 
-        // Initialize BitArray for completion tracking
-        _completed = new BitArray(totalFiles);
+        // Initialize lock-free bit array for completion tracking
+        // Calculate number of 64-bit words needed: ceil(totalFiles / 64)
+        var wordCount = (totalFiles + BitsPerWord - 1) / BitsPerWord;
+        _completedBits = new long[wordCount];
 
         // Create bounded channel for backpressure
         var options = new BoundedChannelOptions(ChannelCapacity)
@@ -124,12 +129,12 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
         ISystemClock? clock = null)
         : this(checkpointPath, totalFiles, recordsOffset, clock)
     {
-        // Restore existing state
-        lock (_completedLock)
+        // Restore existing state from BitArray into lock-free bit array
+        for (var i = 0; i < existingCompleted.Length && i < _totalFiles; i++)
         {
-            for (var i = 0; i < existingCompleted.Length && i < _completed.Length; i++)
+            if (existingCompleted[i])
             {
-                _completed[i] = existingCompleted[i];
+                SetBit(i);
             }
         }
 
@@ -161,11 +166,8 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
         var now = _clock.UtcNow;
         var record = new OperationRecord(fileIndex, result, fileSize, now);
 
-        // Mark as completed in BitArray (thread-safe)
-        lock (_completedLock)
-        {
-            _completed[fileIndex] = true;
-        }
+        // Mark as completed using lock-free atomic bit operation
+        SetBit(fileIndex);
 
         // Update statistics using Interlocked
         UpdateStatistics(result, fileSize, now);
@@ -210,10 +212,8 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
         if (fileIndex < 0 || fileIndex >= _totalFiles)
             return false;
 
-        lock (_completedLock)
-        {
-            return _completed[fileIndex];
-        }
+        // Lock-free bit read with volatile semantics
+        return GetBit(fileIndex);
     }
 
     /// <inheritdoc/>
@@ -454,4 +454,39 @@ public sealed class AsyncCheckpointWriter : ICheckpointWriter
         // Seek back to records position for future writes
         _fileStream.Seek(_currentRecordOffset, SeekOrigin.Begin);
     }
+
+    #region Lock-Free Bit Operations
+
+    /// <summary>
+    /// Atomically sets a bit in the completion array using Interlocked.Or.
+    /// This is lock-free and thread-safe for concurrent writers.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetBit(int index)
+    {
+        var wordIndex = index / BitsPerWord;
+        var bitOffset = index % BitsPerWord;
+        var mask = 1L << bitOffset;
+
+        // Atomic OR operation - lock-free bit setting
+        Interlocked.Or(ref _completedBits[wordIndex], mask);
+    }
+
+    /// <summary>
+    /// Reads a bit from the completion array with volatile semantics.
+    /// Uses Volatile.Read to ensure memory barrier for visibility.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private bool GetBit(int index)
+    {
+        var wordIndex = index / BitsPerWord;
+        var bitOffset = index % BitsPerWord;
+        var mask = 1L << bitOffset;
+
+        // Volatile read ensures visibility of writes from other threads
+        var word = Volatile.Read(ref _completedBits[wordIndex]);
+        return (word & mask) != 0;
+    }
+
+    #endregion
 }
