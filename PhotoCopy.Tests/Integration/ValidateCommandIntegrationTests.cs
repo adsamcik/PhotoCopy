@@ -370,7 +370,7 @@ public class ValidateCommandIntegrationTests
         var result = await validateCommand.ExecuteAsync();
 
         // Assert
-        result.Should().Be(1, "File is before min date so validation should fail");
+        result.Should().Be((int)ExitCode.ValidationError, "File is before min date so validation should fail");
         
         var logMessages = _logger.Logs.Select(l => l.Message).ToList();
         logMessages.Should().Contain(m => m.Contains("Invalid files: 1") || m.Contains("1 invalid"));
@@ -392,7 +392,7 @@ public class ValidateCommandIntegrationTests
         var result = await validateCommand.ExecuteAsync();
 
         // Assert
-        result.Should().Be(1, "File is after max date so validation should fail");
+        result.Should().Be((int)ExitCode.ValidationError, "File is after max date so validation should fail");
         
         var logMessages = _logger.Logs.Select(l => l.Message).ToList();
         logMessages.Should().Contain(m => m.Contains("Invalid files: 1") || m.Contains("1 invalid"));
@@ -418,7 +418,7 @@ public class ValidateCommandIntegrationTests
         var result = await validateCommand.ExecuteAsync();
 
         // Assert
-        result.Should().Be(1, "Some files are outside the date range");
+        result.Should().Be((int)ExitCode.ValidationError, "Some files are outside the date range");
         
         var logMessages = _logger.Logs.Select(l => l.Message).ToList();
         logMessages.Should().Contain(m => m.Contains("Total files: 3"));
@@ -498,7 +498,7 @@ public class ValidateCommandIntegrationTests
         var result = await validateCommand.ExecuteAsync();
 
         // Assert
-        result.Should().Be(1, "Some files failed validation");
+        result.Should().Be((int)ExitCode.ValidationError, "Some files failed validation");
         
         var logMessages = _logger.Logs.Select(l => l.Message).ToList();
         logMessages.Should().Contain(m => m.Contains("Total files: 4"));
@@ -522,8 +522,8 @@ public class ValidateCommandIntegrationTests
         // Act
         var result = await validateCommand.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - ValidationError when files fail validation
+        result.Should().Be((int)ExitCode.ValidationError);
         
         var logMessages = _logger.Logs.Select(l => l.Message).ToList();
         logMessages.Should().Contain(m => m.Contains("Validation Failures") || m.Contains("old_photo"));
@@ -826,7 +826,7 @@ public class ValidateCommandIntegrationTests
         var result = await validateCommand.ExecuteAsync();
 
         // Assert
-        result.Should().Be(1, "Two files are outside the date range");
+        result.Should().Be((int)ExitCode.ValidationError, "Two files are outside the date range");
         
         var logMessages = _logger.Logs.Select(l => l.Message).ToList();
         logMessages.Should().Contain(m => m.Contains("Valid files: 1"));
