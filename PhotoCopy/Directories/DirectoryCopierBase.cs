@@ -20,15 +20,41 @@ namespace PhotoCopy.Directories;
 /// <summary>
 /// Base class containing shared logic for directory copy operations.
 /// </summary>
-public abstract class DirectoryCopierBase
+public abstract partial class DirectoryCopierBase
 {
     // Cache for compiled regex patterns by variable name
     private static readonly ConcurrentDictionary<string, Regex> VariableRegexCache = new(StringComparer.OrdinalIgnoreCase);
+
+    // Source-generated regex patterns for path normalization (cached at compile time)
+    
+    /// <summary>
+    /// Matches two or more consecutive path separators (forward or back slashes).
+    /// </summary>
+    [GeneratedRegex(@"[\\/]{2,}")]
+    private static partial Regex MultipleSeparatorsRegex();
+    
+    /// <summary>
+    /// Matches path segments that contain only hyphens or underscores (e.g., "/-/", "/--/", "/_/").
+    /// </summary>
+    [GeneratedRegex(@"[\\/][-_]+[\\/]")]
+    private static partial Regex SeparatorOnlySegmentRegex();
+    
+    /// <summary>
+    /// Matches leading hyphens/underscores at the start of a path segment.
+    /// </summary>
+    [GeneratedRegex(@"(?<=[\\/])[-_]+(?=[^-_\\/])")]
+    private static partial Regex LeadingHyphenUnderscoreRegex();
 
     protected readonly IFileSystem FileSystem;
     protected readonly PhotoCopyConfig Config;
     protected readonly ITransactionLogger TransactionLogger;
     protected readonly IFileValidationService FileValidationService;
+    
+    /// <summary>
+    /// Cached destination root directory for security validation.
+    /// Extracted once from the destination pattern to avoid repeated parsing.
+    /// </summary>
+    private readonly Lazy<string> _destinationRoot;
     
     /// <summary>
     /// Report tracking files that went to Unknown folders.
@@ -39,6 +65,11 @@ public abstract class DirectoryCopierBase
     /// Gets the logger for the derived class.
     /// </summary>
     protected abstract ILogger Logger { get; }
+    
+    /// <summary>
+    /// Gets the destination root directory for security validation.
+    /// </summary>
+    protected string DestinationRoot => _destinationRoot.Value;
 
     protected DirectoryCopierBase(
         IFileSystem fileSystem,
@@ -50,6 +81,7 @@ public abstract class DirectoryCopierBase
         Config = options.Value;
         TransactionLogger = transactionLogger;
         FileValidationService = fileValidationService;
+        _destinationRoot = new Lazy<string>(() => PathSecurityHelper.ExtractDestinationRoot(Config.Destination));
     }
 
     /// <summary>
@@ -109,6 +141,10 @@ public abstract class DirectoryCopierBase
             // Fallback when paths are on different drives (Windows) or incompatible
             directory = file.File.DirectoryName ?? Path.GetDirectoryName(file.File.FullName) ?? string.Empty;
         }
+        
+        // Security: Sanitize the directory variable to prevent path traversal
+        // The {directory} variable could contain '..' if source files are in unexpected locations
+        directory = SanitizeDirectoryVariable(directory);
 
         destPath = destPath.Replace(DestinationVariables.Directory, directory);
 
@@ -130,8 +166,81 @@ public abstract class DirectoryCopierBase
 
         // Normalize path to clean up orphaned separators from empty variables
         destPath = NormalizeDestinationPath(destPath);
+        
+        // Security: Validate the final generated path is safe and within bounds
+        ValidateGeneratedPath(destPath, file.File.FullName);
 
         return destPath;
+    }
+    
+    /// <summary>
+    /// Validates that a generated destination path is safe and within the expected destination root.
+    /// Skips validation for empty/null destination patterns (which are configuration errors caught elsewhere).
+    /// </summary>
+    /// <param name="generatedPath">The generated destination path.</param>
+    /// <param name="sourceFile">The source file path for error context.</param>
+    /// <exception cref="InvalidOperationException">Thrown when path validation fails.</exception>
+    private void ValidateGeneratedPath(string generatedPath, string sourceFile)
+    {
+        // Skip validation for empty destination patterns - these are configuration errors
+        // that should be caught by ConfigurationValidator before reaching here
+        if (string.IsNullOrWhiteSpace(Config.Destination))
+        {
+            return;
+        }
+        
+        var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(generatedPath, DestinationRoot);
+        if (!isValid)
+        {
+            Logger.LogError(
+                "Path security validation failed for file {SourceFile}: {ErrorMessage}",
+                sourceFile, errorMessage);
+            throw new InvalidOperationException(
+                $"Path security validation failed for '{sourceFile}': {errorMessage}");
+        }
+    }
+    
+    /// <summary>
+    /// Sanitizes the directory variable to prevent path traversal attacks.
+    /// Removes '..' sequences and normalizes path separators.
+    /// </summary>
+    /// <param name="directory">The directory path from the {directory} variable.</param>
+    /// <returns>A sanitized directory path safe for use in destination paths.</returns>
+    private static string SanitizeDirectoryVariable(string directory)
+    {
+        if (string.IsNullOrEmpty(directory))
+        {
+            return directory;
+        }
+        
+        // Split by path separators, filter out '..' and empty segments, rejoin
+        var segments = directory.Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, 
+            StringSplitOptions.RemoveEmptyEntries);
+        
+        var safeSegments = new List<string>();
+        foreach (var segment in segments)
+        {
+            // Skip parent directory references
+            if (segment == "..")
+            {
+                continue;
+            }
+            
+            // Skip current directory references (though less dangerous)
+            if (segment == ".")
+            {
+                continue;
+            }
+            
+            // Sanitize each segment using PathSanitizer
+            var sanitized = PathSanitizer.SanitizePathSegment(segment);
+            if (!string.IsNullOrWhiteSpace(sanitized))
+            {
+                safeSegments.Add(sanitized);
+            }
+        }
+        
+        return string.Join(Path.DirectorySeparatorChar.ToString(), safeSegments);
     }
     
     /// <summary>
@@ -208,15 +317,15 @@ public abstract class DirectoryCopierBase
             return path;
 
         // Replace multiple consecutive separators with a single separator
-        path = Regex.Replace(path, @"[\\/]{2,}", Path.DirectorySeparatorChar.ToString());
+        path = MultipleSeparatorsRegex().Replace(path, Path.DirectorySeparatorChar.ToString());
         
         // Remove path segments that are ONLY separators (e.g., "/-/" -> "/", "/--/" -> "/", "/_/" -> "/")
         // This handles the case of {country}-{city} when both are empty, resulting in "-" as a segment
-        path = Regex.Replace(path, @"[\\/][-_]+[\\/]", Path.DirectorySeparatorChar.ToString());
+        path = SeparatorOnlySegmentRegex().Replace(path, Path.DirectorySeparatorChar.ToString());
         
         // Handle consecutive hyphens/underscores within a segment (e.g., "country--city" -> "country-city")
         // This handles the case where one variable is empty: {country}-{city} with empty country becomes "-city"
-        path = Regex.Replace(path, @"(?<=[\\/])[-_]+(?=[^-_\\/])", string.Empty);
+        path = LeadingHyphenUnderscoreRegex().Replace(path, string.Empty);
         
         // Remove trailing separator-only segments at the end before filename
         // (e.g., "2024/01/-/photo.jpg" should become "2024/01/photo.jpg")

@@ -410,7 +410,7 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
             Statistics: statistics.CreateSnapshot());
     }
 
-    private Task ProcessOperationAsync(IFile file, string destinationPath, CancellationToken cancellationToken)
+    private async Task ProcessOperationAsync(IFile file, string destinationPath, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -428,14 +428,17 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         var operationType = GetOperationType();
         var fileSize = SafeFileLength(file);
 
+        // Offload blocking file I/O to the thread pool to avoid blocking
+        // the Parallel.ForEachAsync scheduler threads. .NET doesn't provide
+        // truly async File.Move/Copy APIs, so Task.Run is the appropriate pattern.
         if (Config.Mode == OperationMode.Move)
         {
-            FileSystem.MoveFile(file.File.FullName, destinationPath);
+            await Task.Run(() => FileSystem.MoveFile(file.File.FullName, destinationPath), cancellationToken);
             _logger.LogDebug("Moved {Source} to {Destination}", file.File.FullName, destinationPath);
         }
         else
         {
-            FileSystem.CopyFile(file.File.FullName, destinationPath, true);
+            await Task.Run(() => FileSystem.CopyFile(file.File.FullName, destinationPath, true), cancellationToken);
             _logger.LogDebug("Copied {Source} to {Destination}", file.File.FullName, destinationPath);
         }
 
@@ -443,8 +446,6 @@ public class DirectoryCopierAsync : DirectoryCopierBase, IDirectoryCopierAsync
         {
             TransactionLogger.LogOperation(file.File.FullName, destinationPath, operationType, fileSize);
         }
-
-        return Task.CompletedTask;
     }
 
     /// <summary>
