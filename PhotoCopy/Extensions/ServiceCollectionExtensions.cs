@@ -167,7 +167,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISidecarMetadataService, SidecarMetadataService>();
         
         // Metadata extraction pipeline
-        services.AddTransient<IFileMetadataExtractor, FileMetadataExtractor>();
+        // Use CachedFileMetadataExtractor to avoid re-reading files multiple times
+        // during enrichment (DateTime, Coordinates, Camera, Album extraction).
+        // Singleton with internal LRU cache (size 8) - safe for console app lifetime
+        // as cache size is bounded and old entries are evicted.
+        services.AddSingleton<IFileMetadataExtractor, CachedFileMetadataExtractor>();
         services.AddTransient<IMetadataEnricher, MetadataEnricher>();
         services.AddTransient<IMetadataEnrichmentStep, DateTimeMetadataEnrichmentStep>();
         services.AddTransient<IMetadataEnrichmentStep, TimeOffsetEnrichmentStep>();
@@ -187,6 +191,10 @@ public static class ServiceCollectionExtensions
         services.AddTransient<IValidatorFactory, ValidatorFactory>();
         services.AddTransient<IFileValidationService, FileValidationService>();
         services.AddSingleton<IConfigurationValidator, ConfigurationValidator>();
+
+        // Input validation (user interaction for copy command)
+        services.AddSingleton<IConsoleInteraction, ConsoleInteraction>();
+        services.AddTransient<IInputValidator, InputValidator>();
 
         return services;
     }
