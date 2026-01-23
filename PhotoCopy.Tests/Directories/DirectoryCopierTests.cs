@@ -2518,5 +2518,82 @@ public class DirectoryCopierTests
     }
 
     #endregion
+
+    #region Path Security Tests
+
+    [Test]
+    public void GeneratePath_WithSafeLocation_GeneratesValidPath()
+    {
+        // Arrange - Normal location data should work fine
+        _config.Destination = Path.Combine(TestPaths.Dest, "{year}", "{city}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        
+        var location = new LocationData("Old Town", "Prague", "Prague", "Central Bohemia", "CZ");
+        var file = CreateMockFileWithLocation("photo.jpg", new DateTime(2024, 6, 15), location);
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Path should be within destination
+        result.Should().StartWith(TestPaths.Dest);
+        result.Should().Contain("Prague");
+        result.Should().NotContain("..");
+    }
+
+    [Test]
+    public void GeneratePath_WithMaliciousLocation_SanitizesInput()
+    {
+        // Arrange - Location data with characters that might look like path traversal
+        _config.Destination = Path.Combine(TestPaths.Dest, "{year}", "{city}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        
+        // Create a file with a location that contains dots (but not as path traversal)
+        var location = new LocationData("City..Name", "City..Name", null, "State", "CZ");
+        var file = CreateMockFileWithLocation("photo.jpg", new DateTime(2024, 6, 15), location);
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Path should still be within destination (sanitized)
+        result.Should().StartWith(TestPaths.Dest);
+    }
+
+    [Test]
+    public void GeneratePath_DirectoryVariable_SanitizesPathTraversal()
+    {
+        // Arrange - The {directory} variable could potentially contain traversal sequences
+        // if source files come from unusual paths
+        _config.Source = TestPaths.Source;
+        _config.Destination = Path.Combine(TestPaths.Dest, "{directory}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        
+        // Create a mock file in a normal subdirectory
+        var file = CreateMockFileWithPath(Path.Combine(TestPaths.Source, "subdir", "photo.jpg"), new DateTime(2024, 6, 15));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Path should be within destination
+        result.Should().StartWith(TestPaths.Dest);
+        result.Should().NotContain("..");
+    }
+
+    [Test]
+    public void GeneratePath_ValidatesPathWithinDestinationRoot()
+    {
+        // Arrange - Standard path generation
+        _config.Destination = Path.Combine(TestPaths.Dest, "{year}", "{month}", "{name}{ext}");
+        var copier = new DirectoryCopier(_logger, _fileSystem, _options, _transactionLogger, _fileValidationService);
+        var file = CreateMockFile("photo.jpg", new DateTime(2024, 7, 15));
+
+        // Act
+        var result = copier.GeneratePath(file);
+
+        // Assert - Generated path should be within the destination root
+        result.Should().StartWith(TestPaths.Dest);
+        result.Should().Be(TestPaths.InDest("2024", "07", "photo.jpg"));
+    }
+
+    #endregion
 }
 

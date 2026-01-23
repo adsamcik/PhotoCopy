@@ -158,7 +158,7 @@ public class ValidateCommandTests
     #region ExecuteAsync_WithInvalidConfig_ReturnsOne
 
     [Test]
-    public async Task ExecuteAsync_WithInvalidConfig_ReturnsOne_WhenSingleFileInvalid()
+    public async Task ExecuteAsync_WithInvalidFiles_ReturnsValidationError_WhenSingleFileInvalid()
     {
         // Arrange
         var files = new List<IFile>
@@ -178,12 +178,12 @@ public class ValidateCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - ValidationError when files fail validation
+        result.Should().Be((int)ExitCode.ValidationError);
     }
 
     [Test]
-    public async Task ExecuteAsync_WithInvalidConfig_ReturnsOne_WhenMultipleFilesInvalid()
+    public async Task ExecuteAsync_WithInvalidFiles_ReturnsValidationError_WhenMultipleFilesInvalid()
     {
         // Arrange
         var files = new List<IFile>
@@ -205,12 +205,12 @@ public class ValidateCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - ValidationError when files fail validation
+        result.Should().Be((int)ExitCode.ValidationError);
     }
 
     [Test]
-    public async Task ExecuteAsync_WithInvalidConfig_ReturnsOne_WhenMixedValidAndInvalidFiles()
+    public async Task ExecuteAsync_WithInvalidFiles_ReturnsValidationError_WhenMixedValidAndInvalidFiles()
     {
         // Arrange
         var validFile = CreateMockFile("valid.jpg");
@@ -236,12 +236,12 @@ public class ValidateCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - ValidationError when files fail validation
+        result.Should().Be((int)ExitCode.ValidationError);
     }
 
     [Test]
-    public async Task ExecuteAsync_WithInvalidConfig_ReturnsOne_WhenMultipleValidatorsFailOnSameFile()
+    public async Task ExecuteAsync_WithInvalidFiles_ReturnsValidationError_WhenMultipleValidatorsFailOnSameFile()
     {
         // Arrange
         var files = new List<IFile>
@@ -270,12 +270,12 @@ public class ValidateCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - ValidationError when files fail validation
+        result.Should().Be((int)ExitCode.ValidationError);
     }
 
     [Test]
-    public async Task ExecuteAsync_WithInvalidConfig_ReturnsOne_WhenExceptionThrown()
+    public async Task ExecuteAsync_OnIOError_ReturnsIOError_WhenIOExceptionThrown()
     {
         // Arrange
         _fileSystem.EnumerateFiles(Arg.Any<string>())
@@ -286,8 +286,8 @@ public class ValidateCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - IOError for I/O exceptions
+        result.Should().Be((int)ExitCode.IOError);
     }
 
     #endregion

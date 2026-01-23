@@ -167,7 +167,7 @@ public class CopyCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_OnError_ReturnsOne_WhenFilesFailed()
+    public async Task ExecuteAsync_OnPartialFailure_ReturnsPartialSuccess_WhenSomeFilesFailed()
     {
         // Arrange
         var mockFile = Substitute.For<IFile>();
@@ -194,12 +194,12 @@ public class CopyCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - PartialSuccess when some files processed, some failed
+        result.Should().Be((int)ExitCode.PartialSuccess);
     }
 
     [Test]
-    public async Task ExecuteAsync_OnError_ReturnsOne_WhenIOExceptionThrown()
+    public async Task ExecuteAsync_OnIOError_ReturnsIOError_WhenIOExceptionThrown()
     {
         // Arrange
         _directoryCopierAsync.CopyAsync(
@@ -213,8 +213,8 @@ public class CopyCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - IOError for I/O exceptions
+        result.Should().Be((int)ExitCode.IOError);
     }
 
     [Test]

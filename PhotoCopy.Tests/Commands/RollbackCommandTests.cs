@@ -221,8 +221,8 @@ public class RollbackCommandTests
         // Act
         var result = await ExecuteWithConsoleInput(command, "yes");
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - PartialSuccess when some files restored, some failed
+        result.Should().Be((int)ExitCode.PartialSuccess);
     }
 
     #endregion
@@ -230,7 +230,7 @@ public class RollbackCommandTests
     #region ExecuteAsync_WithNoLogs_ReturnsOne
 
     [Test]
-    public async Task ExecuteAsync_WithNoLogs_ReturnsOne_WhenNoPathProvided()
+    public async Task ExecuteAsync_WithNoLogs_ReturnsInvalidArguments_WhenNoPathProvided()
     {
         // Arrange
         var command = CreateCommand(transactionLogPath: null);
@@ -238,8 +238,8 @@ public class RollbackCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - InvalidArguments when required path is missing
+        result.Should().Be((int)ExitCode.InvalidArguments);
         var logEntry = SharedLogs.Entries.Find(e => 
             e.LogLevel == LogLevel.Error && 
             e.Message.Contains("Transaction log path is required"));
@@ -247,7 +247,7 @@ public class RollbackCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_WithNoLogs_ReturnsOne_WhenEmptyPathProvided()
+    public async Task ExecuteAsync_WithNoLogs_ReturnsInvalidArguments_WhenEmptyPathProvided()
     {
         // Arrange
         var command = CreateCommand(transactionLogPath: string.Empty);
@@ -255,12 +255,12 @@ public class RollbackCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - InvalidArguments when path is empty
+        result.Should().Be((int)ExitCode.InvalidArguments);
     }
 
     [Test]
-    public async Task ExecuteAsync_WithNoLogs_ReturnsOne_WhenFileNotFound()
+    public async Task ExecuteAsync_WithNoLogs_ReturnsIOError_WhenFileNotFound()
     {
         // Arrange
         var nonExistentPath = Path.Combine(_testLogDirectory, "nonexistent.json");
@@ -269,8 +269,8 @@ public class RollbackCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - IOError when file not found
+        result.Should().Be((int)ExitCode.IOError);
         var logEntry = SharedLogs.Entries.Find(e => 
             e.LogLevel == LogLevel.Error && 
             e.Message.Contains("Transaction log not found"));

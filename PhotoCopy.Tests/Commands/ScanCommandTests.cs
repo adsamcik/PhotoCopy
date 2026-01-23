@@ -216,7 +216,7 @@ public class ScanCommandTests
     }
 
     [Test]
-    public async Task ExecuteAsync_OnError_ReturnsOne_WhenIOExceptionOccurs()
+    public async Task ExecuteAsync_OnIOError_ReturnsIOError_WhenIOExceptionOccurs()
     {
         // Arrange
         _fileSystem.EnumerateFiles(Arg.Any<string>())
@@ -227,8 +227,8 @@ public class ScanCommandTests
         // Act
         var result = await command.ExecuteAsync();
 
-        // Assert
-        result.Should().Be(1);
+        // Assert - IOError for I/O exceptions
+        result.Should().Be((int)ExitCode.IOError);
     }
 
     [Test]

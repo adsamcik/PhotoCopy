@@ -74,7 +74,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         await Assert.That(command.Errors.Any(e => e.Category == ValidationCategory.Source)).IsTrue();
     }
 
@@ -122,7 +122,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         var error = command.Errors.FirstOrDefault(e => e.Category == ValidationCategory.DestinationPattern);
         await Assert.That(error).IsNotNull();
         await Assert.That(error!.Message).Contains("{yeaar}");
@@ -140,7 +140,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         var error = command.Errors.FirstOrDefault(e => e.Category == ValidationCategory.DestinationPattern);
         await Assert.That(error).IsNotNull();
         await Assert.That(error!.Message).Contains("unbalanced");
@@ -205,7 +205,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         var error = command.Errors.FirstOrDefault(e => e.Category == ValidationCategory.ConflictingOptions);
         await Assert.That(error).IsNotNull();
         await Assert.That(error!.Message).Contains("skip-existing");
@@ -291,7 +291,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         var error = command.Errors.FirstOrDefault(e => e.Category == ValidationCategory.Parallelism);
         await Assert.That(error).IsNotNull();
         await Assert.That(error!.Message).Contains("parallelism");
@@ -308,7 +308,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         await Assert.That(command.Errors.Any(e => e.Category == ValidationCategory.Parallelism)).IsTrue();
     }
 
@@ -394,7 +394,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         var error = command.Errors.FirstOrDefault(e => e.Category == ValidationCategory.DateRange);
         await Assert.That(error).IsNotNull();
         await Assert.That(error!.Message).Contains("MinDate");
@@ -446,7 +446,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         var error = command.Errors.FirstOrDefault(e => e.Category == ValidationCategory.DuplicatesFormat);
         await Assert.That(error).IsNotNull();
         await Assert.That(error!.Message).Contains("{number}");
@@ -487,7 +487,7 @@ public class ValidateConfigCommandTests
         var result = await command.ExecuteAsync();
 
         // Assert
-        await Assert.That(result).IsEqualTo((int)ExitCode.Error);
+        await Assert.That(result).IsEqualTo((int)ExitCode.ConfigurationError);
         await Assert.That(command.Errors.Count).IsGreaterThanOrEqualTo(4);
     }
 
