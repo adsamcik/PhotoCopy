@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using PhotoCopy.Files;
 using PhotoCopy.Abstractions;
 using PhotoCopy.Configuration;
+using PhotoCopy.Extensions;
 
 namespace PhotoCopy.Directories;
 
@@ -178,6 +179,12 @@ public class DirectoryScanner : IDirectoryScanner
 
                 foreach (var subdir in subdirectories)
                 {
+                    // Skip reparse points (symlinks/junctions) to prevent directory traversal attacks
+                    if (PathSecurityHelper.IsReparsePoint(subdir))
+                    {
+                        _logger.LogWarning("Skipping reparse point (symlink/junction): {Path}", subdir);
+                        continue;
+                    }
                     directoriesToProcess.Enqueue((subdir, currentDepth + 1));
                 }
             }
@@ -232,6 +239,12 @@ public class DirectoryScanner : IDirectoryScanner
 
             foreach (var subdir in subdirectories)
             {
+                // Skip reparse points (symlinks/junctions) to prevent directory traversal attacks
+                if (PathSecurityHelper.IsReparsePoint(subdir))
+                {
+                    _logger.LogWarning("Skipping reparse point (symlink/junction): {Path}", subdir);
+                    continue;
+                }
                 directoriesToProcess.Enqueue(subdir);
             }
         }

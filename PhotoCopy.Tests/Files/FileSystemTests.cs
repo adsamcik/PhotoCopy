@@ -239,9 +239,9 @@ public class FileSystemTests : TestBase, IDisposable
     [Test]
     public void CreateDirectory_WithNullPath_ThrowsArgumentNullException()
     {
-        // Act & Assert
+        // Act & Assert - Now throws ArgumentException due to security validation
         var act = () => _fileSystem.CreateDirectory(null!);
-        act.Should().Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -317,9 +317,9 @@ public class FileSystemTests : TestBase, IDisposable
         // Arrange
         var destPath = GetTempFilePath("destination.txt");
 
-        // Act & Assert
+        // Act & Assert - Now throws ArgumentException due to security validation
         var act = () => _fileSystem.CopyFile(null!, destPath);
-        act.Should().Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -328,9 +328,9 @@ public class FileSystemTests : TestBase, IDisposable
         // Arrange
         var sourcePath = CreateTempFile("source.txt");
 
-        // Act & Assert
+        // Act & Assert - Now throws ArgumentException due to security validation
         var act = () => _fileSystem.CopyFile(sourcePath, null!);
-        act.Should().Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -399,9 +399,9 @@ public class FileSystemTests : TestBase, IDisposable
         // Arrange
         var destPath = GetTempFilePath("destination.txt");
 
-        // Act & Assert
+        // Act & Assert - Now throws ArgumentException due to security validation
         var act = () => _fileSystem.MoveFile(null!, destPath);
-        act.Should().Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]
@@ -410,9 +410,9 @@ public class FileSystemTests : TestBase, IDisposable
         // Arrange
         var sourcePath = CreateTempFile("source.txt");
 
-        // Act & Assert
+        // Act & Assert - Now throws ArgumentException due to security validation
         var act = () => _fileSystem.MoveFile(sourcePath, null!);
-        act.Should().Throw<ArgumentNullException>();
+        act.Should().Throw<ArgumentException>();
     }
 
     [Test]
