@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using PhotoCopy.Configuration;
+using PhotoCopy.Files;
 
 namespace PhotoCopy.Rollback;
 
@@ -73,7 +74,10 @@ public class TransactionLogger : ITransactionLogger
 
             // Determine log file path - use destination directory if available, otherwise source
             var logDirectory = GetLogDirectory();
-            Directory.CreateDirectory(logDirectory);
+            RetryHelper.ExecuteWithRetry(
+                () => Directory.CreateDirectory(logDirectory),
+                _logger,
+                $"CreateDirectory {logDirectory}");
             _transactionLogPath = Path.Combine(logDirectory, $"photocopy-{transactionId}.json");
 
             _logger.LogDebug("Started transaction {TransactionId}, log at {LogPath}", 
@@ -195,7 +199,11 @@ public class TransactionLogger : ITransactionLogger
         try
         {
             await File.WriteAllTextAsync(tempPath, json, cancellationToken);
-            File.Move(tempPath, logPath, overwrite: true);
+            await RetryHelper.ExecuteWithRetryAsync(
+                () => { File.Move(tempPath, logPath, overwrite: true); return Task.CompletedTask; },
+                _logger,
+                $"MoveFile {Path.GetFileName(logPath)}",
+                cancellationToken: cancellationToken);
         }
         finally
         {
@@ -231,7 +239,10 @@ public class TransactionLogger : ITransactionLogger
         try
         {
             File.WriteAllText(tempPath, json);
-            File.Move(tempPath, logPath, overwrite: true);
+            RetryHelper.ExecuteWithRetry(
+                () => File.Move(tempPath, logPath, overwrite: true),
+                _logger,
+                $"MoveFile {Path.GetFileName(logPath)}");
         }
         finally
         {
@@ -263,7 +274,10 @@ public class TransactionLogger : ITransactionLogger
         try
         {
             File.WriteAllText(tempPath, json);
-            File.Move(tempPath, logPath, overwrite: true);
+            RetryHelper.ExecuteWithRetry(
+                () => File.Move(tempPath, logPath, overwrite: true),
+                _logger,
+                $"MoveFile {Path.GetFileName(logPath)}");
         }
         catch (Exception ex)
         {

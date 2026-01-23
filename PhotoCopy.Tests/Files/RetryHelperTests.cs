@@ -274,4 +274,254 @@ public class RetryHelperTests
     }
 
     #endregion
+
+    #region UnauthorizedAccessException Tests
+
+    [Test]
+    public void ExecuteWithRetry_UnauthorizedAccessException_RetriesAndSucceeds()
+    {
+        // Arrange - UnauthorizedAccessException can be transient (antivirus, indexing)
+        var callCount = 0;
+        Action action = () =>
+        {
+            callCount++;
+            if (callCount < 2)
+            {
+                throw new UnauthorizedAccessException("Access denied - file in use by antivirus");
+            }
+        };
+
+        // Act
+        RetryHelper.ExecuteWithRetry(action, _mockLogger, "TestOperation");
+
+        // Assert
+        callCount.Should().Be(2);
+    }
+
+    [Test]
+    public void ExecuteWithRetry_UnauthorizedAccessException_MaxRetriesExceeded_Throws()
+    {
+        // Arrange
+        var callCount = 0;
+        Action action = () =>
+        {
+            callCount++;
+            throw new UnauthorizedAccessException("Persistent access denied");
+        };
+
+        // Act & Assert
+        var act = () => RetryHelper.ExecuteWithRetry(action, _mockLogger, "TestOperation", maxRetries: 3);
+        act.Should().Throw<UnauthorizedAccessException>();
+        callCount.Should().Be(3);
+    }
+
+    [Test]
+    public async Task ExecuteWithRetryAsync_UnauthorizedAccessException_RetriesAndSucceeds()
+    {
+        // Arrange
+        var callCount = 0;
+        Func<Task> action = () =>
+        {
+            callCount++;
+            if (callCount < 2)
+            {
+                throw new UnauthorizedAccessException("Access denied - cloud sync in progress");
+            }
+            return Task.CompletedTask;
+        };
+
+        // Act
+        await RetryHelper.ExecuteWithRetryAsync(action, _mockLogger, "TestOperation");
+
+        // Assert
+        callCount.Should().Be(2);
+    }
+
+    #endregion
+
+    #region Additional Transient Error Code Tests
+
+    [Test]
+    public void ExecuteWithRetry_NetworkBusy_RetriesAndSucceeds()
+    {
+        // Arrange - ERROR_NETWORK_BUSY = 54
+        var callCount = 0;
+        Action action = () =>
+        {
+            callCount++;
+            if (callCount < 2)
+            {
+                throw CreateTransientIOException(54);
+            }
+        };
+
+        // Act
+        RetryHelper.ExecuteWithRetry(action, _mockLogger, "TestOperation");
+
+        // Assert
+        callCount.Should().Be(2);
+    }
+
+    [Test]
+    public void ExecuteWithRetry_CantAccessFile_RetriesAndSucceeds()
+    {
+        // Arrange - ERROR_CANT_ACCESS_FILE = 1920
+        var callCount = 0;
+        Action action = () =>
+        {
+            callCount++;
+            if (callCount < 2)
+            {
+                throw CreateTransientIOException(1920);
+            }
+        };
+
+        // Act
+        RetryHelper.ExecuteWithRetry(action, _mockLogger, "TestOperation");
+
+        // Assert
+        callCount.Should().Be(2);
+    }
+
+    #endregion
+
+    #region ExecuteWithRetry<T> Generic Tests
+
+    [Test]
+    public void ExecuteWithRetry_Generic_SuccessfulOnFirstTry_ReturnsValue()
+    {
+        // Arrange
+        Func<int> func = () => 42;
+
+        // Act
+        var result = RetryHelper.ExecuteWithRetry(func, _mockLogger, "TestOperation");
+
+        // Assert
+        result.Should().Be(42);
+    }
+
+    [Test]
+    public void ExecuteWithRetry_Generic_TransientError_RetriesAndReturnsValue()
+    {
+        // Arrange
+        var callCount = 0;
+        Func<string> func = () =>
+        {
+            callCount++;
+            if (callCount < 2)
+            {
+                throw CreateTransientIOException(32);
+            }
+            return "success";
+        };
+
+        // Act
+        var result = RetryHelper.ExecuteWithRetry(func, _mockLogger, "TestOperation");
+
+        // Assert
+        result.Should().Be("success");
+        callCount.Should().Be(2);
+    }
+
+    [Test]
+    public async Task ExecuteWithRetryAsync_Generic_SuccessfulOnFirstTry_ReturnsValue()
+    {
+        // Arrange
+        Func<Task<int>> func = () => Task.FromResult(42);
+
+        // Act
+        var result = await RetryHelper.ExecuteWithRetryAsync(func, _mockLogger, "TestOperation");
+
+        // Assert
+        result.Should().Be(42);
+    }
+
+    [Test]
+    public async Task ExecuteWithRetryAsync_Generic_TransientError_RetriesAndReturnsValue()
+    {
+        // Arrange
+        var callCount = 0;
+        Func<Task<string>> func = () =>
+        {
+            callCount++;
+            if (callCount < 2)
+            {
+                throw CreateTransientIOException(32);
+            }
+            return Task.FromResult("success");
+        };
+
+        // Act
+        var result = await RetryHelper.ExecuteWithRetryAsync(func, _mockLogger, "TestOperation");
+
+        // Assert
+        result.Should().Be("success");
+        callCount.Should().Be(2);
+    }
+
+    #endregion
+
+    #region IsTransientIOException Tests
+
+    [Test]
+    public void IsTransientIOException_SharingViolation_ReturnsTrue()
+    {
+        var ex = CreateTransientIOException(32);
+        RetryHelper.IsTransientIOException(ex).Should().BeTrue();
+    }
+
+    [Test]
+    public void IsTransientIOException_LockViolation_ReturnsTrue()
+    {
+        var ex = CreateTransientIOException(33);
+        RetryHelper.IsTransientIOException(ex).Should().BeTrue();
+    }
+
+    [Test]
+    public void IsTransientIOException_NetworkBusy_ReturnsTrue()
+    {
+        var ex = CreateTransientIOException(54);
+        RetryHelper.IsTransientIOException(ex).Should().BeTrue();
+    }
+
+    [Test]
+    public void IsTransientIOException_DriveLocked_ReturnsTrue()
+    {
+        var ex = CreateTransientIOException(108);
+        RetryHelper.IsTransientIOException(ex).Should().BeTrue();
+    }
+
+    [Test]
+    public void IsTransientIOException_FileInvalid_ReturnsTrue()
+    {
+        var ex = CreateTransientIOException(1006);
+        RetryHelper.IsTransientIOException(ex).Should().BeTrue();
+    }
+
+    [Test]
+    public void IsTransientIOException_CantAccessFile_ReturnsTrue()
+    {
+        var ex = CreateTransientIOException(1920);
+        RetryHelper.IsTransientIOException(ex).Should().BeTrue();
+    }
+
+    [Test]
+    public void IsTransientIOException_FileNotFound_ReturnsFalse()
+    {
+        var ex = CreateNonTransientIOException();
+        RetryHelper.IsTransientIOException(ex).Should().BeFalse();
+    }
+
+    #endregion
+
+    #region IsTransientUnauthorizedAccess Tests
+
+    [Test]
+    public void IsTransientUnauthorizedAccess_WithException_ReturnsTrue()
+    {
+        var ex = new UnauthorizedAccessException("Access denied");
+        RetryHelper.IsTransientUnauthorizedAccess(ex).Should().BeTrue();
+    }
+
+    #endregion
 }

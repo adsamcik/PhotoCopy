@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using PhotoCopy.Files;
 
 namespace PhotoCopy.Rollback;
 
@@ -141,7 +142,10 @@ public class RollbackService : IRollbackService
                         var sourceDir = Path.GetDirectoryName(operation.SourcePath);
                         if (!string.IsNullOrEmpty(sourceDir) && !Directory.Exists(sourceDir))
                         {
-                            Directory.CreateDirectory(sourceDir);
+                            RetryHelper.ExecuteWithRetry(
+                                () => Directory.CreateDirectory(sourceDir),
+                                _logger,
+                                $"CreateDirectory {sourceDir}");
                         }
 
                         // Check if source already exists (user recreated the file)
@@ -151,7 +155,10 @@ public class RollbackService : IRollbackService
                                 operation.SourcePath);
                         }
 
-                        File.Move(operation.DestinationPath, operation.SourcePath, overwrite: true);
+                        RetryHelper.ExecuteWithRetry(
+                            () => File.Move(operation.DestinationPath, operation.SourcePath, overwrite: true),
+                            _logger,
+                            $"MoveFile {Path.GetFileName(operation.DestinationPath)}");
                         filesRestored++;
                         _logger.LogDebug("Restored {Destination} to {Source}",
                             operation.DestinationPath, operation.SourcePath);
@@ -167,7 +174,10 @@ public class RollbackService : IRollbackService
                     // For copy operations, delete the copied file
                     if (File.Exists(operation.DestinationPath))
                     {
-                        File.Delete(operation.DestinationPath);
+                        RetryHelper.ExecuteWithRetry(
+                            () => File.Delete(operation.DestinationPath),
+                            _logger,
+                            $"DeleteFile {Path.GetFileName(operation.DestinationPath)}");
                         filesRestored++;
                         _logger.LogDebug("Deleted copied file {Destination}", operation.DestinationPath);
                     }
@@ -202,7 +212,10 @@ public class RollbackService : IRollbackService
             {
                 if (Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
                 {
-                    Directory.Delete(dir);
+                    RetryHelper.ExecuteWithRetry(
+                        () => Directory.Delete(dir),
+                        _logger,
+                        $"DeleteDirectory {dir}");
                     directoriesRemoved++;
                     _logger.LogDebug("Removed empty directory {Directory}", dir);
                 }
