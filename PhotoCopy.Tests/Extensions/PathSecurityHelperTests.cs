@@ -86,21 +86,24 @@ public class PathSecurityHelperTests
     [Test]
     public async Task IsPathSafe_PathWithTraversal_ReturnsFalse()
     {
-        var result = PathSecurityHelper.IsPathSafe(@"C:\temp\..\secret\file.txt");
+        var path = Path.Combine(Path.GetTempPath(), "..", "secret", "file.txt");
+        var result = PathSecurityHelper.IsPathSafe(path);
         await Assert.That(result).IsFalse();
     }
 
     [Test]
     public async Task IsPathSafe_RelativePath_ReturnsFalse()
     {
-        var result = PathSecurityHelper.IsPathSafe(@"relative\path\file.txt");
+        var path = Path.Combine("relative", "path", "file.txt");
+        var result = PathSecurityHelper.IsPathSafe(path);
         await Assert.That(result).IsFalse();
     }
 
     [Test]
     public async Task IsPathSafe_ValidAbsolutePath_ReturnsTrue()
     {
-        var result = PathSecurityHelper.IsPathSafe(@"C:\temp\valid\path\file.txt");
+        var path = Path.Combine(Path.GetTempPath(), "valid", "path", "file.txt");
+        var result = PathSecurityHelper.IsPathSafe(path);
         await Assert.That(result).IsTrue();
     }
 
@@ -224,8 +227,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task IsPathWithinBounds_PathWithinRoot_ReturnsTrue()
     {
-        var root = @"C:\Photos";
-        var path = @"C:\Photos\2024\01\photo.jpg";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(root, "2024", "01", "photo.jpg");
         
         var result = PathSecurityHelper.IsPathWithinBounds(path, root);
         await Assert.That(result).IsTrue();
@@ -234,8 +237,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task IsPathWithinBounds_PathEqualsRoot_ReturnsTrue()
     {
-        var root = @"C:\Photos";
-        var path = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = root;
         
         var result = PathSecurityHelper.IsPathWithinBounds(path, root);
         await Assert.That(result).IsTrue();
@@ -244,8 +247,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task IsPathWithinBounds_PathOutsideRoot_ReturnsFalse()
     {
-        var root = @"C:\Photos";
-        var path = @"C:\Documents\secret.txt";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(Path.GetTempPath(), "Documents", "secret.txt");
         
         var result = PathSecurityHelper.IsPathWithinBounds(path, root);
         await Assert.That(result).IsFalse();
@@ -254,9 +257,9 @@ public class PathSecurityHelperTests
     [Test]
     public async Task IsPathWithinBounds_PathWithTraversalEscapingRoot_ReturnsFalse()
     {
-        var root = @"C:\Photos";
-        // Path.GetFullPath will resolve this to C:\secret.txt
-        var path = @"C:\Photos\..\secret.txt";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        // Path.GetFullPath will resolve this to escape the root
+        var path = Path.Combine(root, "..", "secret.txt");
         
         var result = PathSecurityHelper.IsPathWithinBounds(path, root);
         await Assert.That(result).IsFalse();
@@ -265,9 +268,9 @@ public class PathSecurityHelperTests
     [Test]
     public async Task IsPathWithinBounds_SimilarPrefixDifferentDirectory_ReturnsFalse()
     {
-        var root = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
         // This should NOT match because "PhotosEvil" is not the same as "Photos"
-        var path = @"C:\PhotosEvil\hack.jpg";
+        var path = Path.Combine(Path.GetTempPath(), "PhotosEvil", "hack.jpg");
         
         var result = PathSecurityHelper.IsPathWithinBounds(path, root);
         await Assert.That(result).IsFalse();
@@ -276,29 +279,32 @@ public class PathSecurityHelperTests
     [Test]
     public async Task IsPathWithinBounds_NullPath_ReturnsFalse()
     {
-        var result = PathSecurityHelper.IsPathWithinBounds(null!, @"C:\Photos");
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var result = PathSecurityHelper.IsPathWithinBounds(null!, root);
         await Assert.That(result).IsFalse();
     }
 
     [Test]
     public async Task IsPathWithinBounds_NullRoot_ReturnsFalse()
     {
-        var result = PathSecurityHelper.IsPathWithinBounds(@"C:\Photos\photo.jpg", null!);
+        var path = Path.Combine(Path.GetTempPath(), "Photos", "photo.jpg");
+        var result = PathSecurityHelper.IsPathWithinBounds(path, null!);
         await Assert.That(result).IsFalse();
     }
 
     [Test]
     public async Task IsPathWithinBounds_EmptyPath_ReturnsFalse()
     {
-        var result = PathSecurityHelper.IsPathWithinBounds(string.Empty, @"C:\Photos");
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var result = PathSecurityHelper.IsPathWithinBounds(string.Empty, root);
         await Assert.That(result).IsFalse();
     }
 
     [Test]
     public async Task IsPathWithinBounds_RootWithTrailingSeparator_WorksCorrectly()
     {
-        var root = @"C:\Photos\";
-        var path = @"C:\Photos\2024\photo.jpg";
+        var root = Path.Combine(Path.GetTempPath(), "Photos") + Path.DirectorySeparatorChar;
+        var path = Path.Combine(Path.GetTempPath(), "Photos", "2024", "photo.jpg");
         
         var result = PathSecurityHelper.IsPathWithinBounds(path, root);
         await Assert.That(result).IsTrue();
@@ -311,8 +317,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ValidateGeneratedPath_SafePath_ReturnsValid()
     {
-        var path = @"C:\Photos\2024\01\photo.jpg";
-        var root = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(root, "2024", "01", "photo.jpg");
         
         var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(path, root);
         
@@ -324,8 +330,8 @@ public class PathSecurityHelperTests
     public async Task ValidateGeneratedPath_PathWithTraversal_ReturnsInvalid()
     {
         // Path with ".." as a complete segment (actual path traversal)
-        var path = @"C:\Photos\..\secret.txt";
-        var root = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(root, "..", "secret.txt");
         
         var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(path, root);
         
@@ -338,8 +344,8 @@ public class PathSecurityHelperTests
     public async Task ValidateGeneratedPath_PathWithDotsInFilename_ReturnsValid()
     {
         // Path with ".." as part of a filename (not traversal)
-        var path = @"C:\Photos\City..Name\photo.jpg";
-        var root = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(root, "City..Name", "photo.jpg");
         
         var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(path, root);
         
@@ -351,8 +357,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ValidateGeneratedPath_RelativePath_ReturnsInvalid()
     {
-        var path = @"2024\01\photo.jpg";
-        var root = @"C:\Photos";
+        var path = Path.Combine("2024", "01", "photo.jpg");
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
         
         var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(path, root);
         
@@ -364,8 +370,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ValidateGeneratedPath_PathOutsideRoot_ReturnsInvalid()
     {
-        var path = @"C:\Documents\photo.jpg";
-        var root = @"C:\Photos";
+        var path = Path.Combine(Path.GetTempPath(), "Documents", "photo.jpg");
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
         
         var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(path, root);
         
@@ -377,7 +383,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ValidateGeneratedPath_EmptyPath_ReturnsInvalid()
     {
-        var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(string.Empty, @"C:\Photos");
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(string.Empty, root);
         
         await Assert.That(isValid).IsFalse();
         await Assert.That(errorMessage).IsNotNull();
@@ -386,7 +393,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ValidateGeneratedPath_EmptyRoot_ReturnsInvalid()
     {
-        var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(@"C:\Photos\photo.jpg", string.Empty);
+        var path = Path.Combine(Path.GetTempPath(), "Photos", "photo.jpg");
+        var (isValid, errorMessage) = PathSecurityHelper.ValidateGeneratedPath(path, string.Empty);
         
         await Assert.That(isValid).IsFalse();
         await Assert.That(errorMessage).IsNotNull();
@@ -399,8 +407,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ThrowIfPathUnsafe_SafePath_DoesNotThrow()
     {
-        var path = @"C:\Photos\2024\01\photo.jpg";
-        var root = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(root, "2024", "01", "photo.jpg");
         
         Exception? exception = null;
         try
@@ -418,8 +426,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ThrowIfPathUnsafe_UnsafePath_ThrowsInvalidOperationException()
     {
-        var path = @"C:\Photos\..\secret.txt";
-        var root = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(root, "..", "secret.txt");
         
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
         {
@@ -431,8 +439,8 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ThrowIfPathUnsafe_PathOutsideRoot_ThrowsInvalidOperationException()
     {
-        var path = @"C:\Documents\photo.jpg";
-        var root = @"C:\Photos";
+        var root = Path.Combine(Path.GetTempPath(), "Photos");
+        var path = Path.Combine(Path.GetTempPath(), "Documents", "photo.jpg");
         
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
         {
@@ -449,31 +457,32 @@ public class PathSecurityHelperTests
     public async Task ExtractDestinationRoot_PatternWithTrailingSeparatorBeforeVariable_ReturnsFullPath()
     {
         // Pattern with trailing separator before variable
-        var pattern = @"C:\Photos\{year}\{month}\{name}{ext}";
+        var baseDir = Path.Combine(Path.GetTempPath(), "Photos");
+        var pattern = baseDir + Path.DirectorySeparatorChar + "{year}" + Path.DirectorySeparatorChar + "{month}" + Path.DirectorySeparatorChar + "{name}{ext}";
         
         var result = PathSecurityHelper.ExtractDestinationRoot(pattern);
         
         // The function extracts everything before the first variable
-        // Since there's a trailing \ before {year}, we get C:\Photos
-        await Assert.That(result).IsEqualTo(Path.GetFullPath(@"C:\Photos"));
+        await Assert.That(result).IsEqualTo(Path.GetFullPath(baseDir));
     }
 
     [Test]
     public async Task ExtractDestinationRoot_PatternWithoutTrailingSeparator_ReturnsParentDirectory()
     {
-        // Pattern without trailing separator - like "C:\Dest\photo{ext}"
-        var pattern = @"C:\Dest\photo{ext}";
+        // Pattern without trailing separator - like "/tmp/Dest/photo{ext}"
+        var baseDir = Path.Combine(Path.GetTempPath(), "Dest");
+        var pattern = baseDir + Path.DirectorySeparatorChar + "photo{ext}";
         
         var result = PathSecurityHelper.ExtractDestinationRoot(pattern);
         
-        // Should return C:\Dest since "photo" is a file prefix, not a directory
-        await Assert.That(result).IsEqualTo(Path.GetFullPath(@"C:\Dest"));
+        // Should return the base directory since "photo" is a file prefix, not a directory
+        await Assert.That(result).IsEqualTo(Path.GetFullPath(baseDir));
     }
 
     [Test]
     public async Task ExtractDestinationRoot_PatternStartingWithVariable_ReturnsCurrentDirectory()
     {
-        var pattern = @"{year}\{month}\{name}{ext}";
+        var pattern = "{year}" + Path.DirectorySeparatorChar + "{month}" + Path.DirectorySeparatorChar + "{name}{ext}";
         
         var result = PathSecurityHelper.ExtractDestinationRoot(pattern);
         
@@ -483,11 +492,11 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ExtractDestinationRoot_PatternWithNoVariables_ReturnsFullPath()
     {
-        var pattern = @"C:\Photos\backup";
+        var pattern = Path.Combine(Path.GetTempPath(), "Photos", "backup");
         
         var result = PathSecurityHelper.ExtractDestinationRoot(pattern);
         
-        await Assert.That(result).IsEqualTo(Path.GetFullPath(@"C:\Photos\backup"));
+        await Assert.That(result).IsEqualTo(Path.GetFullPath(pattern));
     }
 
     [Test]
@@ -509,11 +518,12 @@ public class PathSecurityHelperTests
     [Test]
     public async Task ExtractDestinationRoot_DeepNestedPattern_ReturnsCorrectRoot()
     {
-        var pattern = @"D:\Archive\Photos\Sorted\{year}\{month}\{day}\{city}\{name}{ext}";
+        var baseDir = Path.Combine(Path.GetTempPath(), "Archive", "Photos", "Sorted");
+        var pattern = baseDir + Path.DirectorySeparatorChar + "{year}" + Path.DirectorySeparatorChar + "{month}" + Path.DirectorySeparatorChar + "{day}" + Path.DirectorySeparatorChar + "{city}" + Path.DirectorySeparatorChar + "{name}{ext}";
         
         var result = PathSecurityHelper.ExtractDestinationRoot(pattern);
         
-        await Assert.That(result).IsEqualTo(Path.GetFullPath(@"D:\Archive\Photos\Sorted"));
+        await Assert.That(result).IsEqualTo(Path.GetFullPath(baseDir));
     }
 
     #endregion

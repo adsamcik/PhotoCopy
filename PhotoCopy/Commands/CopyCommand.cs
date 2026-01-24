@@ -141,8 +141,18 @@ public class CopyCommand : ICommand
         var report = _statisticsReporter.GenerateReport(result.Statistics);
         
         // Output to console directly for visibility (after progress is complete)
-        Console.WriteLine();
-        Console.WriteLine(report);
+        // Wrap in try-catch to handle test environments where console may be disposed
+        try
+        {
+            Console.WriteLine();
+            Console.WriteLine(report);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Console output stream was disposed (e.g., in test environments)
+            // Log the report via logger instead
+            _logger.LogInformation("Statistics:\n{Report}", report);
+        }
     }
 
     private void OutputUnknownFilesReport(CopyResult result)
@@ -162,7 +172,17 @@ public class CopyCommand : ICommand
         var reportText = report.GenerateReport(includeDetailedList);
         
         // Output to console directly for visibility
-        Console.WriteLine();
-        Console.WriteLine(reportText);
+        // Wrap in try-catch to handle test environments where console may be disposed
+        try
+        {
+            Console.WriteLine();
+            Console.WriteLine(reportText);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Console output stream was disposed (e.g., in test environments)
+            // Log the report via logger instead
+            _logger.LogInformation("Unknown files report:\n{Report}", reportText);
+        }
     }
 }

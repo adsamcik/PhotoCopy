@@ -22,6 +22,10 @@ public class CopyPlanTests
     private readonly IOptions<PhotoCopyConfig> _options;
     private readonly ITransactionLogger _transactionLogger;
     private readonly IFileValidationService _fileValidationService;
+    
+    // Platform-appropriate test paths
+    private static readonly string TestSourceDir = Path.Combine(Path.GetTempPath(), "PhotoCopyTest", "Source");
+    private static readonly string TestDestDir = Path.Combine(Path.GetTempPath(), "PhotoCopyTest", "Dest");
 
     public CopyPlanTests()
     {
@@ -32,8 +36,8 @@ public class CopyPlanTests
         
         _config = new PhotoCopyConfig
         {
-            Source = @"C:\Source",
-            Destination = @"C:\Dest\{year}\{month}\{name}",
+            Source = TestSourceDir,
+            Destination = Path.Combine(TestDestDir, "{year}", "{month}", "{name}"),
             DryRun = true,
             DuplicatesFormat = "-{number}"
         };
@@ -290,7 +294,7 @@ public class CopyPlanTests
     private static IFile CreateMockFile(string name, DateTime dateTime)
     {
         var file = Substitute.For<IFile>();
-        var fileInfo = new FileInfo(Path.Combine(Path.GetTempPath(), name));
+        var fileInfo = new FileInfo(Path.Combine(TestSourceDir, name));
         
         file.File.Returns(fileInfo);
         file.FileDateTime.Returns(new FileDateTime(dateTime, DateTimeSource.ExifDateTimeOriginal));
@@ -301,7 +305,7 @@ public class CopyPlanTests
     private static IFile CreateMockFileWithSize(string name, long size)
     {
         var file = Substitute.For<IFile>();
-        var fileInfo = new FileInfo(Path.Combine(Path.GetTempPath(), name));
+        var fileInfo = new FileInfo(Path.Combine(TestSourceDir, name));
         
         file.File.Returns(fileInfo);
         file.FileDateTime.Returns(new FileDateTime(DateTime.Now, DateTimeSource.FileCreation));

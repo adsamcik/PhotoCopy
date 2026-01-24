@@ -59,9 +59,10 @@ public class BinaryCheckpointStoreTests : IAsyncDisposable
         // Arrange
         var customDir = Path.Combine(_testDirectory, "custom-checkpoints");
         var store = new BinaryCheckpointStore(_clock, customDir);
+        var pattern = Path.Combine(_testDirectory, "Photos", "{Year}", "{Month}");
 
         // Act
-        var result = store.GetCheckpointDirectory(@"D:\Photos\{Year}\{Month}");
+        var result = store.GetCheckpointDirectory(pattern);
 
         // Assert
         await Assert.That(result).IsEqualTo(customDir);
@@ -72,12 +73,15 @@ public class BinaryCheckpointStoreTests : IAsyncDisposable
     {
         // Arrange
         var store = new BinaryCheckpointStore(_clock);
+        var photosDir = Path.Combine(_testDirectory, "Photos");
+        var pattern = Path.Combine(photosDir, "{Year}", "{Month}");
 
         // Act
-        var result = store.GetCheckpointDirectory(@"D:\Photos\{Year}\{Month}");
+        var result = store.GetCheckpointDirectory(pattern);
 
-        // Assert
-        await Assert.That(result).IsEqualTo(@"D:\Photos\.photocopy");
+        // Assert - should extract root (first segment before variable) and append .photocopy
+        var expectedDir = Path.Combine(photosDir, ".photocopy");
+        await Assert.That(result).IsEqualTo(expectedDir);
     }
 
     [Test]
@@ -85,9 +89,10 @@ public class BinaryCheckpointStoreTests : IAsyncDisposable
     {
         // Arrange
         var store = new BinaryCheckpointStore(_clock);
+        var organizedDir = Path.Combine(_testDirectory, "Photos", "Organized");
 
         // Act
-        var result = store.GetCheckpointDirectory(@"D:\Photos\Organized");
+        var result = store.GetCheckpointDirectory(organizedDir);
 
         // Assert  
         await Assert.That(result).Contains(".photocopy");

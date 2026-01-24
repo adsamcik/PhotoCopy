@@ -102,7 +102,7 @@ public class ResumeFromCheckpointTests
         return new PhotoCopyConfig
         {
             Source = _sourceDir,
-            Destination = Path.Combine(_destDir, "{year}", "{month:D2}", "{name}{ext}"),
+            Destination = Path.Combine(_destDir, "{year}", "{month}", "{name}{ext}"),
             DryRun = dryRun,
             Mode = mode,
             EnableRollback = false,
@@ -191,7 +191,7 @@ public class ResumeFromCheckpointTests
 
         var checkpoint = new CheckpointBuilder()
             .WithSourceDirectory(_sourceDir)
-            .WithDestinationPattern(Path.Combine(_destDir, "{year}", "{month:D2}", "{name}{ext}"))
+            .WithDestinationPattern(Path.Combine(_destDir, "{year}", "{month}", "{name}{ext}"))
             .WithProcessedFiles(processedFiles)
             .WithStatus(CheckpointStatus.InProgress)
             .Build();

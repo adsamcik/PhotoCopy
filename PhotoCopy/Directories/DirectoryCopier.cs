@@ -190,7 +190,7 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
                         // Record related file in statistics
                         statistics.RecordFileProcessed(related.File, relatedSize);
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (IsExpectedFileOperationException(ex))
                     {
                         failed++;
                         errors.Add(new CopyError(related.File, related.DestinationPath, ex.Message));
@@ -198,7 +198,7 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
                     }
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (IsExpectedFileOperationException(ex))
             {
                 failed++;
                 errors.Add(new CopyError(operation.File, operation.DestinationPath, ex.Message));
@@ -308,5 +308,19 @@ public class DirectoryCopier : DirectoryCopierBase, IDirectoryCopier
         
         _logger.LogInformation("Using new path for duplicate: {NewPath}", newPath);
         return newPath;
+    }
+
+    /// <summary>
+    /// Determines if an exception is an expected file operation exception that should be caught
+    /// and recorded as a file failure, rather than allowed to propagate as a fatal error.
+    /// </summary>
+    private static bool IsExpectedFileOperationException(Exception ex)
+    {
+        return ex is IOException
+            or UnauthorizedAccessException
+            or NotSupportedException
+            or PathTooLongException
+            or DirectoryNotFoundException
+            or System.Security.SecurityException;
     }
 }

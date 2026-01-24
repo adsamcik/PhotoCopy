@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace PhotoCopy.Extensions;
 
@@ -10,7 +11,123 @@ namespace PhotoCopy.Extensions;
 public static class PathSecurityHelper
 {
     /// <summary>
+    /// Gets the real/canonical path by resolving all symlinks.
+    /// On macOS, this resolves paths like /var -> /private/var.
+    /// </summary>
+    /// <param name="path">The path to resolve.</param>
+    /// <returns>The resolved path, or the original path if resolution fails.</returns>
+    private static string GetRealPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return path;
+        }
+
+        try
+        {
+            // First normalize with GetFullPath
+            var fullPath = Path.GetFullPath(path);
+            
+            // On Unix-like systems (macOS, Linux), resolve symlinks in the path
+            // This handles cases like /var -> /private/var on macOS
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // Walk up the path to find the deepest existing directory
+                var current = fullPath;
+                var nonExistentParts = new System.Collections.Generic.Stack<string>();
+                
+                while (!string.IsNullOrEmpty(current) && !Directory.Exists(current) && !File.Exists(current))
+                {
+                    nonExistentParts.Push(Path.GetFileName(current));
+                    current = Path.GetDirectoryName(current) ?? string.Empty;
+                }
+                
+                // Resolve the existing part using ResolveLinkTarget or by reading the link
+                if (!string.IsNullOrEmpty(current))
+                {
+                    var resolvedCurrent = ResolveUnixPath(current);
+                    
+                    // Reconstruct the full path with the non-existent parts
+                    while (nonExistentParts.Count > 0)
+                    {
+                        resolvedCurrent = Path.Combine(resolvedCurrent, nonExistentParts.Pop());
+                    }
+                    
+                    return resolvedCurrent;
+                }
+            }
+            
+            return fullPath;
+        }
+        catch (Exception)
+        {
+            return path;
+        }
+    }
+    
+    /// <summary>
+    /// Resolves a Unix path by following symlinks to get the real path.
+    /// </summary>
+    private static string ResolveUnixPath(string path)
+    {
+        try
+        {
+            var current = path;
+            var visited = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            
+            // Walk from root to the target, resolving symlinks at each level
+            var parts = current.Split(new[] { Path.DirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+            var resolved = current.StartsWith("/") ? "/" : string.Empty;
+            
+            foreach (var part in parts)
+            {
+                resolved = Path.Combine(resolved, part);
+                
+                // Prevent infinite loops from circular symlinks
+                if (!visited.Add(resolved))
+                {
+                    break;
+                }
+                
+                // Check if this component is a symlink and resolve it
+                if (Directory.Exists(resolved) || File.Exists(resolved))
+                {
+                    var info = new FileInfo(resolved);
+                    if ((info.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                    {
+                        var target = info.ResolveLinkTarget(returnFinalTarget: true);
+                        if (target != null)
+                        {
+                            resolved = target.FullName;
+                        }
+                    }
+                    else
+                    {
+                        var dirInfo = new DirectoryInfo(resolved);
+                        if (dirInfo.Exists && (dirInfo.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                        {
+                            var target = dirInfo.ResolveLinkTarget(returnFinalTarget: true);
+                            if (target != null)
+                            {
+                                resolved = target.FullName;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return resolved;
+        }
+        catch (Exception)
+        {
+            return path;
+        }
+    }
+
+    /// <summary>
     /// Checks if the specified path is a reparse point (symlink, junction, etc.).
+    /// On Unix systems, this first resolves the real path to handle system symlinks
+    /// like /var -> /private/var on macOS, then checks the resolved path.
     /// </summary>
     /// <param name="path">The path to check.</param>
     /// <returns>True if the path exists and is a reparse point; otherwise, false.</returns>
@@ -23,21 +140,26 @@ public static class PathSecurityHelper
 
         try
         {
+            // Resolve the real path first to handle system-level symlinks
+            // This prevents false positives from macOS's /var -> /private/var symlink
+            var resolvedPath = GetRealPath(path);
+            
             // Check if the file/directory exists first
-            var fileInfo = new FileInfo(path);
+            var fileInfo = new FileInfo(resolvedPath);
             if (fileInfo.Exists)
             {
                 return (fileInfo.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint;
             }
 
-            var directoryInfo = new DirectoryInfo(path);
+            var directoryInfo = new DirectoryInfo(resolvedPath);
             if (directoryInfo.Exists)
             {
                 return (directoryInfo.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint;
             }
 
             // Also check parent directories for reparse points
-            var directory = Path.GetDirectoryName(path);
+            // Use the resolved path to avoid flagging system symlinks
+            var directory = Path.GetDirectoryName(resolvedPath);
             while (!string.IsNullOrEmpty(directory))
             {
                 var dirInfo = new DirectoryInfo(directory);

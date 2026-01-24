@@ -61,8 +61,8 @@ public class SidecarMetadataService : ISidecarMetadataService
         foreach (var sidecarExt in _config.SidecarExtensions)
         {
             // Pattern 1: photo.jpg.xmp (preferred - more specific match)
-            var fullNameSidecar = Path.Combine(directory, mediaFile.Name + sidecarExt);
-            if (File.Exists(fullNameSidecar))
+            var fullNameSidecar = FindSidecarFileCaseInsensitive(directory, mediaFile.Name + sidecarExt);
+            if (fullNameSidecar != null)
             {
                 var metadata = TryParseSidecar(fullNameSidecar, sidecarExt);
                 if (metadata != null)
@@ -74,19 +74,55 @@ public class SidecarMetadataService : ISidecarMetadataService
 
             // Pattern 2: photo.xmp (base name without extension)
             var baseName = Path.GetFileNameWithoutExtension(mediaFile.Name);
-            var baseNameSidecar = Path.Combine(directory, baseName + sidecarExt);
+            var expectedBaseNameSidecar = baseName + sidecarExt;
             
             // Only try base name pattern if it's different from the full name pattern
-            if (!string.Equals(fullNameSidecar, baseNameSidecar, StringComparison.OrdinalIgnoreCase) 
-                && File.Exists(baseNameSidecar))
+            if (!string.Equals(mediaFile.Name + sidecarExt, expectedBaseNameSidecar, StringComparison.OrdinalIgnoreCase))
             {
-                var metadata = TryParseSidecar(baseNameSidecar, sidecarExt);
-                if (metadata != null)
+                var baseNameSidecar = FindSidecarFileCaseInsensitive(directory, expectedBaseNameSidecar);
+                if (baseNameSidecar != null)
                 {
-                    _logger.LogDebug("Found sidecar metadata in {SidecarPath}", baseNameSidecar);
-                    return metadata;
+                    var metadata = TryParseSidecar(baseNameSidecar, sidecarExt);
+                    if (metadata != null)
+                    {
+                        _logger.LogDebug("Found sidecar metadata in {SidecarPath}", baseNameSidecar);
+                        return metadata;
+                    }
                 }
             }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Finds a sidecar file with case-insensitive matching for cross-platform compatibility.
+    /// On case-sensitive file systems (Linux), this ensures we find files regardless of extension case.
+    /// </summary>
+    private static string? FindSidecarFileCaseInsensitive(string directory, string expectedFileName)
+    {
+        // First, try the exact path (fast path for case-insensitive file systems like Windows/macOS)
+        var exactPath = Path.Combine(directory, expectedFileName);
+        if (File.Exists(exactPath))
+        {
+            return exactPath;
+        }
+
+        // On case-sensitive file systems, search for files with matching name (case-insensitive)
+        try
+        {
+            foreach (var file in Directory.EnumerateFiles(directory))
+            {
+                var fileName = Path.GetFileName(file);
+                if (string.Equals(fileName, expectedFileName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return file;
+                }
+            }
+        }
+        catch (DirectoryNotFoundException)
+        {
+            // Directory doesn't exist, return null
         }
 
         return null;

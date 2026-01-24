@@ -11,7 +11,7 @@ namespace PhotoCopy.Files.Geo.Boundaries;
 /// 
 /// Format specification (v1):
 /// 
-/// Header (48 bytes):
+/// Header (52 bytes):
 ///   - Magic: "PGB1" (4 bytes)
 ///   - Version: uint16 (2 bytes)
 ///   - Flags: uint16 (2 bytes)
@@ -72,7 +72,7 @@ public static class BoundaryFileFormat
     /// <summary>
     /// Header size in bytes.
     /// </summary>
-    public const int HeaderSize = 48;
+    public const int HeaderSize = 52;
 
     /// <summary>
     /// Writes country boundary data to a binary file.
@@ -84,7 +84,7 @@ public static class BoundaryFileFormat
         IReadOnlyDictionary<string, string[]> borderCells)
     {
         using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
-        using var writer = new BinaryWriter(stream);
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false);
 
         // Build country index
         var countryIndex = new Dictionary<string, ushort>(StringComparer.OrdinalIgnoreCase);
@@ -133,6 +133,9 @@ public static class BoundaryFileFormat
             WriteBorderCell(writer, geohash, candidates, countryIndex);
         }
 
+        // Flush the writer before seeking to ensure all buffered data is written
+        writer.Flush();
+
         // Go back and write header
         stream.Seek(0, SeekOrigin.Begin);
         WriteHeader(writer, new BoundaryFileHeader
@@ -155,7 +158,7 @@ public static class BoundaryFileFormat
     public static BoundaryFileData Read(string path)
     {
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-        using var reader = new BinaryReader(stream);
+        using var reader = new BinaryReader(stream, Encoding.UTF8, leaveOpen: false);
 
         // Read and validate header
         var header = ReadHeader(reader);
