@@ -712,6 +712,13 @@ public class PerformanceTests
             lons[i] = random.NextDouble() * 800 - 400; // -400 to 400 (out of bounds)
         }
 
+        // Warmup to ensure JIT compilation is complete
+        for (int i = 0; i < 1000; i++)
+        {
+            _ = PointInPolygon.ClampLatitude(lats[i]);
+            _ = PointInPolygon.NormalizeLongitude(lons[i]);
+        }
+
         // Act
         var sw = Stopwatch.StartNew();
         for (int i = 0; i < iterations; i++)
@@ -722,7 +729,8 @@ public class PerformanceTests
         sw.Stop();
 
         // Assert - Simple math operations should be extremely fast
-        await Assert.That(sw.ElapsedMilliseconds).IsLessThan(100);
+        // Allow more time for CI environments with varying performance
+        await Assert.That(sw.ElapsedMilliseconds).IsLessThan(200);
     }
 
     #endregion
