@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 using AwesomeAssertions;
 using PhotoCopy.Files;
@@ -25,14 +26,15 @@ public class UnknownFilesReportTests
     {
         // Arrange
         var report = new UnknownFilesReport();
+        var filePath = Path.Combine("Photos", "test.jpg");
 
         // Act
-        report.AddEntry("C:\\Photos\\test.jpg", UnknownFileReason.NoGpsData);
+        report.AddEntry(filePath, UnknownFileReason.NoGpsData);
 
         // Assert
         report.Count.Should().Be(1);
         var entries = report.GetEntries();
-        entries[0].FilePath.Should().Be("C:\\Photos\\test.jpg");
+        entries[0].FilePath.Should().Be(filePath);
         entries[0].FileName.Should().Be("test.jpg");
         entries[0].Extension.Should().Be(".jpg");
         entries[0].Reason.Should().Be(UnknownFileReason.NoGpsData);

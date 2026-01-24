@@ -67,7 +67,8 @@ public class ValidateConfigCommandTests
     public async Task ExecuteAsync_ReturnsError_WhenSourcePathDoesNotExist()
     {
         // Arrange
-        _fileSystem.DirectoryExists(_config.Source).Returns(false);
+        // Use Arg.Any to handle cross-platform path normalization differences
+        _fileSystem.DirectoryExists(Arg.Any<string>()).Returns(false);
         var command = CreateCommand();
 
         // Act
@@ -479,7 +480,8 @@ public class ValidateConfigCommandTests
         _config.SkipExisting = true;
         _config.Overwrite = true;
         _config.Parallelism = 0;
-        _fileSystem.DirectoryExists(_config.Source).Returns(false);
+        // Use Arg.Any to handle cross-platform path normalization differences
+        _fileSystem.DirectoryExists(Arg.Any<string>()).Returns(false);
         
         var command = CreateCommand();
 
