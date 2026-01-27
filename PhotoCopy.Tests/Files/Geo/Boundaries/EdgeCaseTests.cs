@@ -733,10 +733,10 @@ public class EdgeCaseTests
             // If it doesn't throw, verify the result is somewhat sane
             await Assert.That(double.IsFinite(bbox.MinLat) || bbox.MinLat == double.MaxValue).IsTrue();
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Exception is also acceptable behavior for empty input
-            await Assert.That(true).IsTrue();
+            await Assert.That(ex).IsNotNull();
         }
     }
 

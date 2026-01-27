@@ -161,10 +161,20 @@ public sealed class StreamedGeocodingService : IReverseGeocodingService, IDispos
     /// <summary>
     /// Performs reverse geocoding for the given coordinates.
     /// </summary>
+    /// <param name="latitude">Latitude in degrees (-90 to 90).</param>
+    /// <param name="longitude">Longitude in degrees (-180 to 180).</param>
+    /// <returns>Location data if found, null otherwise.</returns>
     public LocationData? ReverseGeocode(double latitude, double longitude)
     {
         if (!_initialized || _index == null || _dataFilePath == null || _cache == null)
             return null;
+
+        // Validate GPS coordinates before processing
+        if (!IsValidCoordinate(latitude, longitude))
+        {
+            _logger.LogDebug("Invalid GPS coordinates rejected: ({Lat}, {Lon})", latitude, longitude);
+            return null;
+        }
 
         try
         {
@@ -429,6 +439,36 @@ public sealed class StreamedGeocodingService : IReverseGeocodingService, IDispos
     }
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180.0;
+
+    /// <summary>
+    /// Validates that GPS coordinates are within valid ranges.
+    /// </summary>
+    /// <param name="latitude">Latitude in degrees.</param>
+    /// <param name="longitude">Longitude in degrees.</param>
+    /// <returns>True if coordinates are valid, false otherwise.</returns>
+    private static bool IsValidCoordinate(double latitude, double longitude)
+    {
+        // Check for NaN or infinity
+        if (double.IsNaN(latitude) || double.IsNaN(longitude) ||
+            double.IsInfinity(latitude) || double.IsInfinity(longitude))
+        {
+            return false;
+        }
+
+        // Latitude must be between -90 and 90
+        if (latitude < -90 || latitude > 90)
+        {
+            return false;
+        }
+
+        // Longitude must be between -180 and 180
+        if (longitude < -180 || longitude > 180)
+        {
+            return false;
+        }
+
+        return true;
+    }
 
     private string? FindDataFile()
     {

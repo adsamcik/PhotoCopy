@@ -925,7 +925,7 @@ public class FileMetadataExtractorTests : TestBase
         
         // For direct sanitization testing, we'd need to make the method internal/public
         // or test through integration tests with real camera data
-        await Assert.That(true).IsTrue();
+        Skip.Test("SanitizeCameraName is internal - requires integration test with real camera data.");
     }
 
     #endregion

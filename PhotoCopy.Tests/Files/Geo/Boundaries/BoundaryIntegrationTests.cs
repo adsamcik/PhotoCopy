@@ -89,11 +89,7 @@ public class BoundaryIntegrationTests
     public async Task BoundaryAwareGeocoding_ReturnsLocation_ForValidCoordinates()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<BoundaryAwareGeocodingService>>();
@@ -114,11 +110,7 @@ public class BoundaryIntegrationTests
     public async Task BoundaryAwareGeocoding_PrefersCitiesInCorrectCountry_NearBorder()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<BoundaryAwareGeocodingService>>();
@@ -130,9 +122,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsBoundaryFilteringEnabled)
         {
-            // Boundary data not available - skip test
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Boundary data not available - skipping test.");
         }
 
         // Test point in Slovakia near Austrian border (Bratislava suburbs)
@@ -165,11 +155,7 @@ public class BoundaryIntegrationTests
     public async Task BoundaryAwareGeocoding_HandlesMultipleInitializeCalls_Gracefully()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<BoundaryAwareGeocodingService>>();
@@ -194,11 +180,7 @@ public class BoundaryIntegrationTests
     public async Task TieredGeocoding_FindNearest_WithCountryFilter_FiltersCorrectly()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<TieredGeocodingService>>();
@@ -208,8 +190,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Find nearest in US
@@ -223,11 +204,7 @@ public class BoundaryIntegrationTests
     public async Task TieredGeocoding_FindNearest_WithWrongCountryFilter_ReturnsNull()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<TieredGeocodingService>>();
@@ -237,8 +214,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Try to find a location in Germany at NYC coordinates - should fail
@@ -252,11 +228,7 @@ public class BoundaryIntegrationTests
     public async Task TieredGeocoding_FindNearest_CitiesOnlyFilter_ReturnsLargerPlace()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<TieredGeocodingService>>();
@@ -266,8 +238,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Compare results with and without citiesOnly filter
@@ -375,8 +346,7 @@ public class BoundaryIntegrationTests
 
         if (boundaryPath == null || !File.Exists(boundaryPath))
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Boundary file not found - skipping test.");
         }
 
         var config = CreateTestConfig(testDataDir);
@@ -387,8 +357,7 @@ public class BoundaryIntegrationTests
 
         if (!index.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("BoundaryIndex failed to initialize.");
         }
 
         // Test Washington DC coordinates
@@ -408,8 +377,7 @@ public class BoundaryIntegrationTests
 
         if (boundaryPath == null || !File.Exists(boundaryPath))
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Boundary file not found - skipping test.");
         }
 
         var config = CreateTestConfig(testDataDir);
@@ -420,8 +388,7 @@ public class BoundaryIntegrationTests
 
         if (!index.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("BoundaryIndex failed to initialize.");
         }
 
         // Washington DC should be in US
@@ -444,8 +411,7 @@ public class BoundaryIntegrationTests
 
         if (boundaryPath == null || !File.Exists(boundaryPath))
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Boundary file not found - skipping test.");
         }
 
         var config = CreateTestConfig(testDataDir);
@@ -456,8 +422,7 @@ public class BoundaryIntegrationTests
 
         if (!index.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("BoundaryIndex failed to initialize.");
         }
 
         // Get candidates for a point - should return at least one country
@@ -551,11 +516,7 @@ public class BoundaryIntegrationTests
     public async Task BoundaryAwareGeocoding_FallsBackToStandard_WhenBoundaryDataUnavailable()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         // Create config pointing to non-existent boundary file
         var config = new PhotoCopyConfig
@@ -577,8 +538,7 @@ public class BoundaryIntegrationTests
         // Service should still work even without boundary data
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         var result = service.ReverseGeocode(40.7128, -74.0060);
@@ -592,11 +552,7 @@ public class BoundaryIntegrationTests
     public async Task BoundaryAwareGeocoding_FallsBack_WhenPointInOcean()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<BoundaryAwareGeocodingService>>();
@@ -608,27 +564,22 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Coordinates in the middle of the Atlantic Ocean
         var result = service.ReverseGeocode(30.0, -45.0);
 
         // Might return null (no nearby land) or find a coastal city
-        // The important thing is no exception is thrown
-        await Assert.That(true).IsTrue();
+        // The important thing is no exception is thrown and we get a valid response
+        await Assert.That(result == null || result.Country != null).IsTrue();
     }
 
     [Test]
     public async Task BoundaryAwareGeocoding_HandlesExtremeCoordinates_Gracefully()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<BoundaryAwareGeocodingService>>();
@@ -640,8 +591,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Test extreme coordinates - should not throw
@@ -653,8 +603,8 @@ public class BoundaryIntegrationTests
             service.ReverseGeocode(0.0, -180.0),  // Date line
         };
 
-        // All should complete without exception (results may be null)
-        await Assert.That(true).IsTrue();
+        // All should complete without exception (results may be null for remote locations)
+        await Assert.That(results.Length).IsEqualTo(4);
     }
 
     #endregion
@@ -665,11 +615,7 @@ public class BoundaryIntegrationTests
     public async Task TieredGeocoding_CacheStatistics_ReflectUsage()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<TieredGeocodingService>>();
@@ -679,8 +625,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Initially no cache stats
@@ -703,11 +648,7 @@ public class BoundaryIntegrationTests
     public async Task TieredGeocoding_RepeatedLookups_ReturnConsistentResults()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<TieredGeocodingService>>();
@@ -717,8 +658,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Perform same lookup multiple times
@@ -751,8 +691,7 @@ public class BoundaryIntegrationTests
 
         if (boundaryPath == null || !File.Exists(boundaryPath))
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Boundary file not found - skipping test.");
         }
 
         var config = CreateTestConfig(testDataDir);
@@ -763,8 +702,7 @@ public class BoundaryIntegrationTests
 
         if (!index.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("BoundaryIndex failed to initialize.");
         }
 
         // First lookup - may need point-in-polygon test
@@ -782,8 +720,8 @@ public class BoundaryIntegrationTests
 
         // Second lookup should generally be faster (cached)
         // Note: This is a soft assertion as timing can vary
-        // The main test is that both complete successfully
-        await Assert.That(true).IsTrue();
+        // The main validation is that both lookups return identical results (verified above)
+        await Assert.That(sw2.Elapsed <= sw1.Elapsed + TimeSpan.FromSeconds(1)).IsTrue();
     }
 
     #endregion
@@ -794,11 +732,7 @@ public class BoundaryIntegrationTests
     public async Task EndToEnd_FullGeocodingPipeline_WorksCorrectly()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var services = new ServiceCollection();
@@ -835,11 +769,7 @@ public class BoundaryIntegrationTests
     public async Task EndToEnd_MultipleServicesWork_InParallel()
     {
         var testDataDir = GetTestDataDir();
-        if (testDataDir == null)
-        {
-            await Assert.That(true).IsTrue();
-            return;
-        }
+        SkipIfNoTestData(testDataDir);
 
         var config = CreateTestConfig(testDataDir);
         var logger = Substitute.For<ILogger<BoundaryAwareGeocodingService>>();
@@ -851,8 +781,7 @@ public class BoundaryIntegrationTests
 
         if (!service.IsInitialized)
         {
-            await Assert.That(true).IsTrue();
-            return;
+            Skip.Test("Service failed to initialize - geo data files may be missing.");
         }
 
         // Run multiple lookups in parallel

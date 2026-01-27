@@ -28,11 +28,12 @@ public class CancellationHandlerTests
     {
         var handler = new CancellationHandler();
         
-        // Should not throw
+        // Should not throw when disposed multiple times
         handler.Dispose();
         handler.Dispose();
 
-        await Assert.That(true).IsTrue();
+        // If we reach here without exception, the test passes
+        await Assert.That(handler).IsNotNull();
     }
 
     [Test]

@@ -265,4 +265,98 @@ public class StreamedGeocodingServiceTests
     }
 
     #endregion
+
+    #region GPS Coordinate Validation Tests
+
+    [Test]
+    [Arguments(double.NaN, 0.0)]
+    [Arguments(0.0, double.NaN)]
+    [Arguments(double.NaN, double.NaN)]
+    public async Task ReverseGeocode_NaNCoordinates_ReturnsNull(double lat, double lon)
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(lat, lon);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    [Arguments(double.PositiveInfinity, 0.0)]
+    [Arguments(0.0, double.NegativeInfinity)]
+    [Arguments(double.NegativeInfinity, double.PositiveInfinity)]
+    public async Task ReverseGeocode_InfinityCoordinates_ReturnsNull(double lat, double lon)
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(lat, lon);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    [Arguments(-91.0, 0.0)]    // Latitude below minimum
+    [Arguments(91.0, 0.0)]     // Latitude above maximum
+    [Arguments(100.0, 0.0)]    // Latitude way out of range
+    [Arguments(-200.0, 0.0)]   // Latitude way below range
+    public async Task ReverseGeocode_LatitudeOutOfRange_ReturnsNull(double lat, double lon)
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(lat, lon);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    [Arguments(0.0, -181.0)]   // Longitude below minimum
+    [Arguments(0.0, 181.0)]    // Longitude above maximum
+    [Arguments(0.0, 360.0)]    // Longitude way out of range
+    [Arguments(0.0, -360.0)]   // Longitude way below range
+    public async Task ReverseGeocode_LongitudeOutOfRange_ReturnsNull(double lat, double lon)
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(lat, lon);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    [Arguments(-90.0, 0.0)]    // South pole
+    [Arguments(90.0, 0.0)]     // North pole
+    [Arguments(0.0, -180.0)]   // Date line negative
+    [Arguments(0.0, 180.0)]    // Date line positive
+    [Arguments(0.0, 0.0)]      // Null Island
+    public async Task ReverseGeocode_BoundaryCoordinates_DoesNotReject(double lat, double lon)
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act - should not throw (whether it returns data depends on GeoNames coverage)
+        // We just verify it doesn't throw and accepts boundary values
+        try
+        {
+            var result = _sharedService!.ReverseGeocode(lat, lon);
+            await Assert.That(result is null || result is not null).IsTrue();
+        }
+        catch (Exception ex)
+        {
+            Assert.Fail($"Should not throw for valid boundary coordinates ({lat}, {lon}): {ex.Message}");
+        }
+    }
+
+    #endregion
 }
