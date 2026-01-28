@@ -39,6 +39,18 @@ public class TransactionLogger : ITransactionLogger
     /// </summary>
     public bool IsLogFull => _currentTransaction?.Operations.Count >= MaxOperationsPerLog;
 
+    /// <summary>
+    /// Gets the number of operations that were dropped due to the log reaching capacity.
+    /// When this is greater than zero, rollback may be incomplete as not all operations were tracked.
+    /// </summary>
+    public int DroppedOperationsCount { get; private set; }
+
+    /// <summary>
+    /// Gets whether any operations were dropped due to capacity limits.
+    /// When true, rollback capability is incomplete.
+    /// </summary>
+    public bool HasDroppedOperations => DroppedOperationsCount > 0;
+
     public TransactionLogger(ILogger<TransactionLogger> logger, IOptions<PhotoCopyConfig> config)
     {
         _logger = logger;
@@ -69,8 +81,9 @@ public class TransactionLogger : ITransactionLogger
                 Status = TransactionStatus.InProgress
             };
 
-            // Reset operation counter
+            // Reset operation counters
             _operationsSinceLastSave = 0;
+            DroppedOperationsCount = 0;
 
             // Determine log file path - use destination directory if available, otherwise source
             var logDirectory = GetLogDirectory();
@@ -100,11 +113,15 @@ public class TransactionLogger : ITransactionLogger
             }
 
             // Check if log is at capacity
+            // IMPORTANT: When capacity is reached, operations are silently dropped and cannot be rolled back.
+            // Users should monitor HasDroppedOperations or DroppedOperationsCount after the transaction.
             if (_currentTransaction.Operations.Count >= MaxOperationsPerLog)
             {
-                _logger.LogWarning(
-                    "Transaction log at capacity ({MaxOperations} operations). Operation for {Source} -> {Destination} will not be logged.",
-                    MaxOperationsPerLog, sourcePath, destinationPath);
+                DroppedOperationsCount++;
+                _logger.LogError(
+                    "Transaction log at capacity ({MaxOperations} operations). Operation for {Source} -> {Destination} will not be logged. " +
+                    "Rollback will be incomplete. Total dropped: {DroppedCount}",
+                    MaxOperationsPerLog, sourcePath, destinationPath, DroppedOperationsCount);
                 return;
             }
 
@@ -153,9 +170,20 @@ public class TransactionLogger : ITransactionLogger
 
             _currentTransaction.EndTime = DateTime.UtcNow;
             _currentTransaction.Status = TransactionStatus.Completed;
+            _currentTransaction.DroppedOperationsCount = DroppedOperationsCount;
 
-            _logger.LogInformation("Transaction {TransactionId} completed: {Count} operations",
-                _currentTransaction.TransactionId, _currentTransaction.Operations.Count);
+            if (DroppedOperationsCount > 0)
+            {
+                _logger.LogError(
+                    "Transaction {TransactionId} completed with INCOMPLETE rollback capability: {Count} operations logged, {DroppedCount} operations were dropped due to capacity limits. " +
+                    "Rollback may not restore all files.",
+                    _currentTransaction.TransactionId, _currentTransaction.Operations.Count, DroppedOperationsCount);
+            }
+            else
+            {
+                _logger.LogInformation("Transaction {TransactionId} completed: {Count} operations",
+                    _currentTransaction.TransactionId, _currentTransaction.Operations.Count);
+            }
         }
     }
 

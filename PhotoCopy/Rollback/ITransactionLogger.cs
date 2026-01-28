@@ -71,4 +71,21 @@ public interface ITransactionLogger
     /// Set to 0 to disable incremental saves. Default is 100.
     /// </summary>
     int IncrementalSaveThreshold { get; set; }
+
+    /// <summary>
+    /// Gets the number of operations that were dropped due to the log reaching capacity.
+    /// When this is greater than zero, rollback may be incomplete as not all operations were tracked.
+    /// </summary>
+    int DroppedOperationsCount { get; }
+
+    /// <summary>
+    /// Gets whether any operations were dropped due to capacity limits.
+    /// When true, rollback capability is incomplete.
+    /// </summary>
+    bool HasDroppedOperations { get; }
+
+    /// <summary>
+    /// Gets whether the current transaction log is at capacity.
+    /// </summary>
+    bool IsLogFull { get; }
 }

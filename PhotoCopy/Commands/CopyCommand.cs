@@ -24,6 +24,7 @@ public class CopyCommand : ICommand
     private readonly IDirectoryCopierAsync _directoryCopierAsync;
     private readonly IValidatorFactory _validatorFactory;
     private readonly IProgressReporter _progressReporter;
+    private readonly IConsoleInteraction _consoleInteraction;
     private readonly StatisticsReporter _statisticsReporter;
 
     public CopyCommand(
@@ -32,7 +33,8 @@ public class CopyCommand : ICommand
         IDirectoryCopier directoryCopier,
         IDirectoryCopierAsync directoryCopierAsync,
         IValidatorFactory validatorFactory,
-        IProgressReporter progressReporter)
+        IProgressReporter progressReporter,
+        IConsoleInteraction consoleInteraction)
     {
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(options);
@@ -40,6 +42,7 @@ public class CopyCommand : ICommand
         ArgumentNullException.ThrowIfNull(directoryCopierAsync);
         ArgumentNullException.ThrowIfNull(validatorFactory);
         ArgumentNullException.ThrowIfNull(progressReporter);
+        ArgumentNullException.ThrowIfNull(consoleInteraction);
 
         _logger = logger;
         _config = options.Value;
@@ -47,6 +50,7 @@ public class CopyCommand : ICommand
         _directoryCopierAsync = directoryCopierAsync;
         _validatorFactory = validatorFactory;
         _progressReporter = progressReporter;
+        _consoleInteraction = consoleInteraction;
         _statisticsReporter = new StatisticsReporter();
     }
 
@@ -141,18 +145,8 @@ public class CopyCommand : ICommand
         var report = _statisticsReporter.GenerateReport(result.Statistics);
         
         // Output to console directly for visibility (after progress is complete)
-        // Wrap in try-catch to handle test environments where console may be disposed
-        try
-        {
-            Console.WriteLine();
-            Console.WriteLine(report);
-        }
-        catch (ObjectDisposedException)
-        {
-            // Console output stream was disposed (e.g., in test environments)
-            // Log the report via logger instead
-            _logger.LogInformation("Statistics:\n{Report}", report);
-        }
+        _consoleInteraction.WriteLine();
+        _consoleInteraction.WriteLine(report);
     }
 
     private void OutputUnknownFilesReport(CopyResult result)
@@ -172,17 +166,7 @@ public class CopyCommand : ICommand
         var reportText = report.GenerateReport(includeDetailedList);
         
         // Output to console directly for visibility
-        // Wrap in try-catch to handle test environments where console may be disposed
-        try
-        {
-            Console.WriteLine();
-            Console.WriteLine(reportText);
-        }
-        catch (ObjectDisposedException)
-        {
-            // Console output stream was disposed (e.g., in test environments)
-            // Log the report via logger instead
-            _logger.LogInformation("Unknown files report:\n{Report}", reportText);
-        }
+        _consoleInteraction.WriteLine();
+        _consoleInteraction.WriteLine(reportText);
     }
 }

@@ -8,6 +8,9 @@ namespace PhotoCopy.Validators;
 public class ConsoleInteraction : IConsoleInteraction
 {
     /// <inheritdoc />
+    public void WriteLine() => Console.WriteLine();
+
+    /// <inheritdoc />
     public void WriteLine(string message) => Console.WriteLine(message);
 
     /// <inheritdoc />

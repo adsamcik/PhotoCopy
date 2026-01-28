@@ -269,32 +269,78 @@ public class StreamedGeocodingServiceTests
     #region GPS Coordinate Validation Tests
 
     [Test]
-    [Arguments(double.NaN, 0.0)]
-    [Arguments(0.0, double.NaN)]
-    [Arguments(double.NaN, double.NaN)]
-    public async Task ReverseGeocode_NaNCoordinates_ReturnsNull(double lat, double lon)
+    public async Task ReverseGeocode_NaNLatitude_ReturnsNull()
     {
         // Arrange
         SkipIfNoDataFile();
 
         // Act
-        var result = _sharedService!.ReverseGeocode(lat, lon);
+        var result = _sharedService!.ReverseGeocode(double.NaN, 0.0);
 
         // Assert
         await Assert.That(result).IsNull();
     }
 
     [Test]
-    [Arguments(double.PositiveInfinity, 0.0)]
-    [Arguments(0.0, double.NegativeInfinity)]
-    [Arguments(double.NegativeInfinity, double.PositiveInfinity)]
-    public async Task ReverseGeocode_InfinityCoordinates_ReturnsNull(double lat, double lon)
+    public async Task ReverseGeocode_NaNLongitude_ReturnsNull()
     {
         // Arrange
         SkipIfNoDataFile();
 
         // Act
-        var result = _sharedService!.ReverseGeocode(lat, lon);
+        var result = _sharedService!.ReverseGeocode(0.0, double.NaN);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ReverseGeocode_BothNaN_ReturnsNull()
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(double.NaN, double.NaN);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ReverseGeocode_PositiveInfinityLatitude_ReturnsNull()
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(double.PositiveInfinity, 0.0);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ReverseGeocode_NegativeInfinityLongitude_ReturnsNull()
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(0.0, double.NegativeInfinity);
+
+        // Assert
+        await Assert.That(result).IsNull();
+    }
+
+    [Test]
+    public async Task ReverseGeocode_MixedInfinity_ReturnsNull()
+    {
+        // Arrange
+        SkipIfNoDataFile();
+
+        // Act
+        var result = _sharedService!.ReverseGeocode(double.NegativeInfinity, double.PositiveInfinity);
 
         // Assert
         await Assert.That(result).IsNull();

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 
@@ -59,8 +60,9 @@ public static class PathSecurityHelper
             
             return fullPath;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[PathSecurityHelper.GetRealPath] Failed to resolve path '{path}': {ex.GetType().Name} - {ex.Message}");
             return path;
         }
     }
@@ -118,8 +120,9 @@ public static class PathSecurityHelper
             
             return resolved;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Debug.WriteLine($"[PathSecurityHelper.ResolveUnixPath] Failed to resolve Unix path '{path}': {ex.GetType().Name} - {ex.Message}");
             return path;
         }
     }
@@ -172,9 +175,10 @@ public static class PathSecurityHelper
 
             return false;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // If we can't determine, assume it's not safe
+            Debug.WriteLine($"[PathSecurityHelper.IsReparsePoint] Failed to check reparse point for '{path}': {ex.GetType().Name} - {ex.Message}");
             return false;
         }
     }
@@ -232,9 +236,10 @@ public static class PathSecurityHelper
             return normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                    || normalizedPath.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
             // Path.GetFullPath can throw on invalid paths - treat as unsafe
+            Debug.WriteLine($"[PathSecurityHelper.IsPathWithinBounds] Failed to validate path bounds for '{generatedPath}' within '{destinationRoot}': {ex.GetType().Name} - {ex.Message}");
             return false;
         }
     }

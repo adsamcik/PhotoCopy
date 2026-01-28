@@ -27,6 +27,7 @@ public class CopyCommandTests
     private readonly IDirectoryCopierAsync _directoryCopierAsync;
     private readonly IValidatorFactory _validatorFactory;
     private readonly IProgressReporter _progressReporter;
+    private readonly IConsoleInteraction _consoleInteraction;
 
     public CopyCommandTests()
     {
@@ -45,6 +46,7 @@ public class CopyCommandTests
         _directoryCopierAsync = Substitute.For<IDirectoryCopierAsync>();
         _validatorFactory = Substitute.For<IValidatorFactory>();
         _progressReporter = Substitute.For<IProgressReporter>();
+        _consoleInteraction = Substitute.For<IConsoleInteraction>();
         
         // Default setup for validator factory
         _validatorFactory.Create(Arg.Any<PhotoCopyConfig>())
@@ -63,7 +65,8 @@ public class CopyCommandTests
         _directoryCopier,
         _directoryCopierAsync,
         _validatorFactory,
-        _progressReporter);
+        _progressReporter,
+        _consoleInteraction);
 
     #region ExecuteAsync_WithValidInput_ReturnsZero
 

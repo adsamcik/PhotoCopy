@@ -26,7 +26,7 @@ public class InputValidatorTests
     [Test]
     public async Task ValidateCopyConfiguration_MissingSource_ReturnsFalse()
     {
-        var config = new PhotoCopyConfig { Source = null, Destination = "/dest" };
+        var config = new PhotoCopyConfig { Source = string.Empty, Destination = "/dest" };
 
         var result = _validator.ValidateCopyConfiguration(config);
 
@@ -36,7 +36,7 @@ public class InputValidatorTests
     [Test]
     public async Task ValidateCopyConfiguration_MissingDestination_ReturnsFalse()
     {
-        var config = new PhotoCopyConfig { Source = "/source", Destination = null };
+        var config = new PhotoCopyConfig { Source = "/source", Destination = string.Empty };
 
         var result = _validator.ValidateCopyConfiguration(config);
 
@@ -214,7 +214,7 @@ public class InputValidatorTests
     [Test]
     public async Task ValidateSourceRequired_MissingSource_ReturnsFalse()
     {
-        var config = new PhotoCopyConfig { Source = null };
+        var config = new PhotoCopyConfig { Source = string.Empty };
 
         var result = _validator.ValidateSourceRequired(config);
 

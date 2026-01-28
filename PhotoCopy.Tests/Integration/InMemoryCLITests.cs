@@ -121,6 +121,7 @@ public class InMemoryCLITests
         var copier = Substitute.For<IDirectoryCopier>();
         var validatorFactory = new ValidatorFactory(_validatorLogger);
         var reporter = progressReporter ?? NullProgressReporter.Instance;
+        var consoleInteraction = Substitute.For<IConsoleInteraction>();
 
         return new CopyCommand(
             _copyLogger,
@@ -128,7 +129,8 @@ public class InMemoryCLITests
             copier,
             copierAsync,
             validatorFactory,
-            reporter);
+            reporter,
+            consoleInteraction);
     }
 
     private ScanCommand CreateScanCommand(

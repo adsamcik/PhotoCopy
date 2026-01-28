@@ -104,6 +104,12 @@ public sealed class TransactionLog
     /// Directories created during this transaction.
     /// </summary>
     public List<string> CreatedDirectories { get; init; } = new();
+
+    /// <summary>
+    /// Number of operations that were dropped because the transaction log reached its capacity limit.
+    /// When this value is greater than zero, rollback capability is incomplete and may not restore all files.
+    /// </summary>
+    public int DroppedOperationsCount { get; set; }
 }
 
 /// <summary>

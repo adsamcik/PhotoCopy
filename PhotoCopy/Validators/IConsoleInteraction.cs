@@ -6,6 +6,11 @@ namespace PhotoCopy.Validators;
 public interface IConsoleInteraction
 {
     /// <summary>
+    /// Writes an empty line to the console.
+    /// </summary>
+    void WriteLine();
+
+    /// <summary>
     /// Writes a line to the console.
     /// </summary>
     /// <param name="message">The message to write.</param>

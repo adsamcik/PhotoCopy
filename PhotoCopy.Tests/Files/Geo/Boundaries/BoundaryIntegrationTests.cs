@@ -525,7 +525,7 @@ public class BoundaryIntegrationTests
             Destination = "test-destination",
             DryRun = true,
             LogLevel = OutputLevel.Verbose,
-            GeonamesPath = Path.Combine(testDataDir, "allCountries.txt")
+            GeonamesPath = Path.Combine(testDataDir!, "allCountries.txt")
         };
 
         var logger = Substitute.For<ILogger<BoundaryAwareGeocodingService>>();
